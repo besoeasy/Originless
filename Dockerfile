@@ -40,8 +40,6 @@ CMD ["sh", "-c", "\
   if [ ! -f \"$IPFS_PATH/config\" ]; then ipfs init --profile=lowpower; fi && \
   ipfs config Datastore.StorageMax ${STORAGE_MAX} && \
   ipfs config --json Routing.Type '\"dhtclient\"' && \
-  ipfs config --json Swarm.ConnMgr.LowWater 20 && \
-  ipfs config --json Swarm.ConnMgr.HighWater 40 && \
   ipfs config --json Provide.DHT.Interval '\"24h\"' && \
   ipfs daemon --enable-gc --routing=dhtclient & \
   until curl -s http://127.0.0.1:5001/api/v0/id > /dev/null; do \
