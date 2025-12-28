@@ -1,6 +1,6 @@
 # File Drop
 
-> **Anonymous file sharing via IPFS. No accounts. No tracking. Fully decentralized.**
+- **Anonymous** – No tracking, no surveillance, no data collection, no origin tracking.
 
 ![File Drop](https://github.com/user-attachments/assets/8d427693-8ee4-4c5f-a67c-6c2991c13f27)
 
