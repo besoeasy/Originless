@@ -64,6 +64,54 @@
       }
     }
 
+    @keyframes bounce {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    @keyframes scalePulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    @keyframes glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+      }
+
+      50% {
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.4), 0 0 60px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .animate-fade-in {
       animation: fadeIn 0.6s ease-out;
     }
@@ -155,6 +203,102 @@
       border-radius: 50%;
       animation: pulse 2s ease-in-out infinite;
     }
+
+    /* Enhanced Drag and Drop Styles */
+    .drop-zone {
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .drop-zone.drag-over {
+      transform: scale(1.02);
+      animation: scalePulse 1s ease-in-out infinite, glow 1.5s ease-in-out infinite;
+    }
+
+    .drop-zone.drag-over::before {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      background: linear-gradient(45deg, #000, #333, #000, #333);
+      background-size: 300% 300%;
+      animation: shimmer 2s linear infinite;
+      border-radius: 0.75rem;
+      z-index: -1;
+      opacity: 0.5;
+    }
+
+    .drop-zone.drag-over .drop-icon {
+      animation: bounce 0.6s ease-in-out infinite;
+      color: #000 !important;
+      transform: scale(1.3);
+    }
+
+    .drop-zone.drag-over .drop-text {
+      color: #000 !important;
+      font-weight: 700;
+    }
+
+    .drop-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.1) 100%);
+      border-radius: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+
+    .drop-zone.drag-over .drop-overlay {
+      opacity: 1;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    .drop-indicator {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 3px dashed #000;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .drop-indicator-icon {
+      font-size: 3rem;
+      color: #000;
+      margin-bottom: 1rem;
+      animation: bounce 0.6s ease-in-out infinite;
+    }
+
+    .drop-indicator-text {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #000;
+      text-align: center;
+    }
+
+    /* Pulsing border effect */
+    @keyframes borderPulse {
+
+      0%,
+      100% {
+        border-color: #000;
+        border-width: 2px;
+      }
+
+      50% {
+        border-color: #333;
+        border-width: 4px;
+      }
+    }
+
+    .drop-zone.drag-over {
+      animation: borderPulse 1s ease-in-out infinite;
+    }
   </style>
 </head>
 
@@ -225,26 +369,35 @@
           <!-- File Drop Zone -->
           <div class="relative">
             <label for="fileInput"
-              class="block w-full bg-gray-50 rounded-xl p-12 text-center cursor-pointer border-2 border-dashed border-gray-300 transition-all duration-300 hover:bg-gray-100 hover:border-black group"
+              class="drop-zone block w-full bg-gray-50 rounded-xl p-12 text-center cursor-pointer border-2 border-dashed border-gray-300 transition-all duration-300 hover:bg-gray-100 hover:border-black group"
               @dragover.prevent="isDragOver = true" @dragleave.prevent="isDragOver = false"
               @drop.prevent="handleDrop($event)" :class="{ 
-                  'bg-gray-100 border-black': isDragOver,
+                  'drag-over': isDragOver,
                   'bg-green-50 border-green-500': isPasted
                 }">
               <div class="flex flex-col items-center gap-4">
                 <i
-                  class="fas fa-cloud-upload-alt text-4xl text-gray-400 group-hover:text-black transition-colors duration-300"></i>
+                  class="drop-icon fas fa-cloud-upload-alt text-4xl text-gray-400 group-hover:text-black transition-colors duration-300"></i>
                 <div>
                   <span
-                    class="text-lg font-semibold text-gray-700 group-hover:text-black transition-colors duration-300">
+                    class="drop-text text-lg font-semibold text-gray-700 group-hover:text-black transition-colors duration-300">
                     {{ fileLabel }} </span>
                   <p class="text-sm text-gray-500 mt-2">Drag and drop your file here, click to browse, or paste anywhere
                     on the page</p>
                 </div>
               </div>
+
+              <!-- Drag Overlay Indicator -->
+              <div class="drop-overlay">
+                <div class="drop-indicator">
+                  <i class="drop-indicator-icon fas fa-file-import"></i>
+                  <div class="drop-indicator-text">Drop your file here!</div>
+                </div>
+              </div>
             </label>
             <input type="file" id="fileInput" class="hidden" @change="updateFileLabel" />
           </div>
+
 
           <button @click="uploadFile" :disabled="uploading || !file"
             class="w-full bg-black text-white py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">
