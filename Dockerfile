@@ -38,10 +38,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=7m --retries=5 \
   CMD curl -f http://localhost:3232/health || exit 1
 
 CMD ["sh", "-c", "\
-  if [ ! -f \"$IPFS_PATH/config\" ]; then ipfs init; fi && \
+  if [ ! -f \"$IPFS_PATH/config\" ]; then ipfs init --profile=lowpower; fi && \
   ipfs config Datastore.StorageMax ${STORAGE_MAX} && \
   ipfs config --json Routing.Type '\"dhtclient\"' && \
-  ipfs daemon --enable-gc & \
+  ipfs config --json Swarm.ConnMgr.LowWater 20 && \
+  ipfs config --json Swarm.ConnMgr.HighWater 40 && \
+  ipfs config --json Provide.DHT.Interval '\"24h\"' && \
+  ipfs daemon --enable-gc --routing=dhtclient & \
   until curl -s http://127.0.0.1:5001/api/v0/id > /dev/null; do \
     echo 'Waiting for IPFS daemon...'; sleep 3; \
   done && \
