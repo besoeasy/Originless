@@ -85,8 +85,6 @@ curl -X PUT -F "file=@photo.jpg" http://localhost:3232/upload
 curl http://localhost:3232/health
 ```
 
-**📚 Complete API Documentation:** See [API.md](API.md) for full specification, error handling, chunked uploads, and client implementation examples.
-
 ---
 
 ## How It Works
@@ -99,16 +97,6 @@ curl http://localhost:3232/health
 > **Note:** Files are temporary by design. Popular files persist longer; old unused files are cleaned up automatically.
 
 ---
-
-## For Developers
-
-**📚 Full API Documentation:** [API.md](API.md)
-
-File Drop provides a simple HTTP API for file uploads to IPFS:
-- **Single uploads** for small files (< 5MB)
-- **Chunked uploads** for large files with automatic retry
-- Client libraries: JavaScript, Python, Go, Dart/Flutter
-- No authentication required
 
 **Use cases:**
 - Chat apps (file attachments)
