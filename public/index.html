@@ -1,758 +1,724 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>File Drop</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
-    <style>
-      /* Import modern font */
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
-      body {
-        font-family: "Inter", sans-serif;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>File Drop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    /* Import modern font */
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+    body {
+      font-family: "Inter", sans-serif;
+    }
+
+    /* Enhanced animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
       }
 
-      /* Enhanced animations */
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(20px);
-        }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-30px);
       }
 
-      @keyframes slideInLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-30px);
-        }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
 
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
       }
 
-      @keyframes pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
+      50% {
+        transform: scale(1.05);
+      }
+    }
 
-        50% {
-          transform: scale(1.05);
-        }
+    @keyframes shimmer {
+      0% {
+        background-position: -200px 0;
       }
 
-      @keyframes shimmer {
-        0% {
-          background-position: -200px 0;
-        }
-
-        100% {
-          background-position: calc(200px + 100%) 0;
-        }
+      100% {
+        background-position: calc(200px + 100%) 0;
       }
+    }
 
-      .animate-fade-in {
-        animation: fadeIn 0.6s ease-out;
-      }
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out;
+    }
 
-      .animate-slide-in-left {
-        animation: slideInLeft 0.5s ease-out;
-      }
+    .animate-slide-in-left {
+      animation: slideInLeft 0.5s ease-out;
+    }
 
-      .animate-pulse-gentle {
-        animation: pulse 2s ease-in-out infinite;
-      }
+    .animate-pulse-gentle {
+      animation: pulse 2s ease-in-out infinite;
+    }
 
-      .shimmer {
-        background: linear-gradient(90deg, #000 25%, #333 37%, #000 63%);
-        background-size: 400% 100%;
-        animation: shimmer 1.5s ease-in-out infinite;
-      }
+    .shimmer {
+      background: linear-gradient(90deg, #000 25%, #333 37%, #000 63%);
+      background-size: 400% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
 
-      /* Enhanced glassmorphism */
-      .glassmorphism {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-      }
+    /* Enhanced glassmorphism */
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
 
-      .glassmorphism-dark {
-        background: rgba(0, 0, 0, 0.95);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
+    .glassmorphism-dark {
+      background: rgba(0, 0, 0, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
 
-      /* Tab styles */
-      .tab-button {
-        transition: all 0.3s ease;
-        border-bottom: 2px solid transparent;
-      }
+    /* Tab styles */
+    .tab-button {
+      transition: all 0.3s ease;
+      border-bottom: 2px solid transparent;
+    }
 
-      .tab-button.active {
-        border-bottom-color: #000;
-        background: #f9f9f9;
-      }
+    .tab-button.active {
+      border-bottom-color: #000;
+      background: #f9f9f9;
+    }
 
-      .tab-button:hover:not(.active) {
-        background: #f5f5f5;
-      }
+    .tab-button:hover:not(.active) {
+      background: #f5f5f5;
+    }
 
-      /* Custom scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
 
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-      }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
 
-      ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-      }
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
 
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-      }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
 
-      /* Enhanced hover effects */
-      .hover-lift {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
+    /* Enhanced hover effects */
+    .hover-lift {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
-      .hover-lift:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-      }
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
 
-      /* Status indicators */
-      .status-indicator {
-        position: relative;
-      }
+    /* Status indicators */
+    .status-indicator {
+      position: relative;
+    }
 
-      .status-indicator::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 8px;
-        height: 8px;
-        background: #10b981;
-        border-radius: 50%;
-        animation: pulse 2s ease-in-out infinite;
-      }
-    </style>
-  </head>
+    .status-indicator::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+  </style>
+</head>
 
-  <body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-    <div id="app" class="w-full max-w-6xl glassmorphism rounded-2xl shadow-xl overflow-hidden hover-lift" tabindex="0" @paste="handlePaste" @keydown.prevent>
-      <!-- Header -->
-      <header class="bg-black p-6 text-white text-center">
-        <div class="flex items-center justify-center gap-3 mb-2">
-          <i class="fas fa-cloud-upload-alt text-2xl"></i>
-          <h1 class="text-3xl font-bold">File Drop</h1>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div id="app" class="w-full max-w-6xl glassmorphism rounded-2xl shadow-xl overflow-hidden hover-lift" tabindex="0"
+    @paste="handlePaste" @keydown.prevent>
+    <!-- Header -->
+    <header class="bg-black p-6 text-white text-center">
+      <div class="flex items-center justify-center gap-3 mb-2">
+        <i class="fas fa-cloud-upload-alt text-2xl"></i>
+        <h1 class="text-3xl font-bold">File Drop</h1>
+      </div>
+      <p class="text-gray-300 text-sm">Anonymous File Sharing</p>
+    </header>
+
+    <div class="flex flex-col md:flex-row">
+      <!-- Sidebar: Status Panel -->
+      <aside class="w-full md:w-80 bg-gray-50 p-6 border-r border-gray-200">
+        <div class="flex items-center gap-2 mb-6">
+          <div class="status-indicator">
+            <i class="fas fa-server text-xl text-black"></i>
+          </div>
+          <h2 class="text-xl font-semibold text-black">Node Status</h2>
         </div>
-        <p class="text-gray-300 text-sm">Anonymous File Sharing</p>
-      </header>
-
-      <div class="flex flex-col md:flex-row">
-        <!-- Sidebar: Status Panel -->
-        <aside class="w-full md:w-80 bg-gray-50 p-6 border-r border-gray-200">
-          <div class="flex items-center gap-2 mb-6">
-            <div class="status-indicator">
-              <i class="fas fa-server text-xl text-black"></i>
-            </div>
-            <h2 class="text-xl font-semibold text-black">Node Status</h2>
+        <div class="space-y-4 text-sm">
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Node ID</p>
+            <p class="text-black truncate font-mono text-sm">{{ status.nodeId }}</p>
           </div>
-          <div class="space-y-4 text-sm">
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Node ID</p>
-              <p class="text-black truncate font-mono text-sm">{{ status.nodeId }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Connected Peers</p>
-              <p class="text-black font-semibold">{{ status.peerscount }} Nodes</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Bandwidth (1h)</p>
-              <p class="text-black font-mono text-sm">{{ status.bandwidth }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Repository Size</p>
-              <p class="text-black font-semibold">{{ status.repoSize }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Objects</p>
-              <p class="text-black font-semibold">{{ status.repoObjects }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Version</p>
-              <p class="text-black font-mono text-sm">{{ status.version }}</p>
-            </div>
-
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">Storage Limit</p>
-              <p class="text-black font-semibold">{{ status.storageLimit }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
-              <p class="text-gray-500 font-medium text-xs uppercase">File Size Limit</p>
-              <p class="text-black font-semibold">{{ status.fileLimit }}</p>
-            </div>
-            <div class="bg-white rounded-lg p-3 mt-4 border border-gray-200">
-              <p class="text-gray-500 text-xs font-medium">Last updated: {{ status.timestamp }}</p>
-            </div>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Connected Peers</p>
+            <p class="text-black font-semibold">{{ status.peerscount }} Nodes</p>
           </div>
-        </aside>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Bandwidth (1h)</p>
+            <p class="text-black font-mono text-sm">{{ status.bandwidth }}</p>
+          </div>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Repository Size</p>
+            <p class="text-black font-semibold">{{ status.repoSize }}</p>
+          </div>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Objects</p>
+            <p class="text-black font-semibold">{{ status.repoObjects }}</p>
+          </div>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Version</p>
+            <p class="text-black font-mono text-sm">{{ status.version }}</p>
+          </div>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-8">
-          <div class="space-y-6">
-            <!-- File Drop Zone -->
-            <div class="relative">
-              <label
-                for="fileInput"
-                class="block w-full bg-gray-50 rounded-xl p-12 text-center cursor-pointer border-2 border-dashed border-gray-300 transition-all duration-300 hover:bg-gray-100 hover:border-black group"
-                @dragover.prevent="isDragOver = true"
-                @dragleave.prevent="isDragOver = false"
-                @drop.prevent="handleDrop($event)"
-                :class="{ 
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">Storage Limit</p>
+            <p class="text-black font-semibold">{{ status.storageLimit }}</p>
+          </div>
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <p class="text-gray-500 font-medium text-xs uppercase">File Size Limit</p>
+            <p class="text-black font-semibold">{{ status.fileLimit }}</p>
+          </div>
+          <div class="bg-white rounded-lg p-3 mt-4 border border-gray-200">
+            <p class="text-gray-500 text-xs font-medium">Last updated: {{ status.timestamp }}</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 p-8">
+        <div class="space-y-6">
+          <!-- File Drop Zone -->
+          <div class="relative">
+            <label for="fileInput"
+              class="block w-full bg-gray-50 rounded-xl p-12 text-center cursor-pointer border-2 border-dashed border-gray-300 transition-all duration-300 hover:bg-gray-100 hover:border-black group"
+              @dragover.prevent="isDragOver = true" @dragleave.prevent="isDragOver = false"
+              @drop.prevent="handleDrop($event)" :class="{ 
                   'bg-gray-100 border-black': isDragOver,
                   'bg-green-50 border-green-500': isPasted
-                }"
-              >
-                <div class="flex flex-col items-center gap-4">
-                  <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 group-hover:text-black transition-colors duration-300"></i>
-                  <div>
-                    <span class="text-lg font-semibold text-gray-700 group-hover:text-black transition-colors duration-300"> {{ fileLabel }} </span>
-                    <p class="text-sm text-gray-500 mt-2">Drag and drop your file here, click to browse, or paste anywhere on the page</p>
-                  </div>
+                }">
+              <div class="flex flex-col items-center gap-4">
+                <i
+                  class="fas fa-cloud-upload-alt text-4xl text-gray-400 group-hover:text-black transition-colors duration-300"></i>
+                <div>
+                  <span
+                    class="text-lg font-semibold text-gray-700 group-hover:text-black transition-colors duration-300">
+                    {{ fileLabel }} </span>
+                  <p class="text-sm text-gray-500 mt-2">Drag and drop your file here, click to browse, or paste anywhere
+                    on the page</p>
                 </div>
-              </label>
-              <input type="file" id="fileInput" class="hidden" @change="updateFileLabel" />
-            </div>
-
-            <button
-              @click="uploadFile"
-              :disabled="uploading || !file"
-              class="w-full bg-black text-white py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div class="flex items-center justify-center gap-2">
-                <i class="fas fa-upload" :class="{ 'animate-pulse': uploading }"></i>
-                <span v-if="!uploading">Upload</span>
-                <span v-else>Uploading...</span>
               </div>
+            </label>
+            <input type="file" id="fileInput" class="hidden" @change="updateFileLabel" />
+          </div>
+
+          <button @click="uploadFile" :disabled="uploading || !file"
+            class="w-full bg-black text-white py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="flex items-center justify-center gap-2">
+              <i class="fas fa-upload" :class="{ 'animate-pulse': uploading }"></i>
+              <span v-if="!uploading">Upload</span>
+              <span v-else>Uploading...</span>
+            </div>
+          </button>
+
+          <!-- CLI Usage Section -->
+          <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <button @click="showCli = !showCli" class="w-full flex items-center justify-between text-left group">
+              <div class="flex items-center gap-2">
+                <i class="fas fa-terminal text-black"></i>
+                <span class="font-semibold text-black">Upload via Command Line</span>
+              </div>
+              <i class="fas fa-chevron-down text-gray-400 transition-transform duration-300"
+                :class="{ 'rotate-180': showCli }"></i>
             </button>
 
-            <!-- CLI Usage Section -->
-            <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <button @click="showCli = !showCli" class="w-full flex items-center justify-between text-left group">
-                <div class="flex items-center gap-2">
-                  <i class="fas fa-terminal text-black"></i>
-                  <span class="font-semibold text-black">Upload via Command Line</span>
+            <div v-if="showCli" class="mt-4 space-y-3 animate-fade-in">
+              <p class="text-sm text-gray-600">Use curl to upload files from your terminal:</p>
+
+              <div class="bg-black rounded-lg p-4">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <code
+                    class="text-green-400 text-xs flex-1 font-mono break-all">curl -X POST -F "file=@yourfile.pdf" {{ currentUrl }}/upload</code>
+                  <button @click="copyCurlCommand"
+                    class="flex-shrink-0 text-gray-400 hover:text-white transition-colors">
+                    <i :class="copied ? 'fas fa-check' : 'fas fa-copy'"></i>
+                  </button>
                 </div>
-                <i class="fas fa-chevron-down text-gray-400 transition-transform duration-300" :class="{ 'rotate-180': showCli }"></i>
-              </button>
-
-              <div v-if="showCli" class="mt-4 space-y-3 animate-fade-in">
-                <p class="text-sm text-gray-600">Use curl to upload files from your terminal:</p>
-
-                <div class="bg-black rounded-lg p-4">
-                  <div class="flex items-start justify-between gap-2 mb-2">
-                    <code class="text-green-400 text-xs flex-1 font-mono break-all">curl -X POST -F "file=@yourfile.pdf" {{ currentUrl }}/upload</code>
-                    <button @click="copyCurlCommand" class="flex-shrink-0 text-gray-400 hover:text-white transition-colors">
-                      <i :class="copied ? 'fas fa-check' : 'fas fa-copy'"></i>
-                    </button>
-                  </div>
-                  <p class="text-gray-400 text-xs">Replace <span class="text-yellow-400">yourfile.pdf</span> with your file path</p>
-                </div>
-
-                <div class="text-xs text-gray-500">
-                  <p class="font-semibold mb-1">Example response (Blossom format):</p>
-                  <pre class="bg-white rounded p-2 overflow-x-auto text-xs"><code>{
-  "status": "success",
-  "url": "https://dweb.link/ipfs/Qm...",
-  "sha256": "b1674191a88ec5cdd733...",
-  "size": 184292,
-  "type": "application/pdf",
-  "uploaded": 1734364800,
-  "cid": "Qm...",
-  "filename": "yourfile.pdf"
-}</code></pre>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="uploading" class="text-center animate-fade-in">
-              <div class="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
-                <div class="flex items-center justify-center gap-3 mb-4">
-                  <div class="animate-spin">
-                    <i class="fas fa-circle-notch text-2xl text-black"></i>
-                  </div>
-                  <p class="text-black font-semibold text-lg">Uploading to IPFS...</p>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
-                  <div class="bg-black h-3 rounded-full transition-all duration-300 ease-out" :style="{ width: uploadProgress + '%' }"></div>
-                </div>
-                <div class="flex justify-between items-center text-sm text-gray-600 mb-2">
-                  <span>{{ uploadProgress.toFixed(1) }}% complete</span>
-                  <span v-if="uploadProgress < 100">Uploading...</span>
-                  <span v-else>Processing...</span>
-                </div>
-                <p class="text-gray-600 text-sm">Your file is being distributed across the anonymous network</p>
-              </div>
-            </div>
-
-            <div v-if="result" class="mt-6 animate-fade-in">
-              <div
-                :class="[
-                  'p-6 rounded-xl shadow-lg border',
-                  result.success ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300'
-                ]"
-              >
-                <template v-if="result.success">
-                  <div class="flex items-center gap-3 mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div class="flex-shrink-0">
-                      <i class="fas fa-check-circle text-green-600 text-2xl"></i>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-lg text-green-800">{{ result.message }}</p>
-                      <p class="text-sm text-green-600 mt-1">Your file has been successfully uploaded to IPFS</p>
-                    </div>
-                  </div>
-
-                  <div class="flex border-b border-gray-200 mb-4">
-                    <button
-                      @click="activeTab = 'details'"
-                      :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'details' ? 'active' : 'text-gray-600 hover:text-gray-800']"
-                    >
-                      File Details
-                    </button>
-                    <button
-                      @click="activeTab = 'urls'"
-                      :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'urls' ? 'active' : 'text-gray-600 hover:text-gray-800']"
-                    >
-                      Access URLs
-                    </button>
-                    <button
-                      v-if="result.fileType"
-                      @click="activeTab = 'embed'"
-                      :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'embed' ? 'active' : 'text-gray-600 hover:text-gray-800']"
-                    >
-                      Embed Codes
-                    </button>
-                  </div>
-
-                  <div class="min-h-[200px]" v-if="result.fileName">
-                    <div v-if="activeTab === 'details'" class="space-y-3">
-                      <div class="grid grid-cols-2 gap-3 text-sm">
-                        <div class="bg-gray-50 rounded p-3">
-                          <p class="text-gray-500 text-xs font-medium uppercase">File Name</p>
-                          <p class="text-black font-mono text-sm truncate" :title="result.fileName">{{ result.fileName }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded p-3">
-                          <p class="text-gray-500 text-xs font-medium uppercase">File Size</p>
-                          <p class="text-black font-semibold">{{ result.size }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded p-3">
-                          <p class="text-gray-500 text-xs font-medium uppercase">MIME Type</p>
-                          <p class="text-black font-mono text-sm">{{ result.mimeType }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded p-3">
-                          <p class="text-gray-500 text-xs font-medium uppercase">Media Type</p>
-                          <p class="text-black font-semibold">
-                            <span v-if="result.fileType" class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-200 text-black">
-                              {{ result.fileType }}
-                            </span>
-                            <span v-else class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-200 text-black"> file </span>
-                          </p>
-                        </div>
-                        <div class="col-span-2 bg-gray-50 rounded p-3">
-                          <p class="text-gray-500 text-xs font-medium uppercase">Content Identifier (CID)</p>
-                          <p class="text-black font-mono text-sm break-all bg-white rounded px-2 py-1 border border-gray-200 mt-1">{{ result.cid }}</p>
-                        </div>
-                        <div class="col-span-2 bg-gray-50 rounded p-3" v-if="result.sha256">
-                          <p class="text-gray-500 text-xs font-medium uppercase">SHA-256 Hash</p>
-                          <p class="text-black font-mono text-sm break-all bg-white rounded px-2 py-1 border border-gray-200 mt-1">{{ result.sha256 }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded p-3" v-if="result.uploaded">
-                          <p class="text-gray-500 text-xs font-medium uppercase">Upload Time</p>
-                          <p class="text-black font-semibold">{{ new Date(result.uploaded * 1000).toLocaleString() }}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Access URLs Tab -->
-                    <div v-if="activeTab === 'urls'" class="space-y-3">
-                      <div class="space-y-3">
-                        <div>
-                          <label class="text-xs text-gray-600 font-medium block mb-1">IPFS Protocol</label>
-                          <input
-                            type="text"
-                            :value="getIpfsUrlWithFilename(result.cid, result.fileName)"
-                            readonly
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
-                            @click="$event.target.select()"
-                          />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-600 font-medium block mb-1">IPFS.io Gateway</label>
-                          <input
-                            type="text"
-                            :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://ipfs.io/ipfs/')"
-                            readonly
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
-                            @click="$event.target.select()"
-                          />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-600 font-medium block mb-1">Dweb.link Gateway</label>
-                          <input
-                            type="text"
-                            :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
-                            readonly
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
-                            @click="$event.target.select()"
-                          />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-600 font-medium block mb-1">Network Status</label>
-                          <div class="flex gap-2">
-                            <a
-                              :href="`https://check.ipfs.network/?cid=${result.cid}`"
-                              target="_blank"
-                              class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded font-medium text-sm hover:bg-gray-800 transition-colors duration-300"
-                            >
-                              Check Network Propagation
-                            </a>
-                            <a
-                              :href="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
-                              target="_blank"
-                              class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded font-medium text-sm hover:bg-gray-700 transition-colors duration-300"
-                            >
-                              <i class="fas fa-external-link-alt"></i>
-                              Open in Dweb.link
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Embed Codes Tab -->
-                    <div v-if="activeTab === 'embed' && result.fileType" class="space-y-4">
-                      <div>
-                        <label class="text-xs text-gray-600 font-medium block mb-1">HTML</label>
-                        <textarea
-                          :value="getHtmlEmbed(result.cid, result.fileType)"
-                          readonly
-                          rows="3"
-                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
-                          @click="$event.target.select()"
-                        ></textarea>
-                      </div>
-                      <div>
-                        <label class="text-xs text-gray-600 font-medium block mb-1">BBCode</label>
-                        <textarea
-                          :value="getBBCodeEmbed(result.cid, result.fileType)"
-                          readonly
-                          rows="2"
-                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
-                          @click="$event.target.select()"
-                        ></textarea>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- Error Status -->
-                <template v-else>
-                  <div class="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div class="flex-shrink-0">
-                      <i class="fas fa-exclamation-circle text-red-600 text-2xl"></i>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-lg text-red-800">{{ result.message }}</p>
-                      <p class="text-sm text-red-600 mt-1">Please try uploading your file again</p>
-                    </div>
-                  </div>
-                </template>
+                <p class="text-gray-400 text-xs">Replace <span class="text-yellow-400">yourfile.pdf</span> with your
+                  file path</p>
               </div>
             </div>
           </div>
-        </main>
-      </div>
 
-      <footer class="bg-black p-4 text-center">
-        <div class="flex items-center justify-center gap-4">
-          <a
-            href="https://github.com/besoeasy/file-drop"
-            target="_blank"
-            class="flex items-center gap-2 text-white hover:text-gray-300 transition-colors duration-300"
-          >
-            <i class="fab fa-github"></i>
-            <span class="font-semibold">GitHub</span>
-          </a>
-          <span class="text-gray-400">•</span>
-          <span class="text-gray-300 font-mono text-sm">v{{ status.appver }}</span>
+          <div v-if="uploading" class="text-center animate-fade-in">
+            <div class="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+              <div class="flex items-center justify-center gap-3 mb-4">
+                <div class="animate-spin">
+                  <i class="fas fa-circle-notch text-2xl text-black"></i>
+                </div>
+                <p class="text-black font-semibold text-lg">Uploading to IPFS...</p>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div class="bg-black h-3 rounded-full transition-all duration-300 ease-out"
+                  :style="{ width: uploadProgress + '%' }"></div>
+              </div>
+              <div class="flex justify-between items-center text-sm text-gray-600 mb-2">
+                <span>{{ uploadProgress.toFixed(1) }}% complete</span>
+                <span v-if="uploadProgress < 100">Uploading...</span>
+                <span v-else>Processing...</span>
+              </div>
+              <p class="text-gray-600 text-sm">Your file is being distributed across the anonymous network</p>
+            </div>
+          </div>
+
+          <div v-if="result" class="mt-6 animate-fade-in">
+            <div :class="[
+                  'p-6 rounded-xl shadow-lg border',
+                  result.success ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300'
+                ]">
+              <template v-if="result.success">
+                <div class="flex items-center gap-3 mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div class="flex-shrink-0">
+                    <i class="fas fa-check-circle text-green-600 text-2xl"></i>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-lg text-green-800">{{ result.message }}</p>
+                    <p class="text-sm text-green-600 mt-1">Your file has been successfully uploaded to IPFS</p>
+                  </div>
+                </div>
+
+                <div class="flex border-b border-gray-200 mb-4">
+                  <button @click="activeTab = 'details'"
+                    :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'details' ? 'active' : 'text-gray-600 hover:text-gray-800']">
+                    File Details
+                  </button>
+                  <button @click="activeTab = 'urls'"
+                    :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'urls' ? 'active' : 'text-gray-600 hover:text-gray-800']">
+                    Access URLs
+                  </button>
+                  <button v-if="result.fileType" @click="activeTab = 'embed'"
+                    :class="['tab-button px-4 py-2 text-sm font-medium', activeTab === 'embed' ? 'active' : 'text-gray-600 hover:text-gray-800']">
+                    Embed Codes
+                  </button>
+                </div>
+
+                <div class="min-h-[200px]" v-if="result.fileName">
+                  <div v-if="activeTab === 'details'" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                      <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500 text-xs font-medium uppercase">File Name</p>
+                        <p class="text-black font-mono text-sm truncate" :title="result.fileName">{{ result.fileName }}
+                        </p>
+                      </div>
+                      <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500 text-xs font-medium uppercase">File Size</p>
+                        <p class="text-black font-semibold">{{ result.size }}</p>
+                      </div>
+                      <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500 text-xs font-medium uppercase">MIME Type</p>
+                        <p class="text-black font-mono text-sm">{{ result.mimeType }}</p>
+                      </div>
+                      <div class="bg-gray-50 rounded p-3">
+                        <p class="text-gray-500 text-xs font-medium uppercase">Media Type</p>
+                        <p class="text-black font-semibold">
+                          <span v-if="result.fileType"
+                            class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-200 text-black">
+                            {{ result.fileType }}
+                          </span>
+                          <span v-else
+                            class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-200 text-black">
+                            file </span>
+                        </p>
+                      </div>
+                      <div class="col-span-2 bg-gray-50 rounded p-3">
+                        <p class="text-gray-500 text-xs font-medium uppercase">Content Identifier (CID)</p>
+                        <p
+                          class="text-black font-mono text-sm break-all bg-white rounded px-2 py-1 border border-gray-200 mt-1">
+                          {{ result.cid }}</p>
+                      </div>
+                      <div class="col-span-2 bg-gray-50 rounded p-3" v-if="result.sha256">
+                        <p class="text-gray-500 text-xs font-medium uppercase">SHA-256 Hash</p>
+                        <p
+                          class="text-black font-mono text-sm break-all bg-white rounded px-2 py-1 border border-gray-200 mt-1">
+                          {{ result.sha256 }}</p>
+                      </div>
+                      <div class="bg-gray-50 rounded p-3" v-if="result.uploaded">
+                        <p class="text-gray-500 text-xs font-medium uppercase">Upload Time</p>
+                        <p class="text-black font-semibold">{{ new Date(result.uploaded * 1000).toLocaleString() }}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Access URLs Tab -->
+                  <div v-if="activeTab === 'urls'" class="space-y-3">
+                    <div class="space-y-3">
+                      <div>
+                        <label class="text-xs text-gray-600 font-medium block mb-1">IPFS Protocol</label>
+                        <input type="text" :value="getIpfsUrlWithFilename(result.cid, result.fileName)" readonly
+                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
+                          @click="$event.target.select()" />
+                      </div>
+                      <div>
+                        <label class="text-xs text-gray-600 font-medium block mb-1">IPFS.io Gateway</label>
+                        <input type="text"
+                          :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://ipfs.io/ipfs/')" readonly
+                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
+                          @click="$event.target.select()" />
+                      </div>
+                      <div>
+                        <label class="text-xs text-gray-600 font-medium block mb-1">Dweb.link Gateway</label>
+                        <input type="text"
+                          :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
+                          readonly
+                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
+                          @click="$event.target.select()" />
+                      </div>
+                      <div>
+                        <label class="text-xs text-gray-600 font-medium block mb-1">Network Status</label>
+                        <div class="flex gap-2">
+                          <a :href="`https://check.ipfs.network/?cid=${result.cid}`" target="_blank"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded font-medium text-sm hover:bg-gray-800 transition-colors duration-300">
+                            Check Network Propagation
+                          </a>
+                          <a :href="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
+                            target="_blank"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded font-medium text-sm hover:bg-gray-700 transition-colors duration-300">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open in Dweb.link
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Embed Codes Tab -->
+                  <div v-if="activeTab === 'embed' && result.fileType" class="space-y-4">
+                    <div>
+                      <label class="text-xs text-gray-600 font-medium block mb-1">HTML</label>
+                      <textarea :value="getHtmlEmbed(result.cid, result.fileType)" readonly rows="3"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                        @click="$event.target.select()"></textarea>
+                    </div>
+                    <div>
+                      <label class="text-xs text-gray-600 font-medium block mb-1">BBCode</label>
+                      <textarea :value="getBBCodeEmbed(result.cid, result.fileType)" readonly rows="2"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                        @click="$event.target.select()"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Error Status -->
+              <template v-else>
+                <div class="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-600 text-2xl"></i>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-lg text-red-800">{{ result.message }}</p>
+                    <p class="text-sm text-red-600 mt-1">Please try uploading your file again</p>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
-      </footer>
+      </main>
     </div>
 
-    <script>
-      const { createApp } = Vue;
+    <footer class="bg-black p-4 text-center">
+      <div class="flex items-center justify-center gap-4">
+        <a href="https://github.com/besoeasy/file-drop" target="_blank"
+          class="flex items-center gap-2 text-white hover:text-gray-300 transition-colors duration-300">
+          <i class="fab fa-github"></i>
+          <span class="font-semibold">GitHub</span>
+        </a>
+        <span class="text-gray-400">•</span>
+        <span class="text-gray-300 font-mono text-sm">v{{ status.appver }}</span>
+      </div>
+    </footer>
+  </div>
 
-      createApp({
-        data() {
-          return {
-            file: null,
-            fileLabel: "Drop or Choose File",
-            uploading: false,
-            uploadProgress: 0,
-            result: null,
-            isDragOver: false,
-            isPasted: false,
-            activeTab: "details",
-            showCli: false,
-            copied: false,
-            currentUrl: window.location.origin,
-            status: {
-              nodeId: "Loading...",
-              bandwidth: "Loading...",
-              repoSize: "Loading...",
-              repoObjects: "Loading...",
-              version: "Loading...",
-              appver: "Loading...",
-              timestamp: "Loading...",
-              peerscount: 0,
-              storageLimit: "Loading...",
-              fileLimit: "Loading...",
-            },
-          };
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          file: null,
+          fileLabel: "Drop or Choose File",
+          uploading: false,
+          uploadProgress: 0,
+          result: null,
+          isDragOver: false,
+          isPasted: false,
+          activeTab: "details",
+          showCli: false,
+          copied: false,
+          currentUrl: window.location.origin,
+          status: {
+            nodeId: "Loading...",
+            bandwidth: "Loading...",
+            repoSize: "Loading...",
+            repoObjects: "Loading...",
+            version: "Loading...",
+            appver: "Loading...",
+            timestamp: "Loading...",
+            peerscount: 0,
+            storageLimit: "Loading...",
+            fileLimit: "Loading...",
+          },
+        };
+      },
+      methods: {
+        formatBytes(bytes) {
+          const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+          if (bytes === 0) return "0 Bytes";
+          const i = Math.floor(Math.log(bytes) / Math.log(1024));
+          return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
         },
-        methods: {
-          formatBytes(bytes) {
-            const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-            if (bytes === 0) return "0 Bytes";
-            const i = Math.floor(Math.log(bytes) / Math.log(1024));
-            return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
-          },
-          updateFileLabel(event) {
-            const fileInput = event.target;
-            this.file = fileInput.files[0];
-            this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
-          },
-          handleDrop(event) {
-            this.isDragOver = false;
-            this.file = event.dataTransfer.files[0];
-            this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
-          },
-          handlePaste(event) {
-            console.log("Paste event triggered", event);
+        updateFileLabel(event) {
+          const fileInput = event.target;
+          this.file = fileInput.files[0];
+          this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
+        },
+        handleDrop(event) {
+          this.isDragOver = false;
+          this.file = event.dataTransfer.files[0];
+          this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
+        },
+        handlePaste(event) {
+          console.log("Paste event triggered", event);
 
-            // Check if clipboard contains files
-            const items = event.clipboardData?.items;
-            if (!items) {
-              console.log("No clipboard items found");
-              return;
-            }
+          // Check if clipboard contains files
+          const items = event.clipboardData?.items;
+          if (!items) {
+            console.log("No clipboard items found");
+            return;
+          }
 
-            console.log("Clipboard items:", items.length);
+          console.log("Clipboard items:", items.length);
 
-            for (let i = 0; i < items.length; i++) {
-              const item = items[i];
-              console.log("Item", i, ":", item.kind, item.type);
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            console.log("Item", i, ":", item.kind, item.type);
 
-              if (item.kind === "file") {
-                event.preventDefault();
-                const file = item.getAsFile();
-                console.log("File pasted:", file);
+            if (item.kind === "file") {
+              event.preventDefault();
+              const file = item.getAsFile();
+              console.log("File pasted:", file);
 
-                if (file) {
-                  this.file = file;
-                  this.fileLabel = file.name || "Pasted File";
+              if (file) {
+                this.file = file;
+                this.fileLabel = file.name || "Pasted File";
 
-                  // Show visual feedback for paste
-                  this.isPasted = true;
-                  setTimeout(() => {
-                    this.isPasted = false;
-                  }, 1000);
-
-                  console.log("File set successfully:", this.file.name);
-                  break;
-                }
-              }
-            }
-          },
-          getFileTypeIcon(fileType) {
-            switch (fileType) {
-              case "audio":
-                return "fas fa-music";
-              case "video":
-                return "fas fa-video";
-              case "image":
-                return "fas fa-image";
-              default:
-                return "fas fa-file";
-            }
-          },
-          getFileType(mimeType) {
-            if (mimeType.startsWith("audio/")) return "audio";
-            if (mimeType.startsWith("video/")) return "video";
-            if (mimeType.startsWith("image/")) return "image";
-            return null;
-          },
-          getHtmlEmbed(cid, fileType) {
-            const url = `https://ipfs.io/ipfs/${cid}`;
-            switch (fileType) {
-              case "audio":
-                return `<audio controls>\n  <source src="${url}" type="audio/mpeg">\n  Your browser does not support the audio element.\n</audio>`;
-              case "video":
-                return `<video controls width="640" height="360">\n  <source src="${url}" type="video/mp4">\n  Your browser does not support the video element.\n</video>`;
-              case "image":
-                return `<img src="${url}" alt="IPFS Image" />`;
-              default:
-                return `<a href="${url}">Download File</a>`;
-            }
-          },
-          getBBCodeEmbed(cid, fileType) {
-            const url = `https://ipfs.io/ipfs/${cid}`;
-            switch (fileType) {
-              case "audio":
-                return `[audio]${url}[/audio]`;
-              case "video":
-                return `[video]${url}[/video]`;
-              case "image":
-                return `[img]${url}[/img]`;
-              default:
-                return `[url=${url}]Download File[/url]`;
-            }
-          },
-          getIpfsUrlWithFilename(cid, filename, gateway = "") {
-            if (!filename) return gateway ? `${gateway}${cid}` : `ipfs://${cid}`;
-
-            const encodedFilename = encodeURIComponent(filename);
-            if (gateway) {
-              return `${gateway}${cid}?filename=${encodedFilename}`;
-            }
-            return `ipfs://${cid}?filename=${encodedFilename}`;
-          },
-          async uploadFile() {
-            if (!this.file) {
-              this.result = { success: false, message: "Please select a file" };
-              return;
-            }
-
-            this.uploading = true;
-            this.uploadProgress = 0;
-            this.result = null;
-
-            try {
-              const formData = new FormData();
-              formData.append("file", this.file);
-
-              const response = await axios.post("/upload", formData, {
-                onUploadProgress: (progressEvent) => {
-                  this.uploadProgress = (progressEvent.loaded / progressEvent.total) * 100;
-                }
-              });
-
-              this.uploadProgress = 100;
-              this.result = {
-                success: true,
-                message: "Upload Successful",
-                cid: response.data.cid,
-                size: this.formatBytes(response.data.size),
-                fileType: this.getFileType(response.data.type),
-                fileName: response.data.filename,
-                mimeType: response.data.type,
-                url: response.data.url,
-              };
-            } catch (error) {
-              this.uploadProgress = 0;
-              this.result = {
-                success: false,
-                message: error.response?.data?.message || error.message || "Upload failed",
-              };
-              console.error("Upload error:", error);
-            } finally {
-              this.uploading = false;
-            }
-          },
-          copyCurlCommand() {
-            const command = `curl -X POST -F "file=@yourfile.pdf" ${this.currentUrl}/upload`;
-            navigator.clipboard
-              .writeText(command)
-              .then(() => {
-                this.copied = true;
+                // Show visual feedback for paste
+                this.isPasted = true;
                 setTimeout(() => {
-                  this.copied = false;
-                }, 2000);
-              })
-              .catch((err) => {
-                console.error("Failed to copy:", err);
-              });
-          },
-          async fetchStatus() {
-            try {
-              const response = await fetch("/status");
-              const data = await response.json();
+                  this.isPasted = false;
+                }, 1000);
 
-              if (data.status === "success") {
-                this.status = {
-                  nodeId: data.node.id.slice(0, 6) + "..." + data.node.id.slice(-6),
-                  bandwidth: `In: ${this.formatBytes(data.bandwidth.totalIn)} | Out: ${this.formatBytes(data.bandwidth.totalOut)}`,
-                  repoSize: `${this.formatBytes(data.repository.size)} / ${this.formatBytes(data.repository.storageMax)}`,
-                  repoObjects: `${data.repository.numObjects}`,
-                  version: `${data.node.agentVersion}`,
-                  appver: `${data.appVersion}`,
-                  timestamp: new Date(data.timestamp).toLocaleTimeString(),
-                  peerscount: data.peers.count,
-                  storageLimit: data.storageLimit?.configured || "Unknown",
-                  fileLimit: data.fileLimit?.formatted || data.fileLimit?.configured || "Unknown",
-                };
+                console.log("File set successfully:", this.file.name);
+                break;
               }
-            } catch (error) {
+            }
+          }
+        },
+        getFileTypeIcon(fileType) {
+          switch (fileType) {
+            case "audio":
+              return "fas fa-music";
+            case "video":
+              return "fas fa-video";
+            case "image":
+              return "fas fa-image";
+            default:
+              return "fas fa-file";
+          }
+        },
+        getFileType(mimeType) {
+          if (mimeType.startsWith("audio/")) return "audio";
+          if (mimeType.startsWith("video/")) return "video";
+          if (mimeType.startsWith("image/")) return "image";
+          return null;
+        },
+        getHtmlEmbed(cid, fileType) {
+          const url = `https://ipfs.io/ipfs/${cid}`;
+          switch (fileType) {
+            case "audio":
+              return `<audio controls>\n  <source src="${url}" type="audio/mpeg">\n  Your browser does not support the audio element.\n</audio>`;
+            case "video":
+              return `<video controls width="640" height="360">\n  <source src="${url}" type="video/mp4">\n  Your browser does not support the video element.\n</video>`;
+            case "image":
+              return `<img src="${url}" alt="IPFS Image" />`;
+            default:
+              return `<a href="${url}">Download File</a>`;
+          }
+        },
+        getBBCodeEmbed(cid, fileType) {
+          const url = `https://ipfs.io/ipfs/${cid}`;
+          switch (fileType) {
+            case "audio":
+              return `[audio]${url}[/audio]`;
+            case "video":
+              return `[video]${url}[/video]`;
+            case "image":
+              return `[img]${url}[/img]`;
+            default:
+              return `[url=${url}]Download File[/url]`;
+          }
+        },
+        getIpfsUrlWithFilename(cid, filename, gateway = "") {
+          if (!filename) return gateway ? `${gateway}${cid}` : `ipfs://${cid}`;
+
+          const encodedFilename = encodeURIComponent(filename);
+          if (gateway) {
+            return `${gateway}${cid}?filename=${encodedFilename}`;
+          }
+          return `ipfs://${cid}?filename=${encodedFilename}`;
+        },
+        async uploadFile() {
+          if (!this.file) {
+            this.result = { success: false, message: "Please select a file" };
+            return;
+          }
+
+          this.uploading = true;
+          this.uploadProgress = 0;
+          this.result = null;
+
+          try {
+            const formData = new FormData();
+            formData.append("file", this.file);
+
+            const response = await axios.post("/upload", formData, {
+              onUploadProgress: (progressEvent) => {
+                this.uploadProgress = (progressEvent.loaded / progressEvent.total) * 100;
+              }
+            });
+
+            this.uploadProgress = 100;
+            this.result = {
+              success: true,
+              message: "Upload Successful",
+              cid: response.data.cid,
+              size: this.formatBytes(response.data.size),
+              fileType: this.getFileType(response.data.type),
+              fileName: response.data.filename,
+              mimeType: response.data.type,
+              url: response.data.url,
+            };
+          } catch (error) {
+            this.uploadProgress = 0;
+            this.result = {
+              success: false,
+              message: error.response?.data?.message || error.message || "Upload failed",
+            };
+            console.error("Upload error:", error);
+          } finally {
+            this.uploading = false;
+          }
+        },
+        copyCurlCommand() {
+          const command = `curl -X POST -F "file=@yourfile.pdf" ${this.currentUrl}/upload`;
+          navigator.clipboard
+            .writeText(command)
+            .then(() => {
+              this.copied = true;
+              setTimeout(() => {
+                this.copied = false;
+              }, 2000);
+            })
+            .catch((err) => {
+              console.error("Failed to copy:", err);
+            });
+        },
+        async fetchStatus() {
+          try {
+            const response = await fetch("/status");
+            const data = await response.json();
+
+            if (data.status === "success") {
               this.status = {
-                nodeId: "Error",
-                bandwidth: "Error loading",
-                repoSize: "Error loading",
-                repoObjects: "Error",
-                version: "Error",
-                appver: "Error",
-                timestamp: "Error",
-                peerscount: 0,
-                storageLimit: "Error",
-                fileLimit: "Error",
+                nodeId: data.node.id.slice(0, 6) + "..." + data.node.id.slice(-6),
+                bandwidth: `In: ${this.formatBytes(data.bandwidth.totalIn)} | Out: ${this.formatBytes(data.bandwidth.totalOut)}`,
+                repoSize: `${this.formatBytes(data.repository.size)} / ${this.formatBytes(data.repository.storageMax)}`,
+                repoObjects: `${data.repository.numObjects}`,
+                version: `${data.node.agentVersion}`,
+                appver: `${data.appVersion}`,
+                timestamp: new Date(data.timestamp).toLocaleTimeString(),
+                peerscount: data.peers.count,
+                storageLimit: data.storageLimit?.configured || "Unknown",
+                fileLimit: data.fileLimit?.formatted || data.fileLimit?.configured || "Unknown",
               };
             }
-          },
+          } catch (error) {
+            this.status = {
+              nodeId: "Error",
+              bandwidth: "Error loading",
+              repoSize: "Error loading",
+              repoObjects: "Error",
+              version: "Error",
+              appver: "Error",
+              timestamp: "Error",
+              peerscount: 0,
+              storageLimit: "Error",
+              fileLimit: "Error",
+            };
+          }
         },
-        mounted() {
-          this.fetchStatus();
-          setInterval(this.fetchStatus, 10000);
+      },
+      mounted() {
+        this.fetchStatus();
+        setInterval(this.fetchStatus, 10000);
 
-          // Add global paste event listener
-          document.addEventListener("paste", this.handlePaste);
+        // Add global paste event listener
+        document.addEventListener("paste", this.handlePaste);
 
-          // Focus the app to enable paste events
-          this.$el.focus();
-        },
-        beforeUnmount() {
-          // Clean up event listener
-          document.removeEventListener("paste", this.handlePaste);
-        },
-      }).mount("#app");
-    </script>
-  </body>
+        // Focus the app to enable paste events
+        this.$el.focus();
+      },
+      beforeUnmount() {
+        // Clean up event listener
+        document.removeEventListener("paste", this.handlePaste);
+      },
+    }).mount("#app");
+  </script>
+</body>
+
 </html>
