@@ -90,37 +90,6 @@ const errorHandler = (err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 };
 
-// IPFS Gateway Proxy - allows access to IPFS content via /ipfs/CID
-app.get("/ipfs/:cid*", async (req, res) => {
-  try {
-    const ipfsPath = req.path; // e.g., /ipfs/QmXxx or /ipfs/QmXxx/file.txt
-
-    // Forward the request to local IPFS gateway
-    const response = await axios.get(`http://127.0.0.1:8080${ipfsPath}`, {
-      responseType: "stream",
-      timeout: 30000, // 30 second timeout
-    });
-
-    // Forward headers from IPFS gateway
-    res.set({
-      "Content-Type": response.headers["content-type"],
-      "Content-Length": response.headers["content-length"],
-      "Cache-Control": response.headers["cache-control"] || "public, max-age=31536000, immutable",
-    });
-
-    // Pipe the response stream
-    response.data.pipe(res);
-  } catch (err) {
-    console.error("IPFS gateway proxy error:", err.message);
-
-    if (err.response?.status === 404) {
-      res.status(404).json({ error: "IPFS content not found", cid: req.params.cid });
-    } else {
-      res.status(500).json({ error: "Failed to fetch from IPFS gateway", details: err.message });
-    }
-  }
-});
-
 // Health check endpoint for Docker
 app.get("/health", async (req, res) => {
   try {
