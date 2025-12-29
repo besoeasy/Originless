@@ -44,7 +44,7 @@ const STORAGE_MAX = process.env.STORAGE_MAX || "200GB";
 const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
-const NPUB = process.env.NPUB || "npub1x6au4qgw9t403yushl34tgngmgcaqv9yna7ywf8e6x4xf686ln7qc7y6wq";
+const NPUB = process.env.NPUB;
 const PIN_FRIENDS = (process.env.PINFRIENDS || "").toLowerCase() === "true";
 const NOSTR_INTERVAL_MS = 3 * 60 * 60 * 1000;
 
@@ -401,8 +401,20 @@ const runNostrJob = async () => {
 
     console.log("Nostr pin job completed", {
       at: lastNostrRun.at,
-      selfPinned: selfResult?.pinned ?? selfResult?.plannedPins?.length ?? 0,
-      friendsPinned: friendsResult?.pinned ?? friendsResult?.plannedPins?.length ?? 0,
+      self: {
+        notesScanned: selfResult?.eventsScanned ?? 0,
+        cidsFound: selfResult?.cidsFound ?? 0,
+        pinned: selfResult?.pinned ?? selfResult?.plannedPins?.length ?? 0,
+        failed: selfResult?.failed ?? 0,
+      },
+      ...(friendsResult && {
+        friends: {
+          notesScanned: friendsResult?.eventsScanned ?? 0,
+          cidsFound: friendsResult?.cidsFound ?? 0,
+          pinned: friendsResult?.pinned ?? friendsResult?.plannedPins?.length ?? 0,
+          failed: friendsResult?.failed ?? 0,
+        },
+      }),
     });
   } catch (err) {
     lastNostrRun = {
