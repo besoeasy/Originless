@@ -205,6 +205,13 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
   return res.data;
 };
 
+const addCid = async (cid, ipfsApi = IPFS_API) => {
+  // Fetch the CID without pinning - will be cached but can be garbage collected
+  const endpoint = `${ipfsApi}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
+  const res = await axios.post(endpoint, null, { timeout: 120000, responseType: 'arraybuffer' });
+  return { cid, size: res.data.length };
+};
+
 const syncNostrPins = async ({
   npubOrPubkey,
   ipfsApi = IPFS_API,
@@ -323,14 +330,15 @@ const syncFollowPins = async ({
       eventsScanned: events.length,
       deletesSeen: deletedIds.size,
       cidsFound: cids.length,
-      plannedPins: toPin,
+      plannedAdds: toPin, // Changed from plannedPins to plannedAdds
     };
   }
 
+  // For friends, add without pinning (ephemeral cache, allows garbage collection)
   const results = [];
   for (const cid of toPin) {
     try {
-      const data = await pinCid(cid, ipfsApi);
+      const data = await addCid(cid, ipfsApi);
       results.push({ cid, ok: true, data });
     } catch (err) {
       results.push({ cid, ok: false, error: err.message });
@@ -344,7 +352,7 @@ const syncFollowPins = async ({
     eventsScanned: events.length,
     deletesSeen: deletedIds.size,
     cidsFound: cids.length,
-    pinned: results.filter((r) => r.ok).length,
+    added: results.filter((r) => r.ok).length, // Changed from 'pinned' to 'added'
     failed: results.filter((r) => !r.ok).length,
     results,
   };
@@ -358,6 +366,7 @@ module.exports = {
   fetchAllFollowingEvents,
   fetchFollowingPubkeys,
   pinCid,
+  addCid,
   syncNostrPins,
   syncFollowPins,
   toNpub,

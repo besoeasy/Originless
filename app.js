@@ -225,15 +225,15 @@ app.get("/pin-stats", async (req, res) => {
     };
 
     const pinnedSelf = lastNostrRun?.self?.pinned ?? lastNostrRun?.self?.plannedPins?.length ?? 0;
-    const pinnedFriends = lastNostrRun?.friends?.pinned ?? lastNostrRun?.friends?.plannedPins?.length ?? 0;
+    const addedFriends = lastNostrRun?.friends?.added ?? lastNostrRun?.friends?.plannedAdds?.length ?? 0;
 
     return res.status(200).json({
       status: "success",
       repo,
       pins: {
         self: pinnedSelf,
-        friends: pinnedFriends,
-        total: pinnedSelf + pinnedFriends,
+        friends: addedFriends,
+        total: pinnedSelf + addedFriends,
       },
       lastRun: lastNostrRun?.at || null,
     });
@@ -411,7 +411,7 @@ const runNostrJob = async () => {
         friends: {
           notesScanned: friendsResult?.eventsScanned ?? 0,
           cidsFound: friendsResult?.cidsFound ?? 0,
-          pinned: friendsResult?.pinned ?? friendsResult?.plannedPins?.length ?? 0,
+          added: friendsResult?.added ?? friendsResult?.plannedAdds?.length ?? 0,
           failed: friendsResult?.failed ?? 0,
         },
       }),
@@ -427,7 +427,7 @@ const runNostrJob = async () => {
     }
 
     if (friendFailures.length > 0) {
-      console.error("Friend pin failures:");
+      console.error("Friend add failures:");
       friendFailures.forEach((f) => console.error(`  CID: ${f.cid} - ${f.error}`));
     }
   } catch (err) {

@@ -8,7 +8,7 @@ Private, decentralized file sharing for Nostr and the web.
 - Resilient by design: served from IPFS; your node needn’t be online 24/7
 - Nostr-optimized: you are your own media host (no domain or servers)
 - Self-healing: content repopulates across IPFS when your node comes online
-- Friend mesh: optionally pin media from people you follow for redundancy
+- Friend mesh: optionally cache media from people you follow for redundancy (ephemeral)
 
 ## Quick Start
 
@@ -60,7 +60,7 @@ Open http://localhost:3232 after starting.
 - `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
 - `FILE_LIMIT` (default: 5GB) – Max size per upload
 - `NPUB` – Your Nostr pubkey (npub or hex) to enable Nostr mode
-- `PINFRIENDS` (default: false) – Pin media from accounts you follow
+- `PINFRIENDS` (default: false) – Cache media from accounts you follow (ephemeral, allows garbage collection)
 
 Persist your IPFS repo by mounting `/data` (recommended).
 
@@ -74,8 +74,8 @@ Persist your IPFS repo by mounting `/data` (recommended).
 ## Nostr Mode (Optional)
 
 - Fetches all your posts (pagination) and filters out expired notes
-- Extracts IPFS CIDs and pins them locally
-- Optionally pins media from people you follow to form redundancy
+- Extracts IPFS CIDs and pins them locally (permanent)
+- Optionally caches media from people you follow for redundancy (ephemeral, garbage collected)
 - Runs automatically every 3 hours; view status in the admin
 
 ## Admin & API
