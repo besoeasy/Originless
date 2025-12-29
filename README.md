@@ -116,9 +116,30 @@ docker run -d --restart unless-stopped \
 - **Friend pinning** – Optionally pin media from accounts you follow
 - **Admin dashboard** – Visit `/admin.html` to see pinned file counts, operator, and friends list
 
+---
 
+## 🚀 Why File Drop is Perfect for Nostr
 
-## How It Works
+**File Drop is specially optimized for Nostr.** It doesn't matter which File Drop node you use to upload your files—your node always caches all your content locally. Perfect for laptops and PCs that don't run 24/7.
+
+### How It Works for Nostr Users
+
+- **Your files live everywhere** – Content is served from the IPFS network, not dependent on a single server
+- **Offline-resilient** – If files get garbage collected from the network due to inactivity, whenever your local File Drop comes online—even just once a month—it automatically repopulates your files back to the entire IPFS network
+- **Built-in redundancy** – Your node becomes a personal archive that automatically refreshes shared content
+
+### Friend Networks Create a Self-Sustaining Matrix
+
+Enable `PINFRIENDS=true` to also cache media from accounts you follow. This creates a distributed, self-sustaining network:
+
+- You store your friends' files locally
+- They store yours
+- When any node goes online, content gets refreshed across the network
+- No central server needed—just a mesh of nodes helping each other persist content
+
+**Result:** A resilient, peer-to-peer media layer for Nostr that survives fragmentation and node downtime.
+
+---
 
 1. **Upload** – Files are added to your local IPFS node (unpinned)
 2. **Propagate** – Content spreads across the IPFS network as peers request it
