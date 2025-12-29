@@ -32,6 +32,10 @@ EXPOSE 3232 4001/tcp 4001/udp
 # Declare volume for IPFS data persistence
 VOLUME ["/data"]
 
+# Stop signal and grace period for clean shutdown
+STOPSIGNAL SIGTERM
+LABEL com.docker.compose.stop-grace-period="15s"
+
 # Health check - wait 7m for IPFS to connect to peers
 HEALTHCHECK --interval=30s --timeout=10s --start-period=7m --retries=5 \
   CMD curl -f http://localhost:3232/health || exit 1

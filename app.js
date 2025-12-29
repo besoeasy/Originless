@@ -428,10 +428,12 @@ const runNostrJob = async () => {
   }
 };
 
+let nostrTimers = { initial: null, interval: null };
+
 if (NPUB) {
   // Kick off shortly after start, then repeat on interval
-  setTimeout(runNostrJob, 5_000);
-  setInterval(runNostrJob, NOSTR_INTERVAL_MS);
+  nostrTimers.initial = setTimeout(runNostrJob, 5_000);
+  nostrTimers.interval = setInterval(runNostrJob, NOSTR_INTERVAL_MS);
 } else {
   console.log("Nostr pinning disabled: NPUB not set");
 }
@@ -503,7 +505,31 @@ app.get("/nostr-info", async (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`IPFS API endpoint: ${IPFS_API}`);
 });
+
+// Graceful shutdown handler
+const gracefulShutdown = (signal) => {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+
+  // Stop accepting new connections
+  server.close(() => {
+    console.log("HTTP server closed");
+  });
+
+  // Clear Nostr timers
+  if (nostrTimers.initial) clearTimeout(nostrTimers.initial);
+  if (nostrTimers.interval) clearInterval(nostrTimers.interval);
+  console.log("Nostr timers cleared");
+
+  // Give active requests 5 seconds to complete
+  setTimeout(() => {
+    console.log("Forcing shutdown");
+    process.exit(0);
+  }, 5000);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

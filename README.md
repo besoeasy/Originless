@@ -24,8 +24,33 @@ docker run -d --restart unless-stopped \
   -e FILE_LIMIT=5GB \
   -e NPUB=npub1yourkey... \
   -e PINFRIENDS=false \
+  --stop-timeout 15 \
   --name file-drop \
   ghcr.io/besoeasy/file-drop:main
+```
+
+**Docker Compose:**
+```yaml
+services:
+  file-drop:
+    image: ghcr.io/besoeasy/file-drop:main
+    container_name: file-drop
+    restart: unless-stopped
+    stop_grace_period: 15s
+    ports:
+      - "3232:3232"
+      - "4001:4001/tcp"
+      - "4001:4001/udp"
+    volumes:
+      - file-drop-data:/data
+    environment:
+      - STORAGE_MAX=200GB
+      - FILE_LIMIT=5GB
+      - NPUB=npub1yourkey...
+      - PINFRIENDS=false
+
+volumes:
+  file-drop-data:
 ```
 
 Open http://localhost:3232 after starting.
