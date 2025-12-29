@@ -64,6 +64,8 @@ Open **http://localhost:3232** after starting.
 |----------|---------|-------------|
 | `STORAGE_MAX` | `200GB` | Maximum IPFS storage before garbage collection |
 | `FILE_LIMIT` | `5GB` | Maximum size per file upload |
+| `NPUB` | – | Nostr pubkey/npub; enables auto-pinning of your Nostr media every 3 hours |
+| `PINFRIENDS` | `false` | Set to `true` to also pin media from followed accounts |
 
 **Volume Mount:** The `/data` volume persists your IPFS repository. Without it, all files are lost on container restart.
 
@@ -86,6 +88,35 @@ curl http://localhost:3232/health
 ```
 
 ---
+
+## Nostr Integration (Optional)
+
+Auto-pin your Nostr media to keep files safe across your IPFS node.
+
+### Setup
+
+```bash
+docker run -d --restart unless-stopped \
+  -p 3232:3232 \
+  -p 4001:4001/tcp \
+  -p 4001:4001/udp \
+  -v file-drop-data:/data \
+  -e NPUB=npub1yourkey... \
+  -e PINFRIENDS=true \
+  --name file-drop \
+  ghcr.io/besoeasy/file-drop:main
+```
+
+- **`NPUB`** – Your Nostr public key (npub or hex)
+- **`PINFRIENDS`** – Optional; pin media from your follows too
+
+### Features
+
+- **Auto-pin** – Fetches your recent notes/articles from Nostr relays every 3 hours; extracts IPFS CIDs and pins them
+- **Friend pinning** – Optionally pin media from accounts you follow
+- **Admin dashboard** – Visit `/admin.html` to see pinned file counts, operator, and friends list
+
+
 
 ## How It Works
 
