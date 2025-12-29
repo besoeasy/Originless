@@ -15,6 +15,12 @@ if (!npubOrPubkey) {
       dryRun: true, // keep dry-run to avoid pinning during tests
     });
     console.log(JSON.stringify(result, null, 2));
+
+    const friendsResult = await require("./nostr").syncFollowPins({
+      npubOrPubkey,
+      dryRun: true,
+    });
+    console.log("\nFollow pins preview:\n", JSON.stringify(friendsResult, null, 2));
   } catch (err) {
     console.error("Failed to sync/pin from Nostr:", err.message);
     process.exit(1);

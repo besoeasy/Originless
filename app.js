@@ -9,6 +9,13 @@ const fs = require("fs");
 const { promisify } = require("util");
 const mime = require("mime-types");
 const unlinkAsync = promisify(fs.unlink);
+const {
+  syncNostrPins,
+  syncFollowPins,
+  fetchFollowingPubkeys,
+  decodePubkey,
+  toNpub,
+} = require("./nostr");
 
 // Parse human-readable size format (e.g., "5GB", "50MB") to bytes
 const parseSize = (sizeStr) => {
@@ -37,6 +44,16 @@ const STORAGE_MAX = process.env.STORAGE_MAX || "200GB";
 const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
+const NPUB = process.env.NPUB || "npub1x6au4qgw9t403yushl34tgngmgcaqv9yna7ywf8e6x4xf686ln7qc7y6wq";
+const PIN_FRIENDS = (process.env.PINFRIENDS || "").toLowerCase() === "true";
+const NOSTR_INTERVAL_MS = 3 * 60 * 60 * 1000;
+
+let lastNostrRun = {
+  at: null,
+  self: null,
+  friends: null,
+  error: null,
+};
 
 // Ensure temp directory exists
 if (!fs.existsSync(UPLOAD_TEMP_DIR)) {
@@ -295,6 +312,115 @@ const handleUpload = async (req, res) => {
 
 // POST Upload endpoint
 app.post("/upload", upload.single("file"), handleUpload);
+
+// Periodic Nostr pinning job (every 3 hours) if NPUB is configured
+const runNostrJob = async () => {
+  if (!NPUB) {
+    return;
+  }
+
+  try {
+    const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: false });
+    let friendsResult = null;
+
+    if (PIN_FRIENDS) {
+      friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: false });
+    }
+
+    lastNostrRun = {
+      at: new Date().toISOString(),
+      self: selfResult,
+      friends: friendsResult,
+      error: null,
+    };
+
+    console.log("Nostr pin job completed", {
+      at: lastNostrRun.at,
+      selfPinned: selfResult?.pinned ?? selfResult?.plannedPins?.length ?? 0,
+      friendsPinned: friendsResult?.pinned ?? friendsResult?.plannedPins?.length ?? 0,
+    });
+  } catch (err) {
+    lastNostrRun = {
+      at: new Date().toISOString(),
+      self: null,
+      friends: null,
+      error: err.message,
+    };
+
+    console.error("Nostr pin job failed", err.message);
+  }
+};
+
+if (NPUB) {
+  // Kick off shortly after start, then repeat on interval
+  setTimeout(runNostrJob, 5_000);
+  setInterval(runNostrJob, NOSTR_INTERVAL_MS);
+} else {
+  console.log("Nostr pinning disabled: NPUB not set");
+}
+
+// Simple UI endpoint to show operator and friends (if enabled)
+app.get("/nostr-info", async (req, res) => {
+  if (!NPUB) {
+    return res.status(200).send("<html><body style=\"font-family: Arial, sans-serif; padding:20px;\"><h2>FileDrop</h2><p>Nostr pinning is disabled (NPUB not set).</p></body></html>");
+  }
+
+  let friendsList = [];
+  if (PIN_FRIENDS) {
+    if (lastNostrRun?.friends?.following) {
+      friendsList = lastNostrRun.friends.following;
+    } else {
+      try {
+        const hex = decodePubkey(NPUB);
+        const follows = await fetchFollowingPubkeys({ pubkey: hex });
+        friendsList = follows.map((f) => toNpub(f));
+      } catch (err) {
+        console.error("Failed to fetch following list for UI", err.message);
+      }
+    }
+  }
+
+  const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
+  const friendItems = friendsList
+    .map((f) => `<li><a href=\"https://nosta.me/${encodeURIComponent(f)}\" target=\"_blank\">${f}</a></li>`)
+    .join("");
+
+  const html = `<!doctype html>
+  <html><head><title>FileDrop Nostr</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #0d0f12; color: #e8ecf2; padding: 32px; }
+    .card { max-width: 720px; margin: 0 auto; background: #161a21; border: 1px solid #2a3140; border-radius: 14px; padding: 24px 28px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); }
+    h1 { margin: 0 0 12px; font-size: 26px; letter-spacing: 0.3px; }
+    .muted { color: #9aa7bd; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #1f2633; color: #c8d4e6; font-size: 12px; margin-right: 6px; }
+    ul { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    li { background: #1b202a; border: 1px solid #262d3b; border-radius: 10px; padding: 10px 12px; }
+    a { color: #7bc4ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style></head>
+  <body>
+    <div class="card">
+      <h1>FileDrop Node</h1>
+      <div class="muted" style="margin-bottom: 12px;">This node automatically pins Nostr media every 3 hours.</div>
+      <div style="margin-bottom: 10px;">
+        <span class="pill">Operator</span>
+        <a href="https://nosta.me/${encodeURIComponent(operatorNpub)}" target="_blank">${operatorNpub}</a>
+      </div>
+      <div style="margin-bottom: 14px;">
+        <span class="pill">Relays</span>
+        wss://relay.damus.io · wss://nos.lol
+      </div>
+      ${PIN_FRIENDS ? `<div style="margin-top: 10px;">
+        <span class="pill">Friends pinned</span>
+        ${friendsList.length ? "" : "<span class=\"muted\">No follows detected</span>"}
+        ${friendsList.length ? `<ul>${friendItems}</ul>` : ""}
+      </div>` : `<div class="muted">Friend pinning is disabled (set PINFRIENDS=true to enable).</div>`}
+      ${lastNostrRun?.at ? `<div style="margin-top: 16px;" class="muted">Last run: ${lastNostrRun.at}${lastNostrRun.error ? " · Error: " + lastNostrRun.error : ""}</div>` : ""}
+    </div>
+  </body></html>`;
+
+  res.status(200).send(html);
+});
 
 // Apply error handler
 app.use(errorHandler);

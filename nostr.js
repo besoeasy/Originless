@@ -77,9 +77,27 @@ const extractCidsFromContent = (text = "") => {
   return Array.from(found);
 };
 
-const fetchEvents = async ({ pubkey, relays = DEFAULT_RELAYS, kinds = KIND_WHITELIST, since, limit }) => {
+const fetchFollowingPubkeys = async ({ pubkey }) => {
   const pool = new SimplePool({ connectionTimeout: 7000 });
-  const filter = { authors: [pubkey], kinds, since, limit };
+  try {
+    const events = await pool.querySync(DEFAULT_RELAYS, { authors: [pubkey], kinds: [3], limit: 1 }, { maxWait: 8000 });
+    if (!events.length) return [];
+    const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
+    const follows = new Set();
+    latest.tags.forEach((tag) => {
+      if (Array.isArray(tag) && tag[0] === "p" && tag[1] && /^[0-9a-fA-F]{64}$/.test(tag[1])) {
+        follows.add(tag[1].toLowerCase());
+      }
+    });
+    return Array.from(follows);
+  } finally {
+    pool.destroy();
+  }
+};
+
+const fetchEvents = async ({ pubkey, authors, relays = DEFAULT_RELAYS, kinds = KIND_WHITELIST, since, limit }) => {
+  const pool = new SimplePool({ connectionTimeout: 7000 });
+  const filter = { authors: authors || [pubkey], kinds, since, limit };
 
   try {
     const events = await pool.querySync(relays, filter, { maxWait: 8000 });
@@ -175,12 +193,99 @@ const syncNostrPins = async ({
   };
 };
 
+const toNpub = (hex) => {
+  try {
+    return nip19.npubEncode(hex);
+  } catch (_) {
+    return hex;
+  }
+};
+
+const syncFollowPins = async ({
+  npubOrPubkey,
+  ipfsApi = IPFS_API,
+  kinds = KIND_WHITELIST,
+  since,
+  limit,
+  maxPins,
+  dryRun = false,
+} = {}) => {
+  if (!npubOrPubkey) {
+    throw new Error("npubOrPubkey is required");
+  }
+
+  const pubkey = decodePubkey(npubOrPubkey);
+  const following = await fetchFollowingPubkeys({ pubkey });
+  if (!following.length) {
+    return {
+      dryRun,
+      relaysUsed: DEFAULT_RELAYS,
+      following: [],
+      eventsScanned: 0,
+      deletesSeen: 0,
+      cidsFound: 0,
+      plannedPins: [],
+    };
+  }
+
+  const events = await fetchEvents({ authors: following, relays: DEFAULT_RELAYS, kinds, since, limit });
+  const deleteEvents = await fetchEvents({ authors: following, relays: DEFAULT_RELAYS, kinds: [5], since, limit });
+  const deletedIds = getDeletedIds(deleteEvents);
+
+  const cidSet = new Set();
+  events
+    .filter((evt) => !deletedIds.has(evt.id))
+    .forEach((evt) => {
+      extractCidsFromContent(evt.content).forEach((cid) => cidSet.add(cid));
+    });
+
+  const cids = Array.from(cidSet);
+  const toPin = typeof maxPins === "number" ? cids.slice(0, maxPins) : cids;
+
+  if (dryRun) {
+    return {
+      dryRun: true,
+      relaysUsed: DEFAULT_RELAYS,
+      following: following.map(toNpub),
+      eventsScanned: events.length,
+      deletesSeen: deletedIds.size,
+      cidsFound: cids.length,
+      plannedPins: toPin,
+    };
+  }
+
+  const results = [];
+  for (const cid of toPin) {
+    try {
+      const data = await pinCid(cid, ipfsApi);
+      results.push({ cid, ok: true, data });
+    } catch (err) {
+      results.push({ cid, ok: false, error: err.message });
+    }
+  }
+
+  return {
+    dryRun: false,
+    relaysUsed: DEFAULT_RELAYS,
+    following: following.map(toNpub),
+    eventsScanned: events.length,
+    deletesSeen: deletedIds.size,
+    cidsFound: cids.length,
+    pinned: results.filter((r) => r.ok).length,
+    failed: results.filter((r) => !r.ok).length,
+    results,
+  };
+};
+
 module.exports = {
   decodePubkey,
   extractCidsFromContent,
   fetchEvents,
+  fetchFollowingPubkeys,
   pinCid,
   syncNostrPins,
+  syncFollowPins,
+  toNpub,
   constants: {
     IPFS_API,
     DEFAULT_RELAYS,
