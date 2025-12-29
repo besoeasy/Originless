@@ -214,6 +214,42 @@ app.get("/status", async (req, res) => {
   }
 });
 
+// Nostr info (JSON) for UI consumption
+app.get("/nostr", async (req, res) => {
+  if (!NPUB) {
+    return res.status(200).json({
+      enabled: false,
+      reason: "NPUB not set",
+    });
+  }
+
+  let friendsList = [];
+  if (PIN_FRIENDS) {
+    if (lastNostrRun?.friends?.following) {
+      friendsList = lastNostrRun.friends.following;
+    } else {
+      try {
+        const hex = decodePubkey(NPUB);
+        const follows = await fetchFollowingPubkeys({ pubkey: hex });
+        friendsList = follows.map((f) => toNpub(f));
+      } catch (err) {
+        console.error("Failed to fetch following list for API", err.message);
+      }
+    }
+  }
+
+  const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
+
+  res.status(200).json({
+    enabled: true,
+    operator: operatorNpub,
+    relays: ["wss://relay.damus.io", "wss://nos.lol"],
+    pinFriends: PIN_FRIENDS,
+    friends: friendsList,
+    lastRun: lastNostrRun,
+  });
+});
+
 // Shared upload handler logic
 const handleUpload = async (req, res) => {
   let filePath = null;

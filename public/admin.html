@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FileDrop Admin</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #0d0f12; color: #e8ecf2; }
+    .page { max-width: 960px; margin: 0 auto; padding: 28px 20px 40px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .title { font-size: 24px; font-weight: 700; letter-spacing: 0.2px; }
+    .card { background: #161a21; border: 1px solid #242b38; border-radius: 14px; padding: 18px 20px; box-shadow: 0 18px 40px rgba(0,0,0,0.35); margin-bottom: 14px; }
+    .muted { color: #9aa7bd; font-size: 13px; }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #1f2633; color: #c8d4e6; font-size: 12px; margin-right: 6px; }
+    a { color: #7bc4ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 180px; overflow-y: auto; }
+    .list li { padding: 6px 8px; border: 1px solid #242b38; border-radius: 10px; margin-bottom: 6px; background: #1b202a; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; margin-left: 8px; background: #243145; color: #cdd8ea; }
+    button { background: #7bc4ff; color: #0b1420; border: none; padding: 8px 12px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #91d3ff; }
+    .error { color: #ff8c8c; font-size: 13px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <div class="title">FileDrop Admin</div>
+        <div class="muted">Nostr pinning status</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="refresh">Refresh</button>
+        <a href="/" style="color:#cdd8ea;">Back to app</a>
+      </div>
+    </header>
+
+    <div id="alert" class="card" style="display:none;"></div>
+
+    <div class="card" id="operatorCard">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="pill">Operator</span>
+        <a id="operatorLink" href="#" target="_blank"></a>
+      </div>
+      <div class="muted" style="margin-top:6px;">Relays: <span id="relays"></span></div>
+      <div class="muted" style="margin-top:6px;">Last run: <span id="lastRun">-</span></div>
+    </div>
+
+    <div class="card" id="friendsCard">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="pill">Friends</span>
+        <span id="friendsStatus" class="badge"></span>
+      </div>
+      <ul id="friendsList" class="list"></ul>
+      <div class="muted" id="noFriends" style="display:none;">No follows detected.</div>
+    </div>
+  </div>
+
+  <script>
+    const operatorLink = document.getElementById("operatorLink");
+    const relaysEl = document.getElementById("relays");
+    const lastRunEl = document.getElementById("lastRun");
+    const friendsStatus = document.getElementById("friendsStatus");
+    const friendsList = document.getElementById("friendsList");
+    const noFriends = document.getElementById("noFriends");
+    const alertBox = document.getElementById("alert");
+    const friendsCard = document.getElementById("friendsCard");
+    const operatorCard = document.getElementById("operatorCard");
+
+    async function load() {
+      alertBox.style.display = "none";
+      try {
+        const res = await fetch("/nostr");
+        const data = await res.json();
+
+        if (!data.enabled) {
+          alertBox.style.display = "block";
+          alertBox.innerHTML = `<div style="font-weight:700; margin-bottom:6px;">Nostr disabled</div><div class="muted">${data.reason || "NPUB not set"}</div>`;
+          operatorCard.style.display = "none";
+          friendsCard.style.display = "none";
+          return;
+        }
+
+        operatorCard.style.display = "block";
+        friendsCard.style.display = "block";
+
+        const op = data.operator || "Unknown";
+        operatorLink.textContent = op;
+        operatorLink.href = `https://nosta.me/${encodeURIComponent(op)}`;
+        relaysEl.textContent = (data.relays || []).join(" · ") || "-";
+        lastRunEl.textContent = data.lastRun?.at || "-";
+
+        if (data.pinFriends) {
+          friendsStatus.textContent = "Pinning enabled";
+          friendsStatus.style.background = "#1f7a4f";
+          friendsStatus.style.color = "#e8f7ef";
+          const friends = data.friends || [];
+          friendsList.innerHTML = "";
+          friends.forEach((f) => {
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = `https://nosta.me/${encodeURIComponent(f)}`;
+            a.textContent = f;
+            a.target = "_blank";
+            li.appendChild(a);
+            friendsList.appendChild(li);
+          });
+          noFriends.style.display = friends.length ? "none" : "block";
+        } else {
+          friendsStatus.textContent = "Pinning disabled";
+          friendsStatus.style.background = "#3a3f4d";
+          friendsStatus.style.color = "#d9deeb";
+          friendsList.innerHTML = "";
+          noFriends.style.display = "block";
+        }
+      } catch (err) {
+        alertBox.style.display = "block";
+        alertBox.innerHTML = `<div style="font-weight:700; margin-bottom:6px;">Error</div><div class="error">${err.message}</div>`;
+      }
+    }
+
+    document.getElementById("refresh").addEventListener("click", load);
+    load();
+  </script>
+</body>
+</html>

@@ -357,6 +357,33 @@
             <p class="text-gray-500 font-medium text-xs uppercase">File Size Limit</p>
             <p class="text-black font-semibold">{{ status.fileLimit }}</p>
           </div>
+
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200" v-if="nostr.enabled">
+            <div class="flex items-center justify-between">
+              <p class="text-gray-500 font-medium text-xs uppercase">Nostr Operator</p>
+              <span class="text-[11px] px-2 py-1 bg-gray-100 rounded-full text-gray-600" v-if="nostr.pinFriends">Pins friends</span>
+            </div>
+            <p class="text-black font-semibold break-all">
+              <a :href="`https://nosta.me/${encodeURIComponent(nostr.operator)}`" target="_blank" class="text-black hover:text-blue-700">
+                {{ nostr.operator }}
+              </a>
+            </p>
+            <p class="text-gray-500 text-xs mt-1">Relays: {{ nostr.relays.join(" · ") }}</p>
+            <div class="mt-2" v-if="nostr.pinFriends">
+              <p class="text-gray-500 text-xs font-medium mb-1">Friends</p>
+              <div v-if="nostr.friends.length" class="space-y-1 max-h-32 overflow-auto pr-1">
+                <a v-for="f in nostr.friends" :key="f" :href="`https://nosta.me/${encodeURIComponent(f)}`" target="_blank"
+                  class="block text-sm text-black hover:text-blue-700 truncate">{{ f }}</a>
+              </div>
+              <p v-else class="text-gray-500 text-xs">No follows detected</p>
+            </div>
+            <p class="text-gray-400 text-[11px] mt-2" v-if="nostr.lastRun?.at">Last pin run: {{ nostr.lastRun.at }}</p>
+          </div>
+
+          <div class="bg-white rounded-lg p-3 shadow-sm border border-gray-200" v-else>
+            <p class="text-gray-500 font-medium text-xs uppercase">Nostr</p>
+            <p class="text-gray-600 text-sm">Nostr pinning disabled</p>
+          </div>
           <div class="bg-white rounded-lg p-3 mt-4 border border-gray-200">
             <p class="text-gray-500 text-xs font-medium">Last updated: {{ status.timestamp }}</p>
           </div>
@@ -621,6 +648,8 @@
         </a>
         <span class="text-gray-400">•</span>
         <span class="text-gray-300 font-mono text-sm">v{{ status.appver }}</span>
+        <span class="text-gray-400">•</span>
+        <a href="/admin.html" class="text-white hover:text-gray-300 transition-colors duration-300">Admin</a>
       </div>
     </footer>
   </div>
@@ -653,6 +682,15 @@
             peerscount: 0,
             storageLimit: "Loading...",
             fileLimit: "Loading...",
+          },
+          nostr: {
+            enabled: false,
+            operator: null,
+            relays: [],
+            pinFriends: false,
+            friends: [],
+            lastRun: null,
+            error: null,
           },
         };
       },
@@ -853,10 +891,33 @@
             };
           }
         },
+        async fetchNostr() {
+          try {
+            const res = await fetch("/nostr");
+            const data = await res.json();
+            if (!data.enabled) {
+              this.nostr = { enabled: false, error: data.reason || "Disabled" };
+              return;
+            }
+            this.nostr = {
+              enabled: true,
+              operator: data.operator,
+              relays: data.relays || [],
+              pinFriends: data.pinFriends,
+              friends: data.friends || [],
+              lastRun: data.lastRun || null,
+              error: null,
+            };
+          } catch (err) {
+            this.nostr = { enabled: false, error: err.message };
+          }
+        },
       },
       mounted() {
         this.fetchStatus();
         setInterval(this.fetchStatus, 10000);
+        this.fetchNostr();
+        setInterval(this.fetchNostr, 600000);
 
         // Add global paste event listener
         document.addEventListener("paste", this.handlePaste);
