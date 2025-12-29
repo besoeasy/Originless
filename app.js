@@ -416,6 +416,20 @@ const runNostrJob = async () => {
         },
       }),
     });
+
+    // Log failures with details
+    const selfFailures = selfResult?.results?.filter((r) => !r.ok) || [];
+    const friendFailures = friendsResult?.results?.filter((r) => !r.ok) || [];
+
+    if (selfFailures.length > 0) {
+      console.error("Self pin failures:");
+      selfFailures.forEach((f) => console.error(`  CID: ${f.cid} - ${f.error}`));
+    }
+
+    if (friendFailures.length > 0) {
+      console.error("Friend pin failures:");
+      friendFailures.forEach((f) => console.error(`  CID: ${f.cid} - ${f.error}`));
+    }
   } catch (err) {
     lastNostrRun = {
       at: new Date().toISOString(),
