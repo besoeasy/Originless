@@ -47,6 +47,15 @@
       <div class="muted" style="margin-top:6px;">Last run: <span id="lastRun">-</span></div>
     </div>
 
+    <div class="card" id="pinCard">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="pill">Pinned Files</span>
+      </div>
+      <div class="muted" style="margin-top:6px;">Total: <span id="pinsTotal">0</span></div>
+      <div class="muted" style="margin-top:6px;">Self: <span id="pinsSelf">0</span> · Friends: <span id="pinsFriends">0</span></div>
+      <div class="muted" style="margin-top:6px;">Pinned size (repo): <span id="repoSize">-</span></div>
+    </div>
+
     <div class="card" id="friendsCard">
       <div style="display:flex; align-items:center; gap:8px;">
         <span class="pill">Friends</span>
@@ -120,8 +129,34 @@
       }
     }
 
+    async function loadPinStats() {
+      try {
+        const res = await fetch("/pin-stats");
+        const data = await res.json();
+        if (data.status !== "success") throw new Error(data.error || "Failed to load pin stats");
+        document.getElementById("pinsTotal").textContent = data.pins?.total ?? 0;
+        document.getElementById("pinsSelf").textContent = data.pins?.self ?? 0;
+        document.getElementById("pinsFriends").textContent = data.pins?.friends ?? 0;
+        const size = data.repo?.size || 0;
+        document.getElementById("repoSize").textContent = formatBytes(size);
+      } catch (err) {
+        document.getElementById("pinsTotal").textContent = "-";
+        document.getElementById("pinsSelf").textContent = "-";
+        document.getElementById("pinsFriends").textContent = "-";
+        document.getElementById("repoSize").textContent = "Error";
+      }
+    }
+
+    function formatBytes(bytes) {
+      const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+      if (!bytes) return "0 Bytes";
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
+    }
+
     document.getElementById("refresh").addEventListener("click", load);
     load();
+    loadPinStats();
   </script>
 </body>
 </html>

@@ -214,6 +214,35 @@ app.get("/status", async (req, res) => {
   }
 });
 
+// Pin stats (repo stats + last nostr pin counts)
+app.get("/pin-stats", async (req, res) => {
+  try {
+    const repoResponse = await axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 });
+    const repo = {
+      size: repoResponse.data.RepoSize,
+      storageMax: repoResponse.data.StorageMax,
+      numObjects: repoResponse.data.NumObjects,
+    };
+
+    const pinnedSelf = lastNostrRun?.self?.pinned ?? lastNostrRun?.self?.plannedPins?.length ?? 0;
+    const pinnedFriends = lastNostrRun?.friends?.pinned ?? lastNostrRun?.friends?.plannedPins?.length ?? 0;
+
+    return res.status(200).json({
+      status: "success",
+      repo,
+      pins: {
+        self: pinnedSelf,
+        friends: pinnedFriends,
+        total: pinnedSelf + pinnedFriends,
+      },
+      lastRun: lastNostrRun?.at || null,
+    });
+  } catch (err) {
+    console.error("Pin stats error:", err.message);
+    return res.status(503).json({ status: "failed", error: err.message });
+  }
+});
+
 // Nostr info (JSON) for UI consumption
 app.get("/nostr", async (req, res) => {
   if (!NPUB) {
