@@ -1,26 +1,18 @@
 # File Drop
 
-- **Anonymous** – No tracking, no surveillance, no data collection, no origin tracking.
+Private, decentralized file sharing for Nostr and the web.
 
-![File Drop](https://github.com/user-attachments/assets/8d427693-8ee4-4c5f-a67c-6c2991c13f27)
+## Why File Drop
 
-## Features
-
-- **Anonymous** – No sign-ups, no tracking
-- **Decentralized** – Powered by IPFS peer-to-peer network
-- **Any file type** – Images, videos, documents, anything
-- **Resilient** – Files propagate across IPFS; accessible even when your server is offline
-- **Self-cleaning** – Automatic garbage collection keeps storage sustainable
-
----
+- Anonymous uploads: no accounts, no tracking, no logs
+- Resilient by design: served from IPFS; your node needn’t be online 24/7
+- Nostr-optimized: you are your own media host (no domain or servers)
+- Self-healing: content repopulates across IPFS when your node comes online
+- Friend mesh: optionally pin media from people you follow for redundancy
 
 ## Quick Start
 
-### Umbrel (One-Click)
-
 [![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/file-drop)
-
-### Docker
 
 ```bash
 docker run -d --restart unless-stopped \
@@ -28,138 +20,40 @@ docker run -d --restart unless-stopped \
   -p 4001:4001/tcp \
   -p 4001:4001/udp \
   -v file-drop-data:/data \
+  -e STORAGE_MAX=200GB \
+  -e FILE_LIMIT=5GB \
+  -e NPUB=npub1yourkey... \
+  -e PINFRIENDS=false \
   --name file-drop \
   ghcr.io/besoeasy/file-drop:main
 ```
 
-### Docker Compose
-
-```yaml
-services:
-  file-drop:
-    image: ghcr.io/besoeasy/file-drop:main
-    container_name: file-drop
-    restart: unless-stopped
-    ports:
-      - "3232:3232"
-      - "4001:4001/tcp"
-      - "4001:4001/udp"
-    volumes:
-      - file-drop-data:/data
-    environment:
-      - STORAGE_MAX=50GB
-      - FILE_LIMIT=5GB
-
-volumes:
-  file-drop-data:
-```
-
-Open **http://localhost:3232** after starting.
-
----
+Open http://localhost:3232 after starting.
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STORAGE_MAX` | `200GB` | Maximum IPFS storage before garbage collection |
-| `FILE_LIMIT` | `5GB` | Maximum size per file upload |
-| `NPUB` | – | Nostr pubkey/npub; enables auto-pinning of your Nostr media every 3 hours |
-| `PINFRIENDS` | `false` | Set to `true` to also pin media from followed accounts |
+- `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
+- `FILE_LIMIT` (default: 5GB) – Max size per upload
+- `NPUB` – Your Nostr pubkey (npub or hex) to enable Nostr mode
+- `PINFRIENDS` (default: false) – Pin media from accounts you follow
 
-**Volume Mount:** The `/data` volume persists your IPFS repository. Without it, all files are lost on container restart.
+Persist your IPFS repo by mounting `/data` (recommended).
 
----
+## How It Works
 
-## API Quick Reference
+1. Upload – Files stream to your local IPFS node (unpinned)
+2. Propagate – Content spreads via IPFS as peers request it
+3. Repopulate – If garbage collected, your node repopulates content when it comes online
+4. Optional Nostr mode – Automatically fetches your notes, extracts IPFS CIDs, and pins them
 
-### Upload a File
+## Nostr Mode (Optional)
 
-```bash
-curl -X PUT -F "file=@photo.jpg" http://localhost:3232/upload
-```
+- Fetches all your posts (pagination) and filters out expired notes
+- Extracts IPFS CIDs and pins them locally
+- Optionally pins media from people you follow to form redundancy
+- Runs automatically every 3 hours; view status in the admin
 
-**Returns IPFS CID and gateway URL.**
+## Admin & API
 
-### Check Server Health
-
-```bash
-curl http://localhost:3232/health
-```
-
----
-
-## Nostr Integration (Optional)
-
-Auto-pin your Nostr media to keep files safe across your IPFS node.
-
-### Setup
-
-```bash
-docker run -d --restart unless-stopped \
-  -p 3232:3232 \
-  -p 4001:4001/tcp \
-  -p 4001:4001/udp \
-  -v file-drop-data:/data \
-  -e NPUB=npub1yourkey... \
-  -e PINFRIENDS=true \
-  --name file-drop \
-  ghcr.io/besoeasy/file-drop:main
-```
-
-- **`NPUB`** – Your Nostr public key (npub or hex)
-- **`PINFRIENDS`** – Optional; pin media from your follows too
-
-### Features
-
-- **Auto-pin** – Fetches your recent notes/articles from Nostr relays every 3 hours; extracts IPFS CIDs and pins them
-- **Friend pinning** – Optionally pin media from accounts you follow
-- **Admin dashboard** – Visit `/admin.html` to see pinned file counts, operator, and friends list
-
----
-
-## 🚀 Why File Drop is Perfect for Nostr
-
-**File Drop is specially optimized for Nostr.** It doesn't matter which File Drop node you use to upload your files—your node always caches all your content locally. Perfect for laptops and PCs that don't run 24/7.
-
-### How It Works for Nostr Users
-
-- **Your files live everywhere** – Content is served from the IPFS network, not dependent on a single server
-- **Offline-resilient** – If files get garbage collected from the network due to inactivity, whenever your local File Drop comes online—even just once a month—it automatically repopulates your files back to the entire IPFS network
-- **Built-in redundancy** – Your node becomes a personal archive that automatically refreshes shared content
-
-### Friend Networks Create a Self-Sustaining Matrix
-
-Enable `PINFRIENDS=true` to also cache media from accounts you follow. This creates a distributed, self-sustaining network:
-
-- You store your friends' files locally
-- They store yours
-- When any node goes online, content gets refreshed across the network
-- No central server needed—just a mesh of nodes helping each other persist content
-
-**Result:** A resilient, peer-to-peer media layer for Nostr that survives fragmentation and node downtime.
-
----
-
-1. **Upload** – Files are added to your local IPFS node (unpinned)
-2. **Propagate** – Content spreads across the IPFS network as peers request it
-3. **Access** – Files accessible via any IPFS gateway, even if your server goes offline
-4. **Cleanup** – When storage fills, oldest/least-accessed files are garbage collected
-
-> **Note:** Files are temporary by design. Popular files persist longer; old unused files are cleaned up automatically.
-
----
-
-**Use cases:**
-- Chat apps (file attachments)
-- Social platforms (media uploads)
-- Forums (embedded content)
-- CDN replacement for static assets
-
----
-
-## Built With File Drop
-
-**[0xchat](https://0xchat.com/)** – Secure Nostr chat app using File Drop for file sharing in conversations.
-
----
+- Admin dashboard: /admin.html
+- Upload API: `PUT /upload` with form field `file`
