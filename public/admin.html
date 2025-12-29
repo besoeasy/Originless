@@ -5,67 +5,221 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FileDrop Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
   <style>
-    body { background: radial-gradient(circle at 20% 20%, rgba(123,196,255,0.08), transparent 25%), radial-gradient(circle at 80% 10%, rgba(147,51,234,0.08), transparent 22%), #0b0e14; }
+    /* Import modern font */
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+    body {
+      font-family: "Inter", sans-serif;
+    }
+
+    /* Enhanced animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    /* Enhanced glassmorphism */
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* Enhanced hover effects */
+    .hover-lift {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    /* Status pulse animation */
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
+    }
+
+    .status-indicator {
+      position: relative;
+    }
+
+    .status-indicator::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
   </style>
 </head>
-<body class="min-h-screen text-slate-100">
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-      <div>
-        <p class="text-sm text-slate-400">FileDrop</p>
-        <h1 class="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p class="text-slate-400 mt-1">Nostr pinning and pinned media overview</p>
-      </div>
-      <div class="flex gap-3">
-        <button id="refresh" class="px-4 py-2 rounded-lg bg-sky-500 text-slate-900 font-semibold shadow hover:bg-sky-400">Refresh</button>
-        <a href="/" class="px-4 py-2 rounded-lg border border-slate-700 text-slate-200 hover:border-slate-500">Back to app</a>
-      </div>
-    </div>
-
-    <div id="alert" class="hidden mb-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm"></div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 space-y-6">
-        <div class="rounded-2xl border border-slate-800 bg-[#111522] shadow-xl p-6" id="operatorCard">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="h-10 w-10 rounded-xl bg-sky-500/15 text-sky-200 flex items-center justify-center font-semibold">OP</div>
+<body class="min-h-screen bg-gray-100">
+  <div class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-black p-6 text-white">
+      <div class="max-w-6xl mx-auto">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-chart-line text-2xl"></i>
             <div>
-              <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Operator</p>
-              <a id="operatorLink" href="#" target="_blank" class="text-lg font-semibold text-slate-100 hover:text-sky-300 break-all"></a>
+              <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+              <p class="text-gray-300 text-sm">Nostr pinning and media overview</p>
             </div>
           </div>
-          <p class="text-slate-400 text-sm">Relays: <span id="relays">-</span></p>
-          <p class="text-slate-500 text-sm mt-2">Last run: <span id="lastRun">-</span></p>
-        </div>
-
-        <div class="rounded-2xl border border-slate-800 bg-[#111522] shadow-xl p-6" id="friendsCard">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="h-10 w-10 rounded-xl bg-purple-500/15 text-purple-200 flex items-center justify-center font-semibold">FR</div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-semibold text-slate-100">Friends</h2>
-              <span id="friendsStatus" class="px-2.5 py-1 text-xs rounded-full bg-slate-800 text-slate-300"></span>
-            </div>
+          <div class="flex gap-3">
+            <button id="refresh" class="px-4 py-2 rounded-lg bg-white text-black font-semibold hover:bg-gray-200 transition-colors">
+              <i class="fas fa-sync-alt mr-2"></i>Refresh
+            </button>
+            <a href="/" class="px-4 py-2 rounded-lg border border-white text-white hover:bg-white hover:text-black transition-colors">
+              <i class="fas fa-home mr-2"></i>Back to App
+            </a>
           </div>
-          <div id="noFriends" class="text-slate-500 text-sm hidden">No follows detected.</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="friendsList"></div>
         </div>
       </div>
+    </header>
 
-      <div class="space-y-6">
-        <div class="rounded-2xl border border-slate-800 bg-[#111522] shadow-xl p-6" id="pinCard">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="h-10 w-10 rounded-xl bg-emerald-500/15 text-emerald-200 flex items-center justify-center font-semibold">PN</div>
-            <div>
-              <p class="text-xs uppercase tracking-[0.18em] text-slate-500">Pinned Files</p>
-              <p class="text-xl font-semibold text-slate-100" id="pinsTotal">0</p>
+    <!-- Main Content -->
+    <main class="flex-1 p-6">
+      <div class="max-w-6xl mx-auto">
+        <!-- Alert Box -->
+        <div id="alert" class="hidden mb-6 bg-white rounded-xl border border-red-500 p-4 shadow-lg animate-fade-in">
+          <div class="flex items-center gap-3">
+            <i class="fas fa-exclamation-circle text-red-600 text-2xl"></i>
+            <div id="alertContent"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left Column - Main Info -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Operator Card -->
+            <div id="operatorCard" class="glassmorphism rounded-2xl shadow-xl p-6 hover-lift animate-fade-in">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="status-indicator">
+                  <i class="fas fa-user-shield text-2xl text-black"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Operator</p>
+                  <a id="operatorLink" href="#" target="_blank" class="text-lg font-semibold text-black hover:underline break-all"></a>
+                </div>
+              </div>
+              <div class="space-y-2 text-sm">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <p class="text-gray-500 font-medium text-xs uppercase">Relays</p>
+                  <p class="text-black font-mono text-sm" id="relays">-</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <p class="text-gray-500 font-medium text-xs uppercase">Last Run</p>
+                  <p class="text-black text-sm" id="lastRun">-</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Friends Card -->
+            <div id="friendsCard" class="glassmorphism rounded-2xl shadow-xl p-6 hover-lift animate-fade-in">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <i class="fas fa-users text-2xl text-black"></i>
+                  <div>
+                    <h2 class="text-lg font-semibold text-black">Friends</h2>
+                  </div>
+                </div>
+                <span id="friendsStatus" class="px-3 py-1 text-xs rounded-full bg-gray-200 text-black font-medium"></span>
+              </div>
+              <div id="noFriends" class="text-gray-500 text-sm hidden">No follows detected.</div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto" id="friendsList"></div>
             </div>
           </div>
-          <p class="text-slate-400 text-sm">Self: <span id="pinsSelf">0</span> · Friends: <span id="pinsFriends">0</span></p>
-          <p class="text-slate-500 text-sm mt-2">Pinned size (repo): <span id="repoSize">-</span></p>
+
+          <!-- Right Column - Stats -->
+          <div class="space-y-6">
+            <!-- Pin Stats Card -->
+            <div id="pinCard" class="glassmorphism rounded-2xl shadow-xl p-6 hover-lift animate-fade-in">
+              <div class="flex items-center gap-3 mb-4">
+                <i class="fas fa-thumbtack text-2xl text-black"></i>
+                <div class="flex-1">
+                  <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Pinned Files</p>
+                  <p class="text-3xl font-bold text-black" id="pinsTotal">0</p>
+                </div>
+              </div>
+              <div class="space-y-3">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-600 text-sm font-medium">Self</span>
+                    <span class="text-black font-bold" id="pinsSelf">0</span>
+                  </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-600 text-sm font-medium">Friends</span>
+                    <span class="text-black font-bold" id="pinsFriends">0</span>
+                  </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <p class="text-gray-500 font-medium text-xs uppercase mb-1">Repository Size</p>
+                  <p class="text-black font-bold text-lg" id="repoSize">-</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-black p-4 text-center">
+      <div class="flex items-center justify-center gap-4">
+        <a href="https://github.com/besoeasy/file-drop" target="_blank"
+          class="flex items-center gap-2 text-white hover:text-gray-300 transition-colors duration-300">
+          <i class="fab fa-github"></i>
+          <span class="font-semibold">GitHub</span>
+        </a>
+        <span class="text-gray-400">•</span>
+        <span class="text-gray-300 font-mono text-sm">Admin Panel</span>
+      </div>
+    </footer>
   </div>
 
   <script>
@@ -76,6 +230,7 @@
     const friendsList = document.getElementById("friendsList");
     const noFriends = document.getElementById("noFriends");
     const alertBox = document.getElementById("alert");
+    const alertContent = document.getElementById("alertContent");
     const friendsCard = document.getElementById("friendsCard");
     const operatorCard = document.getElementById("operatorCard");
 
@@ -87,7 +242,7 @@
 
         if (!data.enabled) {
           alertBox.classList.remove("hidden");
-          alertBox.innerHTML = `<div class="font-semibold">Nostr disabled</div><div class="text-slate-300 text-sm mt-1">${data.reason || "NPUB not set"}</div>`;
+          alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Nostr Disabled</div><div class="text-red-600 text-sm mt-1">${data.reason || "NPUB not set"}</div></div>`;
           operatorCard.classList.add("hidden");
           friendsCard.classList.add("hidden");
           return;
@@ -103,26 +258,26 @@
         lastRunEl.textContent = data.lastRun?.at || "-";
 
         if (data.pinFriends) {
-          friendsStatus.textContent = "Pinning enabled";
-          friendsStatus.className = "px-2.5 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-100";
+          friendsStatus.textContent = "Caching Enabled";
+          friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-black text-white font-medium";
           const friends = data.friends || [];
           friendsList.innerHTML = "";
           friends.forEach((f) => {
             const card = document.createElement("div");
-            card.className = "border border-slate-800 bg-slate-900/60 rounded-xl px-3 py-2 text-sm";
-            card.innerHTML = `<a class="text-sky-300 hover:text-sky-200 break-all" href="https://nosta.me/${encodeURIComponent(f)}" target="_blank">${f}</a>`;
+            card.className = "border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm hover:border-black hover:shadow-md transition-all";
+            card.innerHTML = `<a class="text-black hover:underline font-medium break-all" href="https://nosta.me/${encodeURIComponent(f)}" target="_blank">${f}</a>`;
             friendsList.appendChild(card);
           });
           noFriends.classList.toggle("hidden", friends.length !== 0);
         } else {
-          friendsStatus.textContent = "Pinning disabled";
-          friendsStatus.className = "px-2.5 py-1 text-xs rounded-full bg-slate-800 text-slate-300";
+          friendsStatus.textContent = "Caching Disabled";
+          friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-gray-200 text-gray-600 font-medium";
           friendsList.innerHTML = "";
           noFriends.classList.remove("hidden");
         }
       } catch (err) {
         alertBox.classList.remove("hidden");
-        alertBox.innerHTML = `<div class="font-semibold">Error</div><div class="text-slate-300 text-sm mt-1">${err.message}</div>`;
+        alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Error</div><div class="text-red-600 text-sm mt-1">${err.message}</div></div>`;
       }
     }
 
