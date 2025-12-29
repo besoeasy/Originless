@@ -10,6 +10,14 @@ Private, decentralized file sharing for Nostr and the web.
 - Self-healing: content repopulates across IPFS when your node comes online
 - Friend mesh: optionally cache media from people you follow for redundancy (ephemeral)
 
+## Supported Platforms
+
+FileDrop is integrated into the following platforms:
+
+| Platform | Description | Link |
+|----------|-------------|------|
+| **0xchat** | Private, decentralized Nostr chat | [0xchat.com](https://0xchat.com/) |
+
 ## Quick Start
 
 [![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/file-drop)
