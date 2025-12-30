@@ -59,7 +59,7 @@ if (process.env.NPUB) {
   }
 }
 
-const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; 
+const NOSTR_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 let lastNostrRun = {
   at: null,
@@ -271,23 +271,23 @@ app.get("/nostr", async (req, res) => {
         error: lastNostrRun.error,
         self: lastNostrRun.self
           ? {
-              eventsScanned: lastNostrRun.self.eventsScanned,
-              deletesSeen: lastNostrRun.self.deletesSeen,
-              cidsFound: lastNostrRun.self.cidsFound,
-              pinned: lastNostrRun.self.pinned ?? 0,
-              failed: lastNostrRun.self.failed ?? 0,
-              results: lastNostrRun.self.results || [],
-            }
+            eventsScanned: lastNostrRun.self.eventsScanned,
+            deletesSeen: lastNostrRun.self.deletesSeen,
+            cidsFound: lastNostrRun.self.cidsFound,
+            pinned: lastNostrRun.self.pinned ?? 0,
+            failed: lastNostrRun.self.failed ?? 0,
+            results: lastNostrRun.self.results || [],
+          }
           : null,
         friends: lastNostrRun.friends
           ? {
-              eventsScanned: lastNostrRun.friends.eventsScanned,
-              deletesSeen: lastNostrRun.friends.deletesSeen,
-              cidsFound: lastNostrRun.friends.cidsFound,
-              added: lastNostrRun.friends.added ?? 0,
-              failed: lastNostrRun.friends.failed ?? 0,
-              results: lastNostrRun.friends.results || [],
-            }
+            eventsScanned: lastNostrRun.friends.eventsScanned,
+            deletesSeen: lastNostrRun.friends.deletesSeen,
+            cidsFound: lastNostrRun.friends.cidsFound,
+            added: lastNostrRun.friends.added ?? 0,
+            failed: lastNostrRun.friends.failed ?? 0,
+            results: lastNostrRun.friends.results || [],
+          }
           : null,
       };
     }
@@ -414,13 +414,21 @@ const handleUpload = async (req, res) => {
 // POST Upload endpoint
 app.post("/upload", upload.single("file"), handleUpload);
 
-// Periodic Nostr pinning job (checks every 15 minutes, 40% chance to run) if NPUB is configured
+let timerprobilitymethod = 0.9;
+
 const runNostrJob = async () => {
   if (!NPUB) {
     return;
   }
 
-  if (Math.random() < 0.3) {
+  if (Math.random() < timerprobilitymethod) {
+
+    timerprobilitymethod = timerprobilitymethod - 0.025;
+
+    if (timerprobilitymethod < 0.2) {
+      timerprobilitymethod = 0.2;
+    }
+
     console.log("Nostr job check: Executing (random trigger)");
   } else {
     console.log("Nostr job check: Skipping (random delay)");
@@ -485,8 +493,6 @@ const runNostrJob = async () => {
 let nostrTimers = { initial: null, interval: null };
 
 if (NPUB) {
-  // Kick off shortly after start, then repeat on interval
-  nostrTimers.initial = setTimeout(runNostrJob, 5_000);
   nostrTimers.interval = setInterval(runNostrJob, NOSTR_CHECK_INTERVAL_MS);
 } else {
   console.log("Nostr pinning disabled: NPUB not set");
