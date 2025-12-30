@@ -45,7 +45,20 @@ const STORAGE_MAX = process.env.STORAGE_MAX || "200GB";
 const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
-const NPUB = process.env.NPUB;
+
+// Validate NPUB - treat invalid NPUBs as unset
+let NPUB = null;
+if (process.env.NPUB) {
+  try {
+    // Validate by attempting to decode
+    decodePubkey(process.env.NPUB);
+    NPUB = process.env.NPUB;
+    console.log(`Valid NPUB configured: ${NPUB}`);
+  } catch (err) {
+    console.error(`Invalid NPUB provided: "${process.env.NPUB}". Nostr pinning disabled. Error: ${err.message}`);
+  }
+}
+
 const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; 
 
 let lastNostrRun = {
