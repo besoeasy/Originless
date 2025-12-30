@@ -47,8 +47,7 @@ const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 const NPUB = process.env.NPUB;
 const PIN_FRIENDS = (process.env.PINFRIENDS || "").toLowerCase() === "true";
-const NOSTR_CHECK_INTERVAL_MS = 22 * 60 * 1000; // Check every 22 minutes
-const NOSTR_RUN_PROBABILITY = 0.4; // 40% chance to run when checked
+const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // Check every 7 minutes
 
 let lastNostrRun = {
   at: null,
@@ -409,8 +408,7 @@ const runNostrJob = async () => {
     return;
   }
 
-  // Random execution: 40% chance to run
-  if (Math.random() < NOSTR_RUN_PROBABILITY) {
+  if (Math.random() < 0.3) {
     console.log('Nostr job check: Executing (random trigger)');
   } else {
     console.log('Nostr job check: Skipping (random delay)');
