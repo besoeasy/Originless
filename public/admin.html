@@ -267,24 +267,18 @@
         relaysEl.textContent = (data.relays || []).join(" · ") || "-";
         lastRunEl.textContent = data.lastRun?.at || "-";
 
-        if (data.pinFriends) {
-          friendsStatus.textContent = "Caching Enabled";
-          friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-black text-white font-medium";
-          const friends = data.friends || [];
-          friendsList.innerHTML = "";
-          friends.forEach((f) => {
-            const card = document.createElement("div");
-            card.className = "border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm hover:border-black hover:shadow-md transition-all";
-            card.innerHTML = `<a class="text-black hover:underline font-medium break-all" href="https://nosta.me/${encodeURIComponent(f)}" target="_blank">${f}</a>`;
-            friendsList.appendChild(card);
-          });
-          noFriends.classList.toggle("hidden", friends.length !== 0);
-        } else {
-          friendsStatus.textContent = "Caching Disabled";
-          friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-gray-200 text-gray-600 font-medium";
-          friendsList.innerHTML = "";
-          noFriends.classList.remove("hidden");
-        }
+        // Friends caching is always enabled
+        friendsStatus.textContent = "Caching Enabled";
+        friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-black text-white font-medium";
+        const friends = data.friends || [];
+        friendsList.innerHTML = "";
+        friends.forEach((f) => {
+          const card = document.createElement("div");
+          card.className = "border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm hover:border-black hover:shadow-md transition-all";
+          card.innerHTML = `<a class="text-black hover:underline font-medium break-all" href="https://nosta.me/${encodeURIComponent(f)}" target="_blank">${f}</a>`;
+          friendsList.appendChild(card);
+        });
+        noFriends.classList.toggle("hidden", friends.length !== 0);
 
         // Update pin stats from the same response
         document.getElementById("pinsTotal").textContent = data.pins?.total ?? 0;

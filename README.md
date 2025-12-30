@@ -35,7 +35,6 @@ docker run -d --restart unless-stopped \
   -e STORAGE_MAX=200GB \
   -e FILE_LIMIT=5GB \
   -e NPUB=npub1yourkey... \
-  -e PINFRIENDS=false \
   --stop-timeout 15 \
   --name file-drop \
   ghcr.io/besoeasy/file-drop:main
@@ -60,7 +59,6 @@ services:
       - STORAGE_MAX=200GB
       - FILE_LIMIT=5GB
       - NPUB=npub1yourkey...
-      - PINFRIENDS=false
 
 volumes:
   file-drop-data:
@@ -73,7 +71,6 @@ Open http://localhost:3232 after starting.
 - `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
 - `FILE_LIMIT` (default: 5GB) – Max size per upload
 - `NPUB` – Your Nostr pubkey (npub or hex) to enable Nostr mode
-- `PINFRIENDS` (default: false) – Cache media from accounts you follow (ephemeral, allows garbage collection)
 
 Persist your IPFS repo by mounting `/data` (recommended).
 
@@ -88,7 +85,7 @@ Persist your IPFS repo by mounting `/data` (recommended).
 
 - Fetches all your posts (pagination) and filters out expired notes
 - Extracts IPFS CIDs and pins them locally (permanent)
-- Optionally caches media from people you follow for redundancy (ephemeral, garbage collected)
+- Caches media from people you follow for redundancy (ephemeral, garbage collected)
 - Runs automatically every 3 hours; view status in the admin
 
 ## Admin & API

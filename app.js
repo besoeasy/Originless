@@ -46,8 +46,7 @@ const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 const NPUB = process.env.NPUB;
-const PIN_FRIENDS = (process.env.PINFRIENDS || "").toLowerCase() === "true";
-const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // Check every 7 minutes
+const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; 
 
 let lastNostrRun = {
   at: null,
@@ -233,17 +232,15 @@ app.get("/nostr", async (req, res) => {
 
     // Get friends list (avoid duplication - only fetch if not in lastRun)
     let friendsList = [];
-    if (PIN_FRIENDS) {
-      if (lastNostrRun?.friends?.following) {
-        friendsList = lastNostrRun.friends.following;
-      } else {
-        try {
-          const hex = decodePubkey(NPUB);
-          const follows = await fetchFollowingPubkeys({ pubkey: hex });
-          friendsList = follows.map((f) => toNpub(f));
-        } catch (err) {
-          console.error("Failed to fetch following list for API", err.message);
-        }
+    if (lastNostrRun?.friends?.following) {
+      friendsList = lastNostrRun.friends.following;
+    } else {
+      try {
+        const hex = decodePubkey(NPUB);
+        const follows = await fetchFollowingPubkeys({ pubkey: hex });
+        friendsList = follows.map((f) => toNpub(f));
+      } catch (err) {
+        console.error("Failed to fetch following list for API", err.message);
       }
     }
 
@@ -259,22 +256,26 @@ app.get("/nostr", async (req, res) => {
       lastRun = {
         at: lastNostrRun.at,
         error: lastNostrRun.error,
-        self: lastNostrRun.self ? {
-          eventsScanned: lastNostrRun.self.eventsScanned,
-          deletesSeen: lastNostrRun.self.deletesSeen,
-          cidsFound: lastNostrRun.self.cidsFound,
-          pinned: lastNostrRun.self.pinned ?? 0,
-          failed: lastNostrRun.self.failed ?? 0,
-          results: lastNostrRun.self.results || [],
-        } : null,
-        friends: lastNostrRun.friends ? {
-          eventsScanned: lastNostrRun.friends.eventsScanned,
-          deletesSeen: lastNostrRun.friends.deletesSeen,
-          cidsFound: lastNostrRun.friends.cidsFound,
-          added: lastNostrRun.friends.added ?? 0,
-          failed: lastNostrRun.friends.failed ?? 0,
-          results: lastNostrRun.friends.results || [],
-        } : null,
+        self: lastNostrRun.self
+          ? {
+              eventsScanned: lastNostrRun.self.eventsScanned,
+              deletesSeen: lastNostrRun.self.deletesSeen,
+              cidsFound: lastNostrRun.self.cidsFound,
+              pinned: lastNostrRun.self.pinned ?? 0,
+              failed: lastNostrRun.self.failed ?? 0,
+              results: lastNostrRun.self.results || [],
+            }
+          : null,
+        friends: lastNostrRun.friends
+          ? {
+              eventsScanned: lastNostrRun.friends.eventsScanned,
+              deletesSeen: lastNostrRun.friends.deletesSeen,
+              cidsFound: lastNostrRun.friends.cidsFound,
+              added: lastNostrRun.friends.added ?? 0,
+              failed: lastNostrRun.friends.failed ?? 0,
+              results: lastNostrRun.friends.results || [],
+            }
+          : null,
       };
     }
 
@@ -282,7 +283,6 @@ app.get("/nostr", async (req, res) => {
       enabled: true,
       operator: operatorNpub,
       relays: DEFAULT_RELAYS,
-      pinFriends: PIN_FRIENDS,
       friends: friendsList,
       repo,
       pins: {
@@ -297,11 +297,10 @@ app.get("/nostr", async (req, res) => {
     return res.status(503).json({
       enabled: true,
       error: "Failed to retrieve stats",
-      details: err.message
+      details: err.message,
     });
   }
 });
-
 
 // Shared upload handler logic
 const handleUpload = async (req, res) => {
@@ -409,19 +408,16 @@ const runNostrJob = async () => {
   }
 
   if (Math.random() < 0.3) {
-    console.log('Nostr job check: Executing (random trigger)');
+    console.log("Nostr job check: Executing (random trigger)");
   } else {
-    console.log('Nostr job check: Skipping (random delay)');
+    console.log("Nostr job check: Skipping (random delay)");
     return;
   }
 
   try {
     const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: false });
-    let friendsResult = null;
 
-    if (PIN_FRIENDS) {
-      friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: false });
-    }
+    let friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: false });
 
     lastNostrRun = {
       at: new Date().toISOString(),
