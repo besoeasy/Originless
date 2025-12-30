@@ -46,7 +46,7 @@ const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 const NPUB = process.env.NPUB;
 const PIN_FRIENDS = (process.env.PINFRIENDS || "").toLowerCase() === "true";
-const NOSTR_CHECK_INTERVAL_MS = 15 * 60 * 1000; // Check every 15 minutes
+const NOSTR_CHECK_INTERVAL_MS = 22 * 60 * 1000; // Check every 22 minutes
 const NOSTR_RUN_PROBABILITY = 0.4; // 40% chance to run when checked
 
 let lastNostrRun = {
