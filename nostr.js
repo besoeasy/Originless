@@ -227,14 +227,14 @@ const fetchAllFollowingEvents = async ({ authors, relays = DEFAULT_RELAYS, kinds
 
 const pinCid = async (cid, ipfsApi = IPFS_API) => {
   const endpoint = `${ipfsApi}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`;
-  const res = await axios.post(endpoint, null, { timeout: 120000 });
+  const res = await axios.post(endpoint, null, { timeout: 900000 });
   return res.data;
 };
 
 const addCid = async (cid, ipfsApi = IPFS_API) => {
   // Fetch the CID without pinning - will be cached but can be garbage collected
   const endpoint = `${ipfsApi}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
-  const res = await axios.post(endpoint, null, { timeout: 120000, responseType: 'arraybuffer' });
+  const res = await axios.post(endpoint, null, { timeout: 900000, responseType: 'arraybuffer' });
   return { cid, size: res.data.length };
 };
 
