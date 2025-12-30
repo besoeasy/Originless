@@ -12,6 +12,7 @@ if (typeof global.crypto === "undefined") {
 }
 
 const IPFS_API = process.env.IPFS_API || "http://127.0.0.1:5001";
+const RELAY_COUNT = 4;
 
 const DEFAULT_RELAYS = [
   "wss://auth.nostr1.com",
@@ -46,6 +47,12 @@ const DEFAULT_RELAYS = [
   "wss://wheat.happytavern.co",
 ];
 const KIND_WHITELIST = [1, 6, 30023, 30024, 9802];
+
+// Randomly select N relays from DEFAULT_RELAYS
+const getRandomRelays = (count = RELAY_COUNT) => {
+  const shuffled = [...DEFAULT_RELAYS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, Math.min(count, DEFAULT_RELAYS.length));
+};
 
 // CID patterns for common forms (CIDv0 and CIDv1 in base58/base32)
 const CID_V0_PATTERN = /\bQm[1-9A-HJ-NP-Za-km-z]{44}\b/g;
@@ -118,8 +125,9 @@ const extractCidsFromContent = (text = "") => {
 
 const fetchFollowingPubkeys = async ({ pubkey }) => {
   const pool = new SimplePool({ connectionTimeout: 7000 });
+  const relays = getRandomRelays();
   try {
-    const events = await pool.querySync(DEFAULT_RELAYS, { authors: [pubkey], kinds: [3], limit: 1 }, { maxWait: 8000 });
+    const events = await pool.querySync(relays, { authors: [pubkey], kinds: [3], limit: 1 }, { maxWait: 8000 });
     if (!events.length) return [];
     const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
     const follows = new Set();
@@ -134,7 +142,7 @@ const fetchFollowingPubkeys = async ({ pubkey }) => {
   }
 };
 
-const fetchEvents = async ({ pubkey, authors, relays = DEFAULT_RELAYS, kinds = KIND_WHITELIST, since, until, limit = 250 }) => {
+const fetchEvents = async ({ pubkey, authors, relays = getRandomRelays(), kinds = KIND_WHITELIST, since, until, limit = 250 }) => {
   const pool = new SimplePool({ connectionTimeout: 7000 });
   const filter = { authors: authors || [pubkey], kinds, since, until, limit };
 
@@ -167,7 +175,7 @@ const getDeletedIds = (deleteEvents = []) => {
   return deleted;
 };
 
-const fetchAllUserEvents = async ({ pubkey, relays = DEFAULT_RELAYS, kinds = KIND_WHITELIST, pageSize = 250 } = {}) => {
+const fetchAllUserEvents = async ({ pubkey, relays = getRandomRelays(), kinds = KIND_WHITELIST, pageSize = 250 } = {}) => {
   const allEvents = new Map();
   let until = Math.floor(Date.now() / 1000);
   let hasMore = true;
@@ -196,7 +204,7 @@ const fetchAllUserEvents = async ({ pubkey, relays = DEFAULT_RELAYS, kinds = KIN
   return Array.from(allEvents.values()).sort((a, b) => b.created_at - a.created_at);
 };
 
-const fetchAllFollowingEvents = async ({ authors, relays = DEFAULT_RELAYS, kinds = KIND_WHITELIST, pageSize = 250 } = {}) => {
+const fetchAllFollowingEvents = async ({ authors, relays = getRandomRelays(), kinds = KIND_WHITELIST, pageSize = 250 } = {}) => {
   const allEvents = new Map();
   let until = Math.floor(Date.now() / 1000);
   let hasMore = true;
@@ -252,8 +260,9 @@ const syncNostrPins = async ({
   }
 
   const pubkey = decodePubkey(npubOrPubkey);
-  const events = limit ? await fetchEvents({ pubkey, relays: DEFAULT_RELAYS, kinds, since, limit }) : await fetchAllUserEvents({ pubkey, relays: DEFAULT_RELAYS, kinds });
-  const deleteEvents = await fetchAllUserEvents({ pubkey, relays: DEFAULT_RELAYS, kinds: [5] });
+  const relays = getRandomRelays();
+  const events = limit ? await fetchEvents({ pubkey, relays, kinds, since, limit }) : await fetchAllUserEvents({ pubkey, relays, kinds });
+  const deleteEvents = await fetchAllUserEvents({ pubkey, relays, kinds: [5] });
   const deletedIds = getDeletedIds(deleteEvents);
 
   const cidSet = new Set();
@@ -269,7 +278,7 @@ const syncNostrPins = async ({
   if (dryRun) {
     return {
       dryRun: true,
-      relaysUsed: DEFAULT_RELAYS,
+      relaysUsed: relays,
       eventsScanned: events.length,
       deletesSeen: deletedIds.size,
       cidsFound: cids.length,
@@ -289,7 +298,7 @@ const syncNostrPins = async ({
 
   return {
     dryRun: false,
-    relaysUsed: DEFAULT_RELAYS,
+    relaysUsed: relays,
     eventsScanned: events.length,
     deletesSeen: deletedIds.size,
     cidsFound: cids.length,
@@ -321,11 +330,12 @@ const syncFollowPins = async ({
   }
 
   const pubkey = decodePubkey(npubOrPubkey);
+  const relays = getRandomRelays();
   const following = await fetchFollowingPubkeys({ pubkey });
   if (!following.length) {
     return {
       dryRun,
-      relaysUsed: DEFAULT_RELAYS,
+      relaysUsed: relays,
       following: [],
       eventsScanned: 0,
       deletesSeen: 0,
@@ -334,8 +344,8 @@ const syncFollowPins = async ({
     };
   }
 
-  const events = limit ? await fetchEvents({ authors: following, relays: DEFAULT_RELAYS, kinds, since, limit }) : await fetchAllFollowingEvents({ authors: following, relays: DEFAULT_RELAYS, kinds });
-  const deleteEvents = await fetchAllFollowingEvents({ authors: following, relays: DEFAULT_RELAYS, kinds: [5] });
+  const events = limit ? await fetchEvents({ authors: following, relays, kinds, since, limit }) : await fetchAllFollowingEvents({ authors: following, relays, kinds });
+  const deleteEvents = await fetchAllFollowingEvents({ authors: following, relays, kinds: [5] });
   const deletedIds = getDeletedIds(deleteEvents);
 
   const cidSet = new Set();
@@ -351,7 +361,7 @@ const syncFollowPins = async ({
   if (dryRun) {
     return {
       dryRun: true,
-      relaysUsed: DEFAULT_RELAYS,
+      relaysUsed: relays,
       following: following.map(toNpub),
       eventsScanned: events.length,
       deletesSeen: deletedIds.size,
@@ -373,7 +383,7 @@ const syncFollowPins = async ({
 
   return {
     dryRun: false,
-    relaysUsed: DEFAULT_RELAYS,
+    relaysUsed: relays,
     following: following.map(toNpub),
     eventsScanned: events.length,
     deletesSeen: deletedIds.size,
@@ -391,6 +401,7 @@ module.exports = {
   fetchAllUserEvents,
   fetchAllFollowingEvents,
   fetchFollowingPubkeys,
+  getRandomRelays,
   pinCid,
   addCid,
   syncNostrPins,
@@ -399,6 +410,7 @@ module.exports = {
   constants: {
     IPFS_API,
     DEFAULT_RELAYS,
+    RELAY_COUNT,
     KIND_WHITELIST,
   },
 };
