@@ -2,8 +2,9 @@
 
 Private, decentralized file sharing for Nostr and the web.
 
-<img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
+One all-in-one storage backend you can drop into anything: your own apps, screenshot tools, pastebin-style pastes, Nostr clients, Reddit posts, forum embeds—anything that needs durable, anonymous file hosting. One File Drop to rule them all and keep you anonymous.
 
+<img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
 
 ## Why File Drop
 
@@ -17,8 +18,8 @@ Private, decentralized file sharing for Nostr and the web.
 
 FileDrop is integrated into the following platforms:
 
-| Platform | Description | Link |
-|----------|-------------|------|
+| Platform   | Description                       | Link                              |
+| ---------- | --------------------------------- | --------------------------------- |
 | **0xchat** | Private, decentralized Nostr chat | [0xchat.com](https://0xchat.com/) |
 
 ## Quick Start
@@ -41,6 +42,7 @@ docker run -d --restart unless-stopped \
 ```
 
 **Docker Compose:**
+
 ```yaml
 services:
   file-drop:
