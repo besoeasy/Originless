@@ -15,6 +15,9 @@ const {
   fetchFollowingPubkeys,
   decodePubkey,
   toNpub,
+  isPinned,
+  pinCid,
+  addCid,
   constants: { DEFAULT_RELAYS },
 } = require("./nostr");
 
@@ -59,7 +62,8 @@ if (process.env.NPUB) {
   }
 }
 
-const NOSTR_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const NOSTR_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const PINNER_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
 
 let lastNostrRun = {
   at: null,
@@ -67,6 +71,10 @@ let lastNostrRun = {
   friends: null,
   error: null,
 };
+
+// CID queues for pinning
+let selfCidQueue = [];
+let friendsCidQueue = [];
 
 // Ensure temp directory exists
 if (!fs.existsSync(UPLOAD_TEMP_DIR)) {
@@ -422,95 +430,63 @@ const runNostrJob = async () => {
   }
 
   if (Math.random() < timerprobilitymethod) {
-
     timerprobilitymethod = timerprobilitymethod - 0.025;
-
     if (timerprobilitymethod < 0.2) {
       timerprobilitymethod = 0.2;
     }
-
-    console.log("Nostr job check: Executing (random trigger)");
+    console.log("Nostr discovery job: Executing (random trigger)");
   } else {
-    console.log("Nostr job check: Skipping (random delay)");
+    console.log("Nostr discovery job: Skipping (random delay)");
     return;
   }
 
   try {
-    const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: false });
+    // Fetch CIDs without pinning (dryRun = true)
+    const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: true });
+    const friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: true });
 
-    let friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: false });
+    // Add discovered CIDs to queues (avoid duplicates)
+    const selfCids = selfResult.plannedPins || [];
+    const friendCids = friendsResult.plannedAdds || [];
+
+    const selfSet = new Set(selfCidQueue);
+    const friendSet = new Set(friendsCidQueue);
+
+    const newSelfCids = selfCids.filter(cid => !selfSet.has(cid));
+    const newFriendCids = friendCids.filter(cid => !friendSet.has(cid));
+
+    selfCidQueue.push(...newSelfCids);
+    friendsCidQueue.push(...newFriendCids);
 
     lastNostrRun = {
       at: new Date().toISOString(),
-      self: selfResult,
-      friends: friendsResult,
+      self: {
+        eventsScanned: selfResult.eventsScanned,
+        cidsFound: selfResult.cidsFound,
+        newCids: newSelfCids.length,
+        queueSize: selfCidQueue.length,
+      },
+      friends: {
+        eventsScanned: friendsResult.eventsScanned,
+        cidsFound: friendsResult.cidsFound,
+        newCids: newFriendCids.length,
+        queueSize: friendsCidQueue.length,
+      },
       error: null,
     };
 
-    // Log detailed CID-level results for self pins
-    console.log("\n=== Self Pins ===");
-    const selfAlreadyPinned = selfResult?.results?.filter((r) => r.ok && r.data?.alreadyPinned) || [];
-    const selfNewlyPinned = selfResult?.results?.filter((r) => r.ok && r.data?.newlyPinned) || [];
-    const selfFailures = selfResult?.results?.filter((r) => !r.ok) || [];
-
-    if (selfAlreadyPinned.length > 0) {
-      console.log(`✓ Already pinned (${selfAlreadyPinned.length}):`);
-      selfAlreadyPinned.forEach((r) => console.log(`  - ${r.cid}`));
-    }
-
-    if (selfNewlyPinned.length > 0) {
-      console.log(`✓ Newly pinned (${selfNewlyPinned.length}):`);
-      selfNewlyPinned.forEach((r) => console.log(`  - ${r.cid}`));
-    }
-
-    if (selfFailures.length > 0) {
-      console.error(`✗ Failed to pin (${selfFailures.length}):`);
-      selfFailures.forEach((f) => console.error(`  - ${f.cid}: ${f.error}`));
-    }
-
-    // Log detailed CID-level results for friend adds
-    if (friendsResult) {
-      console.log("\n=== Friend Adds ===");
-      const friendAlreadyPinned = friendsResult?.results?.filter((r) => r.ok && r.data?.alreadyPinned) || [];
-      const friendNewlyAdded = friendsResult?.results?.filter((r) => r.ok && r.data?.newlyAdded) || [];
-      const friendFailures = friendsResult?.results?.filter((r) => !r.ok) || [];
-
-      if (friendAlreadyPinned.length > 0) {
-        console.log(`✓ Already cached/pinned (${friendAlreadyPinned.length}):`);
-        friendAlreadyPinned.forEach((r) => console.log(`  - ${r.cid}`));
-      }
-
-      if (friendNewlyAdded.length > 0) {
-        console.log(`✓ Newly added (${friendNewlyAdded.length}):`);
-        friendNewlyAdded.forEach((r) => console.log(`  - ${r.cid}`));
-      }
-
-      if (friendFailures.length > 0) {
-        console.error(`✗ Failed to add (${friendFailures.length}):`);
-        friendFailures.forEach((f) => console.error(`  - ${f.cid}: ${f.error}`));
-      }
-    }
-
-    // Summary log
-    console.log("\n=== Job Summary ===");
-    console.log("Nostr pin job completed", {
-      at: lastNostrRun.at,
+    console.log("\n=== Discovery Summary ===");
+    console.log({
       self: {
-        notesScanned: selfResult?.eventsScanned ?? 0,
-        cidsFound: selfResult?.cidsFound ?? 0,
-        alreadyPinned: selfAlreadyPinned.length,
-        newlyPinned: selfNewlyPinned.length,
-        failed: selfFailures.length,
+        discovered: selfCids.length,
+        new: newSelfCids.length,
+        queueSize: selfCidQueue.length,
       },
-      ...(friendsResult && {
-        friends: {
-          notesScanned: friendsResult?.eventsScanned ?? 0,
-          cidsFound: friendsResult?.cidsFound ?? 0,
-          alreadyCached: friendAlreadyPinned.length,
-          newlyAdded: friendNewlyAdded.length,
-          failed: friendFailures.length,
-        },
-      }),
+      friends: {
+        discovered: friendCids.length,
+        new: newFriendCids.length,
+        queueSize: friendsCidQueue.length,
+      },
     });
   } catch (err) {
     lastNostrRun = {
@@ -519,15 +495,53 @@ const runNostrJob = async () => {
       friends: null,
       error: err.message,
     };
-
-    console.error("Nostr pin job failed", err.message);
+    console.error("Nostr discovery job failed", err.message);
   }
 };
 
-let nostrTimers = { initial: null, interval: null };
+const pinnerJob = async () => {
+  try {
+    // Process self queue: pin CID
+    if (selfCidQueue.length > 0) {
+      const randomIndex = Math.floor(Math.random() * selfCidQueue.length);
+      const cid = selfCidQueue[randomIndex];
+
+      console.log(`\n[Self] Processing CID (${selfCidQueue.length} in queue): ${cid}`);
+
+      const alreadyPinned = await isPinned(cid);
+      if (alreadyPinned) {
+        console.log(`✓ Already pinned: ${cid}`);
+        selfCidQueue.splice(randomIndex, 1);
+        return;
+      }
+
+      await pinCid(cid);
+      console.log(`✓ Successfully pinned: ${cid}`);
+      selfCidQueue.splice(randomIndex, 1);
+    }
+
+    // Process friends queue: cache CID
+    if (friendsCidQueue.length > 0) {
+      const randomIndex = Math.floor(Math.random() * friendsCidQueue.length);
+      const cid = friendsCidQueue[randomIndex];
+
+      console.log(`\n[Friend] Caching CID (${friendsCidQueue.length} in queue): ${cid}`);
+
+      await addCid(cid);
+      console.log(`✓ Successfully cached: ${cid}`);
+      friendsCidQueue.splice(randomIndex, 1);
+    }
+  } catch (err) {
+    console.error("Pinner job error:", err.message);
+  }
+};
+
+let nostrTimers = { discovery: null, pinner: null };
 
 if (NPUB) {
-  nostrTimers.interval = setInterval(runNostrJob, NOSTR_CHECK_INTERVAL_MS);
+  nostrTimers.discovery = setInterval(runNostrJob, NOSTR_CHECK_INTERVAL_MS);
+  nostrTimers.pinner = setInterval(pinnerJob, PINNER_INTERVAL_MS);
+  console.log("Nostr queue-based pinning enabled");
 } else {
   console.log("Nostr pinning disabled: NPUB not set");
 }
@@ -551,8 +565,8 @@ const gracefulShutdown = (signal) => {
   });
 
   // Clear Nostr timers
-  if (nostrTimers.initial) clearTimeout(nostrTimers.initial);
-  if (nostrTimers.interval) clearInterval(nostrTimers.interval);
+  if (nostrTimers.discovery) clearInterval(nostrTimers.discovery);
+  if (nostrTimers.pinner) clearInterval(nostrTimers.pinner);
   console.log("Nostr timers cleared");
 
   // Give active requests 5 seconds to complete
