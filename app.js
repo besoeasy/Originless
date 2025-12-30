@@ -447,37 +447,71 @@ const runNostrJob = async () => {
       error: null,
     };
 
+    // Log detailed CID-level results for self pins
+    console.log("\n=== Self Pins ===");
+    const selfAlreadyPinned = selfResult?.results?.filter((r) => r.ok && r.data?.alreadyPinned) || [];
+    const selfNewlyPinned = selfResult?.results?.filter((r) => r.ok && r.data?.newlyPinned) || [];
+    const selfFailures = selfResult?.results?.filter((r) => !r.ok) || [];
+
+    if (selfAlreadyPinned.length > 0) {
+      console.log(`✓ Already pinned (${selfAlreadyPinned.length}):`);
+      selfAlreadyPinned.forEach((r) => console.log(`  - ${r.cid}`));
+    }
+
+    if (selfNewlyPinned.length > 0) {
+      console.log(`✓ Newly pinned (${selfNewlyPinned.length}):`);
+      selfNewlyPinned.forEach((r) => console.log(`  - ${r.cid}`));
+    }
+
+    if (selfFailures.length > 0) {
+      console.error(`✗ Failed to pin (${selfFailures.length}):`);
+      selfFailures.forEach((f) => console.error(`  - ${f.cid}: ${f.error}`));
+    }
+
+    // Log detailed CID-level results for friend adds
+    if (friendsResult) {
+      console.log("\n=== Friend Adds ===");
+      const friendAlreadyPinned = friendsResult?.results?.filter((r) => r.ok && r.data?.alreadyPinned) || [];
+      const friendNewlyAdded = friendsResult?.results?.filter((r) => r.ok && r.data?.newlyAdded) || [];
+      const friendFailures = friendsResult?.results?.filter((r) => !r.ok) || [];
+
+      if (friendAlreadyPinned.length > 0) {
+        console.log(`✓ Already cached/pinned (${friendAlreadyPinned.length}):`);
+        friendAlreadyPinned.forEach((r) => console.log(`  - ${r.cid}`));
+      }
+
+      if (friendNewlyAdded.length > 0) {
+        console.log(`✓ Newly added (${friendNewlyAdded.length}):`);
+        friendNewlyAdded.forEach((r) => console.log(`  - ${r.cid}`));
+      }
+
+      if (friendFailures.length > 0) {
+        console.error(`✗ Failed to add (${friendFailures.length}):`);
+        friendFailures.forEach((f) => console.error(`  - ${f.cid}: ${f.error}`));
+      }
+    }
+
+    // Summary log
+    console.log("\n=== Job Summary ===");
     console.log("Nostr pin job completed", {
       at: lastNostrRun.at,
       self: {
         notesScanned: selfResult?.eventsScanned ?? 0,
         cidsFound: selfResult?.cidsFound ?? 0,
-        pinned: selfResult?.pinned ?? selfResult?.plannedPins?.length ?? 0,
-        failed: selfResult?.failed ?? 0,
+        alreadyPinned: selfAlreadyPinned.length,
+        newlyPinned: selfNewlyPinned.length,
+        failed: selfFailures.length,
       },
       ...(friendsResult && {
         friends: {
           notesScanned: friendsResult?.eventsScanned ?? 0,
           cidsFound: friendsResult?.cidsFound ?? 0,
-          added: friendsResult?.added ?? friendsResult?.plannedAdds?.length ?? 0,
-          failed: friendsResult?.failed ?? 0,
+          alreadyCached: friendAlreadyPinned.length,
+          newlyAdded: friendNewlyAdded.length,
+          failed: friendFailures.length,
         },
       }),
     });
-
-    // Log failures with details
-    const selfFailures = selfResult?.results?.filter((r) => !r.ok) || [];
-    const friendFailures = friendsResult?.results?.filter((r) => !r.ok) || [];
-
-    if (selfFailures.length > 0) {
-      console.error("Self pin failures:");
-      selfFailures.forEach((f) => console.error(`  CID: ${f.cid} - ${f.error}`));
-    }
-
-    if (friendFailures.length > 0) {
-      console.error("Friend add failures:");
-      friendFailures.forEach((f) => console.error(`  CID: ${f.cid} - ${f.error}`));
-    }
   } catch (err) {
     lastNostrRun = {
       at: new Date().toISOString(),

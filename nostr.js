@@ -233,17 +233,40 @@ const fetchAllFollowingEvents = async ({ authors, relays = getRandomRelays(), ki
   return Array.from(allEvents.values()).sort((a, b) => b.created_at - a.created_at);
 };
 
+// Check if a CID is already pinned
+const isPinned = async (cid, ipfsApi = IPFS_API) => {
+  try {
+    const endpoint = `${ipfsApi}/api/v0/pin/ls?arg=${encodeURIComponent(cid)}&type=recursive`;
+    const res = await axios.post(endpoint, null, { timeout: 5000 });
+    return res.data?.Keys && Object.keys(res.data.Keys).length > 0;
+  } catch (err) {
+    // If error occurs, assume it's not pinned
+    return false;
+  }
+};
+
 const pinCid = async (cid, ipfsApi = IPFS_API) => {
+  // Check if already pinned
+  const alreadyPinned = await isPinned(cid, ipfsApi);
+
+  if (alreadyPinned) {
+    return { alreadyPinned: true, Pins: [cid] };
+  }
+
+  // Pin the CID
   const endpoint = `${ipfsApi}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`;
   const res = await axios.post(endpoint, null, { timeout: 900000 });
-  return res.data;
+  return { ...res.data, alreadyPinned: false, newlyPinned: true };
 };
 
 const addCid = async (cid, ipfsApi = IPFS_API) => {
+  // Check if already in local repo (pinned or cached)
+  const alreadyPinned = await isPinned(cid, ipfsApi);
+
   // Fetch the CID without pinning - will be cached but can be garbage collected
   const endpoint = `${ipfsApi}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
   const res = await axios.post(endpoint, null, { timeout: 900000, responseType: 'arraybuffer' });
-  return { cid, size: res.data.length };
+  return { cid, size: res.data.length, alreadyPinned, newlyAdded: !alreadyPinned };
 };
 
 const syncNostrPins = async ({
