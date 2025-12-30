@@ -2,6 +2,9 @@
 
 Private, decentralized file sharing for Nostr and the web.
 
+<img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
+
+
 ## Why File Drop
 
 - Anonymous uploads: no accounts, no tracking, no logs
