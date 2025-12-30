@@ -12,12 +12,38 @@ if (typeof global.crypto === "undefined") {
 }
 
 const IPFS_API = process.env.IPFS_API || "http://127.0.0.1:5001";
+
 const DEFAULT_RELAYS = [
-  "wss://relay.damus.io",
+  "wss://auth.nostr1.com",
+  "wss://bostr.bitcointxoko.com",
+  "wss://eden.nostr.land",
+  "wss://groups.0xchat.com",
+  "wss://inbox.nostr.wine",
+  "wss://no.str.cr",
   "wss://nos.lol",
-  "wss://relay.current.fyi",
+  "wss://nostr-01.yakihonne.com",
   "wss://nostr.band",
+  "wss://nostr.data.haus",
+  "wss://nostr.mom",
+  "wss://nostr.oxtr.dev",
+  "wss://nostr.swiss-enigma.ch",
+  "wss://nostrue.com",
+  "wss://offchain.pub",
+  "wss://orangepiller.org",
+  "wss://purplepag.es",
+  "wss://pyramid.fiatjaf.com",
+  "wss://relay.0xchat.com",
+  "wss://relay.coinos.io",
+  "wss://relay.current.fyi",
+  "wss://relay.damus.io",
+  "wss://relay.fountain.fm",
+  "wss://relay.lumina.rocks",
   "wss://relay.nostr.band",
+  "wss://relay.nostr.bg",
+  "wss://relay.nostr.wirednet.jp",
+  "wss://relay.primal.net",
+  "wss://relay.siamstr.com",
+  "wss://wheat.happytavern.co",
 ];
 const KIND_WHITELIST = [1, 6, 30023, 30024, 9802];
 
