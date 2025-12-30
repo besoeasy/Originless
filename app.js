@@ -15,6 +15,7 @@ const {
   fetchFollowingPubkeys,
   decodePubkey,
   toNpub,
+  constants: { DEFAULT_RELAYS },
 } = require("./nostr");
 
 // Parse human-readable size format (e.g., "5GB", "50MB") to bytes
@@ -156,7 +157,6 @@ app.get("/status", async (req, res) => {
     const nodeInfo = {
       id: idResponse.data.ID,
       publicKey: idResponse.data.PublicKey,
-      addresses: idResponse.data.Addresses,
       agentVersion: idResponse.data.AgentVersion,
       protocolVersion: idResponse.data.ProtocolVersion,
     };
@@ -167,7 +167,6 @@ app.get("/status", async (req, res) => {
 
     const connectedPeers = {
       count: peersResponse.data.Peers.length,
-      list: peersResponse.data.Peers,
     };
 
     // Get app version from package.json
@@ -215,36 +214,7 @@ app.get("/status", async (req, res) => {
   }
 });
 
-// Pin stats (repo stats + last nostr pin counts)
-app.get("/pin-stats", async (req, res) => {
-  try {
-    const repoResponse = await axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 });
-    const repo = {
-      size: repoResponse.data.RepoSize,
-      storageMax: repoResponse.data.StorageMax,
-      numObjects: repoResponse.data.NumObjects,
-    };
-
-    const pinnedSelf = lastNostrRun?.self?.pinned ?? lastNostrRun?.self?.plannedPins?.length ?? 0;
-    const addedFriends = lastNostrRun?.friends?.added ?? lastNostrRun?.friends?.plannedAdds?.length ?? 0;
-
-    return res.status(200).json({
-      status: "success",
-      repo,
-      pins: {
-        self: pinnedSelf,
-        friends: addedFriends,
-        total: pinnedSelf + addedFriends,
-      },
-      lastRun: lastNostrRun?.at || null,
-    });
-  } catch (err) {
-    console.error("Pin stats error:", err.message);
-    return res.status(503).json({ status: "failed", error: err.message });
-  }
-});
-
-// Nostr info (JSON) for UI consumption
+// Combined Nostr stats endpoint (includes repo stats and pin counts)
 app.get("/nostr", async (req, res) => {
   if (!NPUB) {
     return res.status(200).json({
@@ -253,32 +223,86 @@ app.get("/nostr", async (req, res) => {
     });
   }
 
-  let friendsList = [];
-  if (PIN_FRIENDS) {
-    if (lastNostrRun?.friends?.following) {
-      friendsList = lastNostrRun.friends.following;
-    } else {
-      try {
-        const hex = decodePubkey(NPUB);
-        const follows = await fetchFollowingPubkeys({ pubkey: hex });
-        friendsList = follows.map((f) => toNpub(f));
-      } catch (err) {
-        console.error("Failed to fetch following list for API", err.message);
+  try {
+    // Fetch repo stats
+    const repoResponse = await axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 });
+    const repo = {
+      size: repoResponse.data.RepoSize,
+      storageMax: repoResponse.data.StorageMax,
+      numObjects: repoResponse.data.NumObjects,
+    };
+
+    // Get friends list (avoid duplication - only fetch if not in lastRun)
+    let friendsList = [];
+    if (PIN_FRIENDS) {
+      if (lastNostrRun?.friends?.following) {
+        friendsList = lastNostrRun.friends.following;
+      } else {
+        try {
+          const hex = decodePubkey(NPUB);
+          const follows = await fetchFollowingPubkeys({ pubkey: hex });
+          friendsList = follows.map((f) => toNpub(f));
+        } catch (err) {
+          console.error("Failed to fetch following list for API", err.message);
+        }
       }
     }
+
+    const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
+
+    // Calculate pin counts
+    const pinnedSelf = lastNostrRun?.self?.pinned ?? lastNostrRun?.self?.plannedPins?.length ?? 0;
+    const addedFriends = lastNostrRun?.friends?.added ?? lastNostrRun?.friends?.plannedAdds?.length ?? 0;
+
+    // Build optimized lastRun object (remove redundant relay lists and friend lists)
+    let lastRun = null;
+    if (lastNostrRun?.at) {
+      lastRun = {
+        at: lastNostrRun.at,
+        error: lastNostrRun.error,
+        self: lastNostrRun.self ? {
+          eventsScanned: lastNostrRun.self.eventsScanned,
+          deletesSeen: lastNostrRun.self.deletesSeen,
+          cidsFound: lastNostrRun.self.cidsFound,
+          pinned: lastNostrRun.self.pinned ?? 0,
+          failed: lastNostrRun.self.failed ?? 0,
+          results: lastNostrRun.self.results || [],
+        } : null,
+        friends: lastNostrRun.friends ? {
+          eventsScanned: lastNostrRun.friends.eventsScanned,
+          deletesSeen: lastNostrRun.friends.deletesSeen,
+          cidsFound: lastNostrRun.friends.cidsFound,
+          added: lastNostrRun.friends.added ?? 0,
+          failed: lastNostrRun.friends.failed ?? 0,
+          results: lastNostrRun.friends.results || [],
+        } : null,
+      };
+    }
+
+    res.status(200).json({
+      enabled: true,
+      operator: operatorNpub,
+      relays: DEFAULT_RELAYS,
+      pinFriends: PIN_FRIENDS,
+      friends: friendsList,
+      repo,
+      pins: {
+        self: pinnedSelf,
+        friends: addedFriends,
+        total: pinnedSelf + addedFriends,
+      },
+      lastRun,
+    });
+  } catch (err) {
+    console.error("Nostr stats error:", err.message);
+    return res.status(503).json({
+      enabled: true,
+      error: "Failed to retrieve stats",
+      details: err.message
+    });
   }
-
-  const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
-
-  res.status(200).json({
-    enabled: true,
-    operator: operatorNpub,
-    relays: ["wss://relay.damus.io", "wss://nos.lol"],
-    pinFriends: PIN_FRIENDS,
-    friends: friendsList,
-    lastRun: lastNostrRun,
-  });
 });
+
 
 // Shared upload handler logic
 const handleUpload = async (req, res) => {

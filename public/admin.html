@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,6 +21,7 @@
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -68,10 +70,13 @@
 
     /* Status pulse animation */
     @keyframes pulse {
-      0%, 100% {
+
+      0%,
+      100% {
         transform: scale(1);
         opacity: 1;
       }
+
       50% {
         transform: scale(1.05);
         opacity: 0.8;
@@ -95,6 +100,7 @@
     }
   </style>
 </head>
+
 <body class="min-h-screen bg-gray-100">
   <div class="min-h-screen flex flex-col">
     <!-- Header -->
@@ -109,10 +115,12 @@
             </div>
           </div>
           <div class="flex gap-3">
-            <button id="refresh" class="px-4 py-2 rounded-lg bg-white text-black font-semibold hover:bg-gray-200 transition-colors">
+            <button id="refresh"
+              class="px-4 py-2 rounded-lg bg-white text-black font-semibold hover:bg-gray-200 transition-colors">
               <i class="fas fa-sync-alt mr-2"></i>Refresh
             </button>
-            <a href="/" class="px-4 py-2 rounded-lg border border-white text-white hover:bg-white hover:text-black transition-colors">
+            <a href="/"
+              class="px-4 py-2 rounded-lg border border-white text-white hover:bg-white hover:text-black transition-colors">
               <i class="fas fa-home mr-2"></i>Back to App
             </a>
           </div>
@@ -142,7 +150,8 @@
                 </div>
                 <div class="flex-1">
                   <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Operator</p>
-                  <a id="operatorLink" href="#" target="_blank" class="text-lg font-semibold text-black hover:underline break-all"></a>
+                  <a id="operatorLink" href="#" target="_blank"
+                    class="text-lg font-semibold text-black hover:underline break-all"></a>
                 </div>
               </div>
               <div class="space-y-2 text-sm">
@@ -166,7 +175,8 @@
                     <h2 class="text-lg font-semibold text-black">Friends</h2>
                   </div>
                 </div>
-                <span id="friendsStatus" class="px-3 py-1 text-xs rounded-full bg-gray-200 text-black font-medium"></span>
+                <span id="friendsStatus"
+                  class="px-3 py-1 text-xs rounded-full bg-gray-200 text-black font-medium"></span>
               </div>
               <div id="noFriends" class="text-gray-500 text-sm hidden">No follows detected.</div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto" id="friendsList"></div>
@@ -275,23 +285,17 @@
           friendsList.innerHTML = "";
           noFriends.classList.remove("hidden");
         }
-      } catch (err) {
-        alertBox.classList.remove("hidden");
-        alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Error</div><div class="text-red-600 text-sm mt-1">${err.message}</div></div>`;
-      }
-    }
 
-    async function loadPinStats() {
-      try {
-        const res = await fetch("/pin-stats");
-        const data = await res.json();
-        if (data.status !== "success") throw new Error(data.error || "Failed to load pin stats");
+        // Update pin stats from the same response
         document.getElementById("pinsTotal").textContent = data.pins?.total ?? 0;
         document.getElementById("pinsSelf").textContent = data.pins?.self ?? 0;
         document.getElementById("pinsFriends").textContent = data.pins?.friends ?? 0;
         const size = data.repo?.size || 0;
         document.getElementById("repoSize").textContent = formatBytes(size);
       } catch (err) {
+        alertBox.classList.remove("hidden");
+        alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Error</div><div class="text-red-600 text-sm mt-1">${err.message}</div></div>`;
+        // Reset pin stats on error
         document.getElementById("pinsTotal").textContent = "-";
         document.getElementById("pinsSelf").textContent = "-";
         document.getElementById("pinsFriends").textContent = "-";
@@ -308,11 +312,10 @@
 
     document.getElementById("refresh").addEventListener("click", () => {
       load();
-      loadPinStats();
     });
 
     load();
-    loadPinStats();
   </script>
 </body>
+
 </html>
