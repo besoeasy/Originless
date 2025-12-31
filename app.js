@@ -76,6 +76,11 @@ let lastNostrRun = {
 let selfCidQueue = [];
 let friendsCidQueue = [];
 
+// Counters for tracking actual pins/caches
+let totalPinnedSelf = 0;
+let totalCachedFriends = 0;
+let lastPinnerActivity = null;
+
 // Ensure temp directory exists
 if (!fs.existsSync(UPLOAD_TEMP_DIR)) {
   fs.mkdirSync(UPLOAD_TEMP_DIR, { recursive: true });
@@ -267,36 +272,14 @@ app.get("/nostr", async (req, res) => {
 
     const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
 
-    // Calculate pin counts
-    const pinnedSelf = lastNostrRun?.self?.pinned ?? lastNostrRun?.self?.plannedPins?.length ?? 0;
-    const addedFriends = lastNostrRun?.friends?.added ?? lastNostrRun?.friends?.plannedAdds?.length ?? 0;
-
-    // Build optimized lastRun object (remove redundant relay lists and friend lists)
+    // Build lastRun object with queue-based data
     let lastRun = null;
     if (lastNostrRun?.at) {
       lastRun = {
         at: lastNostrRun.at,
         error: lastNostrRun.error,
-        self: lastNostrRun.self
-          ? {
-            eventsScanned: lastNostrRun.self.eventsScanned,
-            deletesSeen: lastNostrRun.self.deletesSeen,
-            cidsFound: lastNostrRun.self.cidsFound,
-            pinned: lastNostrRun.self.pinned ?? 0,
-            failed: lastNostrRun.self.failed ?? 0,
-            results: lastNostrRun.self.results || [],
-          }
-          : null,
-        friends: lastNostrRun.friends
-          ? {
-            eventsScanned: lastNostrRun.friends.eventsScanned,
-            deletesSeen: lastNostrRun.friends.deletesSeen,
-            cidsFound: lastNostrRun.friends.cidsFound,
-            added: lastNostrRun.friends.added ?? 0,
-            failed: lastNostrRun.friends.failed ?? 0,
-            results: lastNostrRun.friends.results || [],
-          }
-          : null,
+        self: lastNostrRun.self || null,
+        friends: lastNostrRun.friends || null,
       };
     }
 
@@ -307,9 +290,23 @@ app.get("/nostr", async (req, res) => {
       friends: friendsList,
       repo,
       pins: {
-        self: pinnedSelf,
-        friends: addedFriends,
-        total: pinnedSelf + addedFriends,
+        self: totalPinnedSelf,
+        friends: totalCachedFriends,
+        total: totalPinnedSelf + totalCachedFriends,
+      },
+      queues: {
+        self: {
+          pending: selfCidQueue.length,
+          processed: totalPinnedSelf,
+        },
+        friends: {
+          pending: friendsCidQueue.length,
+          processed: totalCachedFriends,
+        },
+      },
+      activity: {
+        lastDiscovery: lastNostrRun?.at || null,
+        lastPinner: lastPinnerActivity,
       },
       lastRun,
     });
@@ -501,6 +498,12 @@ const runNostrJob = async () => {
 
 const pinnerJob = async () => {
   try {
+    console.log(`\n════ Pinner Job Started ════`);
+    console.log(`Queue Status: Self=${selfCidQueue.length}, Friends=${friendsCidQueue.length}`);
+    console.log(`Counters: Pinned=${totalPinnedSelf}, Cached=${totalCachedFriends}`);
+
+    let didWork = false;
+
     // Process self queue: pin CID
     if (selfCidQueue.length > 0) {
       const randomIndex = Math.floor(Math.random() * selfCidQueue.length);
@@ -512,12 +515,21 @@ const pinnerJob = async () => {
       if (alreadyPinned) {
         console.log(`✓ Already pinned: ${cid}`);
         selfCidQueue.splice(randomIndex, 1);
-        return;
+        totalPinnedSelf++;
+        console.log(`📊 Counter updated: totalPinnedSelf = ${totalPinnedSelf}`);
+        console.log(`📋 Queue updated: ${selfCidQueue.length} CIDs remaining`);
+        didWork = true;
+      } else {
+        await pinCid(cid);
+        console.log(`✓ Successfully pinned: ${cid}`);
+        selfCidQueue.splice(randomIndex, 1);
+        totalPinnedSelf++;
+        console.log(`📊 Counter updated: totalPinnedSelf = ${totalPinnedSelf}`);
+        console.log(`📋 Queue updated: ${selfCidQueue.length} CIDs remaining`);
+        didWork = true;
       }
-
-      await pinCid(cid);
-      console.log(`✓ Successfully pinned: ${cid}`);
-      selfCidQueue.splice(randomIndex, 1);
+    } else {
+      console.log(`[Self] Queue empty, nothing to process`);
     }
 
     // Process friends queue: cache CID
@@ -530,9 +542,26 @@ const pinnerJob = async () => {
       await addCid(cid);
       console.log(`✓ Successfully cached: ${cid}`);
       friendsCidQueue.splice(randomIndex, 1);
+      totalCachedFriends++;
+      console.log(`📊 Counter updated: totalCachedFriends = ${totalCachedFriends}`);
+      console.log(`📋 Queue updated: ${friendsCidQueue.length} CIDs remaining`);
+      didWork = true;
+    } else {
+      console.log(`[Friend] Queue empty, nothing to process`);
     }
+
+    if (didWork) {
+      lastPinnerActivity = new Date().toISOString();
+      console.log(`\n⏰ Activity timestamp updated: ${lastPinnerActivity}`);
+      console.log(`📈 Total processed: ${totalPinnedSelf + totalCachedFriends} (Self: ${totalPinnedSelf}, Friends: ${totalCachedFriends})`);
+    } else {
+      console.log(`\n⏸  No work performed - all queues empty`);
+    }
+
+    console.log(`════ Pinner Job Complete ════\n`);
   } catch (err) {
-    console.error("Pinner job error:", err.message);
+    console.error(`\n❌ Pinner job error:`, err.message);
+    console.error(`Stack trace:`, err.stack);
   }
 };
 
