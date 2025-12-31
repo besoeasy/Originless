@@ -143,7 +143,7 @@ const pinnerJob = async () => {
             })
             .catch((err) => {
               console.error(`❌ Failed to pin ${cid}:`, err.message);
-              updatePinSize(cid, 0, "failed");
+              updatePinSize(cid, 0, "pending");
             });
           
           didWork = true;
@@ -190,7 +190,7 @@ const pinnerJob = async () => {
             })
             .catch((err) => {
               console.error(`❌ Failed to cache ${cid}:`, err.message);
-              updatePinSize(cid, 0, "failed");
+              updatePinSize(cid, 0, "pending");
             });
           
           didWork = true;
