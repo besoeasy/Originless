@@ -30,7 +30,7 @@ const runNostrJob = async (NPUB) => {
   if (Math.random() < timerProbabilityMethod) {
     timerProbabilityMethod = timerProbabilityMethod - 0.025;
     if (timerProbabilityMethod < 0.2) {
-      timerProbabilityMethod = 0.2;
+      timerProbabilityMethod = 0.9;
     }
     console.log("Nostr discovery job: Executing (random trigger)");
   } else {
