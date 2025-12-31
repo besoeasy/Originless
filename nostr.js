@@ -446,6 +446,7 @@ module.exports = {
   fetchAllFollowingEvents,
   fetchFollowingPubkeys,
   getRandomRelays,
+  isPinned,
   pinCid,
   addCid,
   syncNostrPins,
