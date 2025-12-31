@@ -18,9 +18,9 @@ const runNostrJob = async (NPUB) => {
   }
 
   if (Math.random() < 0.5) {
-    console.log("Nostr discovery job: Executing (random trigger)");
+    console.log(`[JOB] NOSTR_DISCOVERY_EXECUTE random_trigger=true`);
   } else {
-    console.log("Nostr discovery job: Skipping (random delay)");
+    console.log(`[JOB] NOSTR_DISCOVERY_SKIP random_delay=true`);
     return;
   }
 
@@ -65,16 +65,8 @@ const runNostrJob = async (NPUB) => {
       error: null,
     });
 
-    console.log("\n=== Discovery Summary ===");
-    console.log({
-      discovered: allCids.length,
-      inserted: insertedCount,
-      duplicates: allCids.length - insertedCount,
-      database: {
-        selfPending: selfPending,
-        friendsPending: friendsPending,
-      }
-    });
+    console.log(`[JOB] NOSTR_DISCOVERY_COMPLETE total_discovered=${allCids.length} inserted=${insertedCount} duplicates=${allCids.length - insertedCount} self_pending=${selfPending} friends_pending=${friendsPending}`);
+    console.log(`[JOB] NOSTR_DISCOVERY_DETAILS self_events=${selfResult.eventsScanned} self_cids=${selfResult.cidsFound} friends_events=${friendsResult.eventsScanned} friends_cids=${friendsResult.cidsFound}`);
   } catch (err) {
     setLastNostrRun({
       at: new Date().toISOString(),
@@ -82,20 +74,20 @@ const runNostrJob = async (NPUB) => {
       friends: null,
       error: err.message,
     });
-    console.error("Nostr discovery job failed", err.message);
+    console.error(`[JOB] NOSTR_DISCOVERY_ERROR error="${err.message}"`);
   }
 };
 
 // Pinner job - processes CIDs one at a time, sequentially
 const pinnerJob = async () => {
   try {
-    console.log(`\n════ Pinner Job Started ════`);
+    console.log(`[JOB] PINNER_START`);
 
     // Get pending counts
     const selfPending = countByTypeAndStatus('self', 'pending');
     const friendsPending = countByTypeAndStatus('friend', 'pending');
     
-    console.log(`Database Status: Self Pending=${selfPending}, Friends Pending=${friendsPending}`);
+    console.log(`[JOB] PINNER_QUEUE_STATUS self_pending=${selfPending} friends_pending=${friendsPending}`);
 
     let didWork = false;
 
@@ -107,24 +99,23 @@ const pinnerJob = async () => {
         const cid = cidObj.cid;
         const primalLink = `https://primal.net/e/${cidObj.event_id}`;
         
-        console.log(`\n[Self] Processing CID: ${cid}`);
-        console.log(`  Event: ${primalLink}`);
-        console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
+        console.log(`[JOB] PINNER_PROCESSING_SELF cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} event_url=${primalLink}`);
 
         // Pin it (function handles "already pinned" check internally)
         const result = await pinCid(cid);
         
         if (result.success && !result.caching) {
           // Only mark as pinned if it's actually pinned (not just started caching)
+          const sizeMB = (result.size / 1024 / 1024).toFixed(2);
           updatePinSize(cid, result.size, "pinned");
-          console.log(`✓ ${result.message}`);
+          console.log(`[JOB] PINNER_SELF_COMPLETE cid=${cid} status=pinned size_mb=${sizeMB} message="${result.message}"`);
           didWork = true;
         } else if (result.caching) {
           // Started caching in background, leave as pending to check again later
-          console.log(`⏳ ${result.message} - will check again next run`);
+          console.log(`[JOB] PINNER_SELF_CACHING cid=${cid} status=pending action=background_download message="${result.message}"`);
         } else {
           updatePinSize(cid, 0, "failed");
-          console.error(`✗ ${result.message}`);
+          console.error(`[JOB] PINNER_SELF_FAILED cid=${cid} status=failed error="${result.message}"`);
           didWork = true;
         }
       }
@@ -138,24 +129,23 @@ const pinnerJob = async () => {
         const cid = cidObj.cid;
         const primalLink = `https://primal.net/e/${cidObj.event_id}`;
         
-        console.log(`\n[Friend] Processing CID: ${cid}`);
-        console.log(`  Event: ${primalLink}`);
-        console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
+        console.log(`[JOB] PINNER_PROCESSING_FRIEND cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} event_url=${primalLink}`);
 
         // Cache it (function handles "already cached" check internally)
         const result = await cacheCid(cid);
         
         if (result.success && !result.caching) {
           // Only mark as cached if it's actually available locally
+          const sizeMB = (result.size / 1024 / 1024).toFixed(2);
           updatePinSize(cid, result.size, "cached");
-          console.log(`✓ ${result.message}`);
+          console.log(`[JOB] PINNER_FRIEND_COMPLETE cid=${cid} status=cached size_mb=${sizeMB} message="${result.message}"`);
           didWork = true;
         } else if (result.caching) {
           // Started caching in background, leave as pending to check again later
-          console.log(`⏳ ${result.message} - will check again next run`);
+          console.log(`[JOB] PINNER_FRIEND_CACHING cid=${cid} status=pending action=background_download message="${result.message}"`);
         } else {
           updatePinSize(cid, 0, "failed");
-          console.error(`✗ ${result.message}`);
+          console.error(`[JOB] PINNER_FRIEND_FAILED cid=${cid} status=failed error="${result.message}"`);
           didWork = true;
         }
       }
@@ -165,10 +155,10 @@ const pinnerJob = async () => {
       setLastPinnerActivity(new Date().toISOString());
     }
 
-    console.log(`════ Pinner Job Complete ════\n`);
+    console.log(`[JOB] PINNER_COMPLETE work_done=${didWork}\n`);
   } catch (err) {
-    console.error(`\n❌ Pinner job error:`, err.message);
-    console.error(`Stack trace:`, err.stack);
+    console.error(`[JOB] PINNER_ERROR error="${err.message}"`);
+    console.error(`[JOB] PINNER_ERROR_STACK stack="${err.stack}"`);
   }
 };
 

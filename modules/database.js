@@ -37,21 +37,23 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
     if (pinsMap.has(cid)) {
       // Update existing
       const existing = pinsMap.get(cid);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
       existing.size = size;
       existing.status = status;
       existing.updated_at = now;
-      console.log(`[DB] Updated ${type} pin: ${cid}`);
+      console.log(`[DB] PIN_UPDATE cid=${cid} type=${type} status=${status} size_mb=${sizeMB}`);
     } else {
       // Insert new
       const id = nextId++;
       const createdAt = Math.floor(Date.now() / 1000);
       const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now);
       pinsMap.set(cid, pin);
-      console.log(`[DB] Recorded ${type} pin: ${cid} from event ${eventId}`);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
+      console.log(`[DB] PIN_INSERT cid=${cid} type=${type} status=${status} event_id=${eventId} size_mb=${sizeMB}`);
     }
     return true;
   } catch (err) {
-    console.error(`[DB] Failed to record pin:`, err.message);
+    console.error(`[DB] PIN_RECORD_ERROR cid=${cid} error="${err.message}"`);
     return false;
   }
 };
@@ -61,17 +63,18 @@ const updatePinSize = (cid, size, status = 'pinned') => {
   try {
     if (pinsMap.has(cid)) {
       const pin = pinsMap.get(cid);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
       pin.size = size;
       pin.status = status;
       pin.updated_at = Math.floor(Date.now() / 1000);
-      console.log(`[DB] Updated pin size: ${cid} = ${size} bytes, status = ${status}`);
+      console.log(`[DB] PIN_SIZE_UPDATE cid=${cid} status=${status} size_mb=${sizeMB} size_bytes=${size}`);
       return true;
     } else {
-      console.warn(`[DB] CID not found: ${cid}`);
+      console.warn(`[DB] PIN_SIZE_UPDATE_NOTFOUND cid=${cid} action=skipped`);
       return false;
     }
   } catch (err) {
-    console.error(`[DB] Failed to update pin size:`, err.message);
+    console.error(`[DB] PIN_SIZE_UPDATE_ERROR cid=${cid} error="${err.message}"`);
     return false;
   }
 };
@@ -181,6 +184,7 @@ const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
 const batchInsertCids = (cids) => {
   try {
     let inserted = 0;
+    let duplicates = 0;
     
     for (const cidObj of cids) {
       if (!pinsMap.has(cidObj.cid)) {
@@ -200,13 +204,15 @@ const batchInsertCids = (cids) => {
         );
         pinsMap.set(cidObj.cid, pin);
         inserted++;
+      } else {
+        duplicates++;
       }
     }
     
-    console.log(`[DB] Batch inserted ${inserted} new CIDs (${cids.length - inserted} duplicates ignored)`);
+    console.log(`[DB] BATCH_INSERT total=${cids.length} inserted=${inserted} duplicates=${duplicates}`);
     return inserted;
   } catch (err) {
-    console.error(`[DB] Failed to batch insert:`, err.message);
+    console.error(`[DB] BATCH_INSERT_ERROR error="${err.message}"`);
     return 0;
   }
 };

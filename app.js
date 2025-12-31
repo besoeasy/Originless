@@ -32,9 +32,9 @@ if (process.env.NPUB) {
     // Validate by attempting to decode
     decodePubkey(process.env.NPUB);
     NPUB = process.env.NPUB;
-    console.log(`Valid NPUB configured: ${NPUB}`);
+    console.log(`[STARTUP] NPUB_VALID npub=${NPUB}`);
   } catch (err) {
-    console.error(`Invalid NPUB provided: "${process.env.NPUB}". Nostr pinning disabled. Error: ${err.message}`);
+    console.error(`[STARTUP] NPUB_INVALID npub="${process.env.NPUB}" error="${err.message}" action=nostr_disabled`);
   }
 }
 
@@ -61,8 +61,10 @@ app.use(errorHandler);
 
 // Start server
 const server = app.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-  console.log(`IPFS API endpoint: http://127.0.0.1:5001`);
+  console.log(`[STARTUP] SERVER_LISTENING host=${HOST} port=${PORT} url=http://${HOST}:${PORT}`);
+  console.log(`[STARTUP] IPFS_API_ENDPOINT url=http://127.0.0.1:5001`);
+  console.log(`[STARTUP] ROUTES_ENABLED endpoints=[/health,/status,/nostr,/api/pins,/upload]`);
+  console.log(`[STARTUP] FRONTEND_PAGES pages=[/index.html,/admin.html]`);
 });
 
 // Setup Nostr jobs
@@ -71,28 +73,28 @@ let nostrTimers = { discovery: null, pinner: null };
 if (NPUB) {
   nostrTimers.discovery = setInterval(() => runNostrJob(NPUB), NOSTR_CHECK_INTERVAL_MS);
   nostrTimers.pinner = setInterval(pinnerJob, PINNER_INTERVAL_MS);
-  console.log("Nostr queue-based pinning enabled");
+  console.log(`[STARTUP] NOSTR_ENABLED npub=${NPUB} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_interval_ms=${PINNER_INTERVAL_MS}`);
 } else {
-  console.log("Nostr pinning disabled: NPUB not set");
+  console.log(`[STARTUP] NOSTR_DISABLED reason=no_npub_configured`);
 }
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal) => {
-  console.log(`\n${signal} received, shutting down gracefully...`);
+  console.log(`[SHUTDOWN] SIGNAL_RECEIVED signal=${signal} action=graceful_shutdown`);
 
   // Stop accepting new connections
   server.close(() => {
-    console.log("HTTP server closed");
+    console.log(`[SHUTDOWN] HTTP_SERVER_CLOSED`);
   });
 
   // Clear Nostr timers
   if (nostrTimers.discovery) clearInterval(nostrTimers.discovery);
   if (nostrTimers.pinner) clearInterval(nostrTimers.pinner);
-  console.log("Nostr timers cleared");
+  console.log(`[SHUTDOWN] NOSTR_TIMERS_CLEARED`);
 
   // Give active requests 5 seconds to complete
   setTimeout(() => {
-    console.log("Forcing shutdown");
+    console.log(`[SHUTDOWN] FORCE_EXIT timeout_sec=5`);
     process.exit(0);
   }, 5000);
 };

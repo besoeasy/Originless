@@ -41,6 +41,9 @@ const isCachedLocally = async (cid) => {
  */
 const startCachingInBackground = (cid) => {
   const endpoint = `${IPFS_API}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
+  const startTime = Date.now();
+  
+  console.log(`[IPFS] BACKGROUND_CACHE_START cid=${cid}`);
   
   // Fire and forget - don't await, just start the request
   axios.post(endpoint, null, { 
@@ -52,16 +55,33 @@ const startCachingInBackground = (cid) => {
     .then(res => {
       // Stream and discard data to ensure it's cached
       let size = 0;
-      res.data.on('data', (chunk) => { size += chunk.length; });
-      res.data.on('end', () => {
-        console.log(`[Background Cache] ✓ Cached ${cid} (${(size / 1024 / 1024).toFixed(2)} MB)`);
+      let lastLog = Date.now();
+      
+      res.data.on('data', (chunk) => { 
+        size += chunk.length;
+        // Log progress every 30 seconds
+        if (Date.now() - lastLog > 30000) {
+          const sizeMB = (size / 1024 / 1024).toFixed(2);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+          console.log(`[IPFS] BACKGROUND_CACHE_PROGRESS cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
+          lastLog = Date.now();
+        }
       });
+      
+      res.data.on('end', () => {
+        const sizeMB = (size / 1024 / 1024).toFixed(2);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[IPFS] BACKGROUND_CACHE_COMPLETE cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
+      });
+      
       res.data.on('error', (err) => {
-        console.error(`[Background Cache] ✗ Failed to cache ${cid}:`, err.message);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.error(`[IPFS] BACKGROUND_CACHE_ERROR cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
       });
     })
     .catch(err => {
-      console.error(`[Background Cache] ✗ Failed to start caching ${cid}:`, err.message);
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.error(`[IPFS] BACKGROUND_CACHE_FAILED cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
     });
 };
 
@@ -74,26 +94,30 @@ const pinCid = async (cid) => {
   const startTime = Date.now();
   
   try {
+    console.log(`[IPFS] PIN_CHECK_START cid=${cid}`);
+    
     // First check if already pinned
     const alreadyPinned = await isPinned(cid);
     if (alreadyPinned) {
       const size = await getCidSize(cid);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
       const duration = Date.now() - startTime;
+      console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
       return { 
         success: true, 
         size, 
-        message: `Already pinned (${(size / 1024 / 1024).toFixed(2)} MB, ${duration}ms)`,
+        message: `Already pinned (${sizeMB} MB)`,
         alreadyPinned: true
       };
     }
 
     // Not pinned, check if it's cached/available locally
-    console.log(`[Pin] Checking if ${cid} is cached locally...`);
+    console.log(`[IPFS] PIN_CHECK_CACHE cid=${cid}`);
     const isCached = await isCachedLocally(cid);
     
     if (isCached) {
       // It's cached, so we can pin it quickly
-      console.log(`[Pin] ${cid} is cached, pinning now...`);
+      console.log(`[IPFS] PIN_FROM_CACHE_START cid=${cid}`);
       const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&progress=false`;
       
       await axios.post(endpoint, null, { 
@@ -102,32 +126,33 @@ const pinCid = async (cid) => {
       });
       
       const size = await getCidSize(cid);
-      const duration = Date.now() - startTime;
-      console.log(`[Pin] ✓ Pinned cached content ${cid} (${(size / 1024 / 1024).toFixed(2)} MB, ${(duration/1000).toFixed(1)}s)`);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[IPFS] PIN_FROM_CACHE_SUCCESS cid=${cid} size_mb=${sizeMB} duration_sec=${duration}`);
       
       return { 
         success: true, 
         size, 
-        message: `Pinned cached content ${(size / 1024 / 1024).toFixed(2)} MB in ${(duration/1000).toFixed(1)}s`,
+        message: `Pinned from cache (${sizeMB} MB)`,
         alreadyPinned: false
       };
     } else {
       // Not cached, fire off a cache request (fire-and-forget)
-      console.log(`[Pin] ${cid} not cached, requesting cache (fire-and-forget)...`);
+      const duration = Date.now() - startTime;
+      console.log(`[IPFS] PIN_CACHE_NEEDED cid=${cid} action=background_cache_started duration_ms=${duration}`);
       startCachingInBackground(cid);
       
-      const duration = Date.now() - startTime;
       return { 
         success: true, 
         size: 0, 
-        message: `Cache request started (${duration}ms)`,
+        message: `Caching in background`,
         caching: true
       };
     }
     
   } catch (err) {
-    const duration = Date.now() - startTime;
-    console.error(`[Pin] ✗ Error processing ${cid} (${(duration/1000).toFixed(1)}s):`, err.message);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`[IPFS] PIN_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
     return { 
       success: false, 
       size: 0, 
@@ -146,34 +171,38 @@ const cacheCid = async (cid) => {
   const startTime = Date.now();
   
   try {
+    console.log(`[IPFS] CACHE_CHECK_START cid=${cid}`);
+    
     // First check if already available locally
     const alreadyAvailable = await isCachedLocally(cid);
     if (alreadyAvailable) {
       const size = await getCidSize(cid);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
       const duration = Date.now() - startTime;
+      console.log(`[IPFS] CACHE_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
       return { 
         success: true, 
         size, 
-        message: `Already available locally (${(size / 1024 / 1024).toFixed(2)} MB, ${duration}ms)`,
+        message: `Already cached (${sizeMB} MB)`,
         alreadyCached: true
       };
     }
 
     // Not cached, fire off cache request (fire-and-forget)
-    console.log(`[Cache] Starting cache for ${cid} (fire-and-forget)...`);
+    const duration = Date.now() - startTime;
+    console.log(`[IPFS] CACHE_START_BACKGROUND cid=${cid} action=background_cache_started duration_ms=${duration}`);
     startCachingInBackground(cid);
     
-    const duration = Date.now() - startTime;
     return { 
       success: true, 
       size: 0, 
-      message: `Cache request started (${duration}ms)`,
+      message: `Caching in background`,
       caching: true
     };
     
   } catch (err) {
-    const duration = Date.now() - startTime;
-    console.error(`[Cache] ✗ Error processing ${cid} (${(duration/1000).toFixed(1)}s):`, err.message);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`[IPFS] CACHE_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
     return { 
       success: false, 
       size: 0, 
