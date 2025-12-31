@@ -2,19 +2,17 @@
 const { syncNostrPins, syncFollowPins } = require("./nostr");
 
 const {
-  getSelfQueue,
-  getFriendsQueue,
-  addToSelfQueue,
-  addToFriendsQueue,
-  removeFromSelfQueue,
-  incrementPinnedSelf,
-  incrementCachedFriends,
   setLastPinnerActivity,
   setLastNostrRun,
 } = require("./queue");
 
 const { isPinned, pinCid, addCid, getCidSize } = require("./nostr");
-const { recordPin, updatePinSize, getPinByCid } = require("./database");
+const { 
+  batchInsertCids,
+  getPendingCidsByType,
+  updatePinSize,
+  countByTypeAndStatus,
+} = require("./database");
 
 // Nostr discovery job
 const runNostrJob = async (NPUB) => {
@@ -34,51 +32,51 @@ const runNostrJob = async (NPUB) => {
     const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: true });
     const friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: true });
 
-    // Add discovered CIDs to queues (avoid duplicates)
-    const selfCids = selfResult.plannedPins || [];
-    const friendCids = friendsResult.plannedAdds || [];
+    // Prepare CIDs for database insertion
+    const selfCids = (selfResult.plannedPins || []).map(cidObj => ({
+      ...cidObj,
+      type: 'self'
+    }));
+    
+    const friendCids = (friendsResult.plannedAdds || []).map(cidObj => ({
+      ...cidObj,
+      type: 'friend'
+    }));
 
-    const selfQueue = getSelfQueue();
-    const friendsQueue = getFriendsQueue();
+    // Batch insert to database (duplicates automatically ignored)
+    const allCids = [...selfCids, ...friendCids];
+    const insertedCount = batchInsertCids(allCids);
 
-    const selfCidSet = new Set(selfQueue.map((obj) => obj.cid));
-    const friendCidSet = new Set(friendsQueue.map((obj) => obj.cid));
-
-    const newSelfCids = selfCids.filter((cidObj) => !selfCidSet.has(cidObj.cid));
-    const newFriendCids = friendCids.filter((cidObj) => !friendCidSet.has(cidObj.cid));
-
-    addToSelfQueue(newSelfCids);
-    addToFriendsQueue(newFriendCids);
+    // Get current pending counts
+    const selfPending = countByTypeAndStatus('self', 'pending');
+    const friendsPending = countByTypeAndStatus('friend', 'pending');
 
     setLastNostrRun({
       at: new Date().toISOString(),
       self: {
         eventsScanned: selfResult.eventsScanned,
         cidsFound: selfResult.cidsFound,
-        newCids: newSelfCids.length,
-        queueSize: selfQueue.length + newSelfCids.length,
+        newCids: selfCids.length,
+        pendingInDb: selfPending,
       },
       friends: {
         eventsScanned: friendsResult.eventsScanned,
         cidsFound: friendsResult.cidsFound,
-        newCids: newFriendCids.length,
-        queueSize: friendsQueue.length + newFriendCids.length,
+        newCids: friendCids.length,
+        pendingInDb: friendsPending,
       },
       error: null,
     });
 
     console.log("\n=== Discovery Summary ===");
     console.log({
-      self: {
-        discovered: selfCids.length,
-        new: newSelfCids.length,
-        queueSize: getSelfQueue().length,
-      },
-      friends: {
-        discovered: friendCids.length,
-        new: newFriendCids.length,
-        queueSize: getFriendsQueue().length,
-      },
+      discovered: allCids.length,
+      inserted: insertedCount,
+      duplicates: allCids.length - insertedCount,
+      database: {
+        selfPending: selfPending,
+        friendsPending: friendsPending,
+      }
     });
   } catch (err) {
     setLastNostrRun({
@@ -94,156 +92,119 @@ const runNostrJob = async (NPUB) => {
 // Pinner job
 const pinnerJob = async () => {
   try {
-    const selfQueue = getSelfQueue();
-    const friendsQueue = getFriendsQueue();
-
     console.log(`\n════ Pinner Job Started ════`);
-    console.log(`Queue Status: Self=${selfQueue.length}, Friends=${friendsQueue.length}`);
+
+    // Get counts
+    const selfPending = countByTypeAndStatus('self', 'pending');
+    const friendsPending = countByTypeAndStatus('friend', 'pending');
+    
+    console.log(`Database Status: Self Pending=${selfPending}, Friends Pending=${friendsPending}`);
 
     let didWork = false;
 
-    // Process self queue: pin CID
-    if (selfQueue.length > 0) {
-      let cidToPinIndex = -1;
-      let cidToPin = null;
-      const checkedIndices = new Set();
-
-      // Keep trying random CIDs until we find one that's not pinned
-      while (checkedIndices.size < selfQueue.length) {
-        const randomIndex = Math.floor(Math.random() * selfQueue.length);
-
-        if (checkedIndices.has(randomIndex)) {
-          continue;
-        }
-
-        checkedIndices.add(randomIndex);
-        const cidObj = selfQueue[randomIndex];
+    // Process self queue: pin CID (permanent)
+    if (selfPending > 0) {
+      const pendingCids = getPendingCidsByType('self', 1);
+      
+      if (pendingCids.length > 0) {
+        const cidObj = pendingCids[0];
         const cid = cidObj.cid;
 
-        const primalLink = `https://primal.net/e/${cidObj.eventId}`;
-
-        console.log(`\n[Self] Checking CID (${selfQueue.length} in queue): ${cid}`);
+        const primalLink = `https://primal.net/e/${cidObj.event_id}`;
+        console.log(`\n[Self] Processing CID: ${cid}`);
         console.log(`  Event: ${primalLink}`);
         console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
+        // Check if already pinned in IPFS
         const alreadyPinned = await isPinned(cid);
+        
         if (alreadyPinned) {
-          console.log(`⏭️  Already pinned, removing from queue: ${cid}`);
-          removeFromSelfQueue(randomIndex);
-          incrementPinnedSelf();
+          console.log(`⏭️  Already pinned in IPFS, updating database`);
+          try {
+            const size = await getCidSize(cid);
+            updatePinSize(cid, size, "pinned");
+          } catch (err) {
+            updatePinSize(cid, 0, "pinned");
+          }
           didWork = true;
-          // Adjust checked indices after splice
-          const newCheckedIndices = new Set();
-          checkedIndices.forEach((idx) => {
-            if (idx < randomIndex) {
-              newCheckedIndices.add(idx);
-            } else if (idx > randomIndex) {
-              newCheckedIndices.add(idx - 1);
-            }
-          });
-          checkedIndices.clear();
-          newCheckedIndices.forEach((idx) => checkedIndices.add(idx));
         } else {
-          // Found an unpinned CID
-          cidToPinIndex = randomIndex;
-          cidToPin = cid;
-          break;
+          console.log(`\n[Self] Pinning CID: ${cid}`);
+          
+          // Fire-and-forget: start pinning without waiting
+          pinCid(cid)
+            .then(async () => {
+              console.log(`✓ Successfully pinned: ${cid}`);
+              try {
+                const size = await getCidSize(cid);
+                updatePinSize(cid, size, "pinned");
+              } catch (err) {
+                updatePinSize(cid, 0, "pinned");
+              }
+            })
+            .catch((err) => {
+              console.error(`❌ Failed to pin ${cid}:`, err.message);
+              updatePinSize(cid, 0, "failed");
+            });
+          
+          didWork = true;
         }
       }
-
-      if (cidToPin) {
-        const cidObj = selfQueue[cidToPinIndex];
-        console.log(`\n[Self] Pinning CID: ${cidToPin}`);
-
-        // Record to database first (as pending)
-        recordPin({
-          eventId: cidObj.eventId,
-          cid: cidToPin,
-          size: 0,
-          timestamp: cidObj.timestamp,
-          author: cidObj.author,
-          type: "self",
-          status: "pending",
-        });
-
-        // Fire-and-forget: start pinning without waiting
-        pinCid(cidToPin)
-          .then(async () => {
-            console.log(`✓ Successfully pinned: ${cidToPin}`);
-            // Try to get size after pinning
-            try {
-              const size = await getCidSize(cidToPin);
-              updatePinSize(cidToPin, size, "pinned");
-            } catch (err) {
-              updatePinSize(cidToPin, 0, "pinned");
-            }
-          })
-          .catch((err) => {
-            console.error(`❌ Failed to pin ${cidToPin}:`, err.message);
-            updatePinSize(cidToPin, 0, "failed");
-          });
-
-        removeFromSelfQueue(cidToPinIndex);
-        incrementPinnedSelf();
-        console.log(`📊 Counter updated: totalPinnedSelf = ${incrementPinnedSelf.length}`);
-        console.log(`📋 Queue updated: ${getSelfQueue().length} CIDs remaining`);
-        didWork = true;
-      } else if (checkedIndices.size > 0) {
-        console.log(`✓ All checked CIDs were already pinned and removed`);
-      }
     } else {
-      console.log(`[Self] Queue empty, nothing to process`);
+      console.log(`[Self] No pending CIDs in database`);
     }
 
-    // Process friends queue: cache CID
-    if (friendsQueue.length > 0) {
-      const randomIndex = Math.floor(Math.random() * friendsQueue.length);
-      const cidObj = friendsQueue[randomIndex];
-      const cid = cidObj.cid;
+    // Process friends queue: cache CID (ephemeral)
+    if (friendsPending > 0) {
+      const pendingCids = getPendingCidsByType('friend', 1);
+      
+      if (pendingCids.length > 0) {
+        const cidObj = pendingCids[0];
+        const cid = cidObj.cid;
 
-      const primalLink = `https://primal.net/e/${cidObj.eventId}`;
-      console.log(`\n[Friend] Caching CID (${friendsQueue.length} in queue): ${cid}`);
-      console.log(`  Event: ${primalLink}`);
-      console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
+        const primalLink = `https://primal.net/e/${cidObj.event_id}`;
+        console.log(`\n[Friend] Processing CID: ${cid}`);
+        console.log(`  Event: ${primalLink}`);
+        console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
-      // Record to database first (as pending)
-      recordPin({
-        eventId: cidObj.eventId,
-        cid: cid,
-        size: 0,
-        timestamp: cidObj.timestamp,
-        author: cidObj.author,
-        type: "friend",
-        status: "pending",
-      });
-
-      // Fire-and-forget: start caching without waiting
-      addCid(cid)
-        .then((result) => {
-          console.log(`✓ Successfully cached: ${cid}`);
-          // Update with actual size from result
-          const size = result?.size || 0;
-          updatePinSize(cid, size, "cached");
-        })
-        .catch((err) => {
-          console.error(`❌ Failed to cache ${cid}:`, err.message);
-          updatePinSize(cid, 0, "failed");
-        });
-
-      removeFromFriendsQueue(randomIndex);
-      incrementCachedFriends();
-      console.log(`📊 Counter updated: totalCachedFriends = ${incrementCachedFriends.length}`);
-      console.log(`📋 Queue updated: ${getFriendsQueue().length} CIDs remaining`);
-      didWork = true;
+        // Check if already available locally in IPFS
+        const alreadyAvailable = await isPinned(cid);
+        
+        if (alreadyAvailable) {
+          console.log(`⏭️  Already available locally, updating database`);
+          try {
+            const size = await getCidSize(cid);
+            updatePinSize(cid, size, "cached");
+          } catch (err) {
+            updatePinSize(cid, 0, "cached");
+          }
+          didWork = true;
+        } else {
+          console.log(`\n[Friend] Caching CID: ${cid}`);
+          
+          // Fire-and-forget: start caching without waiting
+          addCid(cid)
+            .then((result) => {
+              console.log(`✓ Successfully cached: ${cid}`);
+              const size = result?.size || 0;
+              updatePinSize(cid, size, "cached");
+            })
+            .catch((err) => {
+              console.error(`❌ Failed to cache ${cid}:`, err.message);
+              updatePinSize(cid, 0, "failed");
+            });
+          
+          didWork = true;
+        }
+      }
     } else {
-      console.log(`[Friend] Queue empty, nothing to process`);
+      console.log(`[Friend] No pending CIDs in database`);
     }
 
     if (didWork) {
       setLastPinnerActivity(new Date().toISOString());
       console.log(`\n⏰ Activity timestamp updated`);
     } else {
-      console.log(`\n⏸  No work performed - all queues empty`);
+      console.log(`\n⏸  No work performed - no pending CIDs`);
     }
 
     console.log(`════ Pinner Job Complete ════\n`);

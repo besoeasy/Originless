@@ -8,10 +8,6 @@ const mime = require("mime-types");
 const { IPFS_API, STORAGE_MAX, FILE_LIMIT, formatBytes } = require("./config");
 const { getPinnedSize, checkIPFSHealth, getIPFSStats } = require("./ipfs");
 const {
-  getSelfQueue,
-  getFriendsQueue,
-  getTotalPinnedSelf,
-  getTotalCachedFriends,
   getLastPinnerActivity,
   getLastNostrRun,
 } = require("./queue");
@@ -29,6 +25,7 @@ const {
   getStats,
   getTotalCount,
   getRecentPins,
+  countByTypeAndStatus,
 } = require("./database");
 
 const unlinkAsync = promisify(fs.unlink);
@@ -128,6 +125,15 @@ const nostrHandler = async (req, res, NPUB) => {
 
     const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
 
+    // Get counts from database
+    const selfPinned = countByTypeAndStatus('self', 'pinned');
+    const selfPending = countByTypeAndStatus('self', 'pending');
+    const selfFailed = countByTypeAndStatus('self', 'failed');
+    
+    const friendsCached = countByTypeAndStatus('friend', 'cached');
+    const friendsPending = countByTypeAndStatus('friend', 'pending');
+    const friendsFailed = countByTypeAndStatus('friend', 'failed');
+
     // Build lastRun object
     let lastRun = null;
     if (lastNostrRun?.at) {
@@ -146,21 +152,20 @@ const nostrHandler = async (req, res, NPUB) => {
       friends: friendsList,
       repo,
       pins: {
-        self: getTotalPinnedSelf(),
-        friends: getTotalCachedFriends(),
-        total: getTotalPinnedSelf() + getTotalCachedFriends(),
-        totalSize: pinnedStats.totalSize,
-        pinnedCount: pinnedStats.count,
-      },
-      queues: {
         self: {
-          pending: getSelfQueue().length,
-          processed: getTotalPinnedSelf(),
+          pinned: selfPinned,
+          pending: selfPending,
+          failed: selfFailed,
+          total: selfPinned + selfPending + selfFailed,
         },
         friends: {
-          pending: getFriendsQueue().length,
-          processed: getTotalCachedFriends(),
+          cached: friendsCached,
+          pending: friendsPending,
+          failed: friendsFailed,
+          total: friendsCached + friendsPending + friendsFailed,
         },
+        totalSize: pinnedStats.totalSize,
+        pinnedCount: pinnedStats.count,
       },
       activity: {
         lastDiscovery: lastNostrRun?.at || null,

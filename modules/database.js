@@ -88,6 +88,23 @@ const getRecentPinsStmt = db.prepare(`
   LIMIT ?
 `);
 
+const insertIfNotExistsStmt = db.prepare(`
+  INSERT OR IGNORE INTO pins (event_id, cid, size, timestamp, author, type, status)
+  VALUES (?, ?, 0, ?, ?, ?, 'pending')
+`);
+
+const getPendingByTypeStmt = db.prepare(`
+  SELECT * FROM pins
+  WHERE type = ? AND status = 'pending'
+  ORDER BY timestamp DESC
+  LIMIT ?
+`);
+
+const countByTypeAndStatusStmt = db.prepare(`
+  SELECT COUNT(*) as count FROM pins
+  WHERE type = ? AND status = ?
+`);
+
 // Functions
 const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned' }) => {
   try {
@@ -97,6 +114,42 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
   } catch (err) {
     console.error(`[DB] Failed to record pin:`, err.message);
     return false;
+  }
+};
+
+const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
+  try {
+    const result = insertIfNotExistsStmt.run(eventId, cid, timestamp, author, type);
+    return result.changes > 0; // Returns true if inserted, false if already exists
+  } catch (err) {
+    console.error(`[DB] Failed to insert CID:`, err.message);
+    return false;
+  }
+};
+
+const batchInsertCids = (cids) => {
+  const insertMany = db.transaction((cidList) => {
+    let inserted = 0;
+    for (const cidObj of cidList) {
+      const result = insertIfNotExistsStmt.run(
+        cidObj.eventId,
+        cidObj.cid,
+        cidObj.timestamp,
+        cidObj.author,
+        cidObj.type
+      );
+      if (result.changes > 0) inserted++;
+    }
+    return inserted;
+  });
+  
+  try {
+    const inserted = insertMany(cids);
+    console.log(`[DB] Batch inserted ${inserted} new CIDs (${cids.length - inserted} duplicates ignored)`);
+    return inserted;
+  } catch (err) {
+    console.error(`[DB] Failed to batch insert:`, err.message);
+    return 0;
   }
 };
 
@@ -166,6 +219,25 @@ const getRecentPins = (limit = 10) => {
   }
 };
 
+const getPendingCidsByType = (type, limit = 1) => {
+  try {
+    return getPendingByTypeStmt.all(type, limit);
+  } catch (err) {
+    console.error(`[DB] Failed to get pending CIDs:`, err.message);
+    return [];
+  }
+};
+
+const countByTypeAndStatus = (type, status) => {
+  try {
+    const result = countByTypeAndStatusStmt.get(type, status);
+    return result ? result.count : 0;
+  } catch (err) {
+    console.error(`[DB] Failed to count:`, err.message);
+    return 0;
+  }
+};
+
 // Cleanup on exit
 process.on('exit', () => {
   db.close();
@@ -186,4 +258,8 @@ module.exports = {
   getStats,
   getTotalCount,
   getRecentPins,
+  insertCidIfNotExists,
+  batchInsertCids,
+  getPendingCidsByType,
+  countByTypeAndStatus,
 };
