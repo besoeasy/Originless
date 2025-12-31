@@ -238,7 +238,7 @@ const isPinned = async (cid, ipfsApi = IPFS_API) => {
   const startTime = Date.now();
   try {
     const endpoint = `${ipfsApi}/api/v0/pin/ls?arg=${encodeURIComponent(cid)}&type=recursive`;
-    const res = await axios.post(endpoint, null, { timeout: 5000 });
+    const res = await axios.post(endpoint, null, { timeout: 1000 });
     const isPinned = res.data?.Keys && Object.keys(res.data.Keys).length > 0;
     const duration = Date.now() - startTime;
     console.log(`[isPinned] ${cid} → ${isPinned ? 'PINNED' : 'NOT PINNED'} (${duration}ms)`);

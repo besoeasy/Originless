@@ -507,27 +507,59 @@ const pinnerJob = async () => {
 
     // Process self queue: pin CID
     if (selfCidQueue.length > 0) {
-      const randomIndex = Math.floor(Math.random() * selfCidQueue.length);
-      const cid = selfCidQueue[randomIndex];
+      let cidToPinIndex = -1;
+      let cidToPin = null;
+      const checkedIndices = new Set();
 
-      console.log(`\n[Self] Processing CID (${selfCidQueue.length} in queue): ${cid}`);
+      // Keep trying random CIDs until we find one that's not pinned
+      while (checkedIndices.size < selfCidQueue.length) {
+        const randomIndex = Math.floor(Math.random() * selfCidQueue.length);
+        
+        if (checkedIndices.has(randomIndex)) {
+          continue; // Already checked this one
+        }
+        
+        checkedIndices.add(randomIndex);
+        const cid = selfCidQueue[randomIndex];
 
-      const alreadyPinned = await isPinned(cid);
-      if (alreadyPinned) {
-        console.log(`✓ Already pinned: ${cid}`);
-        selfCidQueue.splice(randomIndex, 1);
+        console.log(`\n[Self] Checking CID (${selfCidQueue.length} in queue): ${cid}`);
+
+        const alreadyPinned = await isPinned(cid);
+        if (alreadyPinned) {
+          console.log(`⏭️  Already pinned, removing from queue: ${cid}`);
+          selfCidQueue.splice(randomIndex, 1);
+          totalPinnedSelf++;
+          didWork = true;
+          // Adjust checked indices after splice
+          const newCheckedIndices = new Set();
+          checkedIndices.forEach(idx => {
+            if (idx < randomIndex) {
+              newCheckedIndices.add(idx);
+            } else if (idx > randomIndex) {
+              newCheckedIndices.add(idx - 1);
+            }
+          });
+          checkedIndices.clear();
+          newCheckedIndices.forEach(idx => checkedIndices.add(idx));
+        } else {
+          // Found an unpinned CID
+          cidToPinIndex = randomIndex;
+          cidToPin = cid;
+          break;
+        }
+      }
+
+      if (cidToPin) {
+        console.log(`\n[Self] Pinning CID: ${cidToPin}`);
+        await pinCid(cidToPin);
+        console.log(`✓ Successfully pinned: ${cidToPin}`);
+        selfCidQueue.splice(cidToPinIndex, 1);
         totalPinnedSelf++;
         console.log(`📊 Counter updated: totalPinnedSelf = ${totalPinnedSelf}`);
         console.log(`📋 Queue updated: ${selfCidQueue.length} CIDs remaining`);
         didWork = true;
-      } else {
-        await pinCid(cid);
-        console.log(`✓ Successfully pinned: ${cid}`);
-        selfCidQueue.splice(randomIndex, 1);
-        totalPinnedSelf++;
-        console.log(`📊 Counter updated: totalPinnedSelf = ${totalPinnedSelf}`);
-        console.log(`📋 Queue updated: ${selfCidQueue.length} CIDs remaining`);
-        didWork = true;
+      } else if (checkedIndices.size > 0) {
+        console.log(`✓ All checked CIDs were already pinned and removed`);
       }
     } else {
       console.log(`[Self] Queue empty, nothing to process`);
