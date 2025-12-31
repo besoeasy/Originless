@@ -215,8 +215,14 @@ const batchInsertCids = (cids) => {
 const getPendingCidsByType = (type, limit = 1) => {
   try {
     const pins = Array.from(pinsMap.values())
-      .filter(pin => pin.type === type && pin.status === 'pending')
-      .sort((a, b) => b.timestamp - a.timestamp);
+      .filter(pin => pin.type === type && pin.status === 'pending');
+    
+    // Shuffle randomly (Fisher-Yates)
+    for (let i = pins.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pins[i], pins[j]] = [pins[j], pins[i]];
+    }
+    
     return pins.slice(0, limit);
   } catch (err) {
     console.error(`[DB] Failed to get pending CIDs:`, err.message);
