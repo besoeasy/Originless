@@ -212,10 +212,6 @@
                   <p class="text-gray-500 font-medium text-xs uppercase mb-1">Repository Size</p>
                   <p class="text-black font-bold text-lg" id="repoSize">-</p>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <p class="text-gray-500 font-medium text-xs uppercase mb-1">Pinned Size</p>
-                  <p class="text-black font-bold text-lg" id="pinnedSize">-</p>
-                </div>
               </div>
             </div>
           </div>
@@ -382,8 +378,6 @@
         document.getElementById("pinsFriends").textContent = friendsTotal;
         const size = data.repo?.size || 0;
         document.getElementById("repoSize").textContent = formatBytes(size);
-        const pinnedSize = data.pins?.totalSize || 0;
-        document.getElementById("pinnedSize").textContent = formatBytes(pinnedSize);
       } catch (err) {
         alertBox.classList.remove("hidden");
         alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Error</div><div class="text-red-600 text-sm mt-1">${err.message}</div></div>`;
@@ -392,7 +386,6 @@
         document.getElementById("pinsSelf").textContent = "-";
         document.getElementById("pinsFriends").textContent = "-";
         document.getElementById("repoSize").textContent = "Error";
-        document.getElementById("pinnedSize").textContent = "Error";
       }
     }
 
