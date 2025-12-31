@@ -12,7 +12,7 @@ if (typeof global.crypto === "undefined") {
 }
 
 const IPFS_API = process.env.IPFS_API || "http://127.0.0.1:5001";
-const RELAY_COUNT = 4;
+const RELAY_COUNT = 8;
 
 const DEFAULT_RELAYS = [
   "wss://auth.nostr1.com",
