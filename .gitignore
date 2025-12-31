@@ -1,2 +1,4 @@
 node_modules
 temp_uploads/
+db/
+.env

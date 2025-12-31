@@ -290,6 +290,24 @@ const addCid = async (cid, ipfsApi = IPFS_API) => {
   return { cid, size: res.data.length, alreadyPinned, newlyAdded: !alreadyPinned };
 };
 
+// Get size of a CID
+const getCidSize = async (cid, ipfsApi = IPFS_API) => {
+  try {
+    // Try files/stat first
+    const statResponse = await axios.post(`${ipfsApi}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, {}, { timeout: 5000 });
+    return statResponse.data.CumulativeSize || statResponse.data.Size || 0;
+  } catch (err) {
+    // Try block/stat as fallback
+    try {
+      const blockResponse = await axios.post(`${ipfsApi}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, {}, { timeout: 5000 });
+      return blockResponse.data.Size || 0;
+    } catch (blockErr) {
+      console.warn(`Failed to get size for CID ${cid}:`, blockErr.message);
+      return 0;
+    }
+  }
+};
+
 const syncNostrPins = async ({
   npubOrPubkey,
   ipfsApi = IPFS_API,
@@ -467,6 +485,7 @@ module.exports = {
   isPinned,
   pinCid,
   addCid,
+  getCidSize,
   syncNostrPins,
   syncFollowPins,
   toNpub,

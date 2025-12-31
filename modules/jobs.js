@@ -16,7 +16,8 @@ const {
   setLastNostrRun,
 } = require("./queue");
 
-const { isPinned, pinCid, addCid } = require("./nostr");
+const { isPinned, pinCid, addCid, getCidSize } = require("./nostr");
+const { recordPin, updatePinSize, getPinByCid } = require("./database");
 
 let timerProbabilityMethod = 0.9;
 
@@ -160,11 +161,37 @@ const pinnerJob = async () => {
       }
 
       if (cidToPin) {
+        const cidObj = selfQueue[cidToPinIndex];
         console.log(`\n[Self] Pinning CID: ${cidToPin}`);
+        
+        // Record to database first (as pending)
+        recordPin({
+          eventId: cidObj.eventId,
+          cid: cidToPin,
+          size: 0,
+          timestamp: cidObj.timestamp,
+          author: cidObj.author,
+          type: 'self',
+          status: 'pending'
+        });
+        
         // Fire-and-forget: start pinning without waiting
         pinCid(cidToPin)
-          .then(() => console.log(`✓ Successfully pinned: ${cidToPin}`))
-          .catch(err => console.error(`❌ Failed to pin ${cidToPin}:`, err.message));
+          .then(async () => {
+            console.log(`✓ Successfully pinned: ${cidToPin}`);
+            // Try to get size after pinning
+            try {
+              const size = await getCidSize(cidToPin);
+              updatePinSize(cidToPin, size, 'pinned');
+            } catch (err) {
+              updatePinSize(cidToPin, 0, 'pinned');
+            }
+          })
+          .catch(err => {
+            console.error(`❌ Failed to pin ${cidToPin}:`, err.message);
+            updatePinSize(cidToPin, 0, 'failed');
+          });
+        
         removeFromSelfQueue(cidToPinIndex);
         incrementPinnedSelf();
         console.log(`📊 Counter updated: totalPinnedSelf = ${incrementPinnedSelf.length}`);
@@ -188,10 +215,30 @@ const pinnerJob = async () => {
       console.log(`  Event: ${primalLink}`);
       console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
+      // Record to database first (as pending)
+      recordPin({
+        eventId: cidObj.eventId,
+        cid: cid,
+        size: 0,
+        timestamp: cidObj.timestamp,
+        author: cidObj.author,
+        type: 'friend',
+        status: 'pending'
+      });
+
       // Fire-and-forget: start caching without waiting
       addCid(cid)
-        .then(() => console.log(`✓ Successfully cached: ${cid}`))
-        .catch(err => console.error(`❌ Failed to cache ${cid}:`, err.message));
+        .then((result) => {
+          console.log(`✓ Successfully cached: ${cid}`);
+          // Update with actual size from result
+          const size = result?.size || 0;
+          updatePinSize(cid, size, 'cached');
+        })
+        .catch(err => {
+          console.error(`❌ Failed to cache ${cid}:`, err.message);
+          updatePinSize(cid, 0, 'failed');
+        });
+      
       removeFromFriendsQueue(randomIndex);
       incrementCachedFriends();
       console.log(`📊 Counter updated: totalCachedFriends = ${incrementCachedFriends.length}`);

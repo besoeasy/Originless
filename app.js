@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 // Main application entry point
 const express = require("express");
 const fs = require("fs");
@@ -16,7 +18,8 @@ const {
   healthHandler, 
   statusHandler, 
   nostrHandler, 
-  uploadHandler 
+  uploadHandler,
+  pinsHandler,
 } = require("./modules/routes");
 
 const { runNostrJob, pinnerJob } = require("./modules/jobs");
@@ -50,6 +53,7 @@ setupMiddleware(app);
 app.get("/health", healthHandler);
 app.get("/status", statusHandler);
 app.get("/nostr", (req, res) => nostrHandler(req, res, NPUB));
+app.get("/api/pins", pinsHandler);
 app.post("/upload", upload.single("file"), uploadHandler);
 
 // Apply error handler

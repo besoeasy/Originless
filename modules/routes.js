@@ -23,6 +23,14 @@ const {
   constants: { DEFAULT_RELAYS },
 } = require("./nostr");
 
+const {
+  getPins,
+  getPinsByType,
+  getStats,
+  getTotalCount,
+  getRecentPins,
+} = require("./database");
+
 const unlinkAsync = promisify(fs.unlink);
 
 // Health check endpoint
@@ -265,9 +273,65 @@ const uploadHandler = async (req, res) => {
   }
 };
 
+// Pins history endpoint
+const pinsHandler = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const type = req.query.type; // 'self', 'friend', or undefined for all
+
+    let pins;
+    if (type && (type === 'self' || type === 'friend')) {
+      pins = getPinsByType(type, limit, offset);
+    } else {
+      pins = getPins(limit, offset);
+    }
+
+    const total = getTotalCount();
+    const stats = getStats();
+
+    res.json({
+      success: true,
+      pins: pins.map(pin => ({
+        id: pin.id,
+        eventId: pin.event_id,
+        cid: pin.cid,
+        size: pin.size,
+        timestamp: pin.timestamp,
+        author: pin.author,
+        type: pin.type,
+        status: pin.status,
+        createdAt: pin.created_at,
+        updatedAt: pin.updated_at,
+      })),
+      pagination: {
+        limit,
+        offset,
+        total,
+        hasMore: offset + limit < total,
+      },
+      stats: stats.reduce((acc, stat) => {
+        const key = `${stat.type}_${stat.status}`;
+        acc[key] = {
+          count: stat.count,
+          totalSize: stat.total_size,
+        };
+        return acc;
+      }, {}),
+    });
+  } catch (err) {
+    console.error("Pins handler error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+};
+
 module.exports = {
   healthHandler,
   statusHandler,
   nostrHandler,
   uploadHandler,
+  pinsHandler,
 };

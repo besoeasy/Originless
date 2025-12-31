@@ -5,18 +5,25 @@ const { IPFS_API } = require("./config");
 // Get total size of pinned content
 const getPinnedSize = async () => {
   try {
-    const pinResponse = await axios.post(`${IPFS_API}/api/v0/pin/ls?type=recursive`, null, { timeout: 10000 });
+    const pinResponse = await axios.post(`${IPFS_API}/api/v0/pin/ls?type=recursive`, {}, { timeout: 10000 });
     const pins = pinResponse.data.Keys || {};
     const cids = Object.keys(pins);
     
     let totalSize = 0;
     for (const cid of cids) {
       try {
-        const statResponse = await axios.post(`${IPFS_API}/api/v0/object/stat?arg=${encodeURIComponent(cid)}`, null, { timeout: 5000 });
-        totalSize += statResponse.data.CumulativeSize || 0;
+        const statResponse = await axios.post(`${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, {}, { timeout: 5000 });
+        const size = statResponse.data.CumulativeSize || statResponse.data.Size || 0;
+        totalSize += size;
       } catch (err) {
-        // Skip CIDs that fail to stat
-        console.warn(`Failed to stat pinned CID ${cid}:`, err.message);
+        // Try alternative method with block/stat
+        try {
+          const blockResponse = await axios.post(`${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, {}, { timeout: 5000 });
+          totalSize += blockResponse.data.Size || 0;
+        } catch (blockErr) {
+          // Skip CIDs that fail to stat
+          console.warn(`Failed to stat pinned CID ${cid}:`, err.message);
+        }
       }
     }
     return { totalSize, count: cids.length };

@@ -219,6 +219,93 @@
             </div>
           </div>
         </div>
+
+        <!-- Pins History Table -->
+        <div class="mt-6">
+          <div class="glassmorphism rounded-2xl shadow-xl p-6 animate-fade-in">
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-history text-2xl text-black"></i>
+                <div>
+                  <h2 class="text-2xl font-bold text-black">Pinned Content History</h2>
+                  <p class="text-gray-500 text-sm">Track all media pinned from Nostr events</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <select id="filterType" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <option value="">All Types</option>
+                  <option value="self">Self Only</option>
+                  <option value="friend">Friends Only</option>
+                </select>
+                <button id="refreshPins"
+                  class="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors">
+                  <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+              </div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p class="text-blue-600 text-xs font-semibold uppercase mb-1">Total Pins</p>
+                <p class="text-blue-900 text-2xl font-bold" id="statsTotal">0</p>
+              </div>
+              <div class="bg-green-50 rounded-lg p-4 border border-green-200">
+                <p class="text-green-600 text-xs font-semibold uppercase mb-1">Self Pinned</p>
+                <p class="text-green-900 text-2xl font-bold" id="statsSelfPinned">0</p>
+              </div>
+              <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <p class="text-purple-600 text-xs font-semibold uppercase mb-1">Friends Cached</p>
+                <p class="text-purple-900 text-2xl font-bold" id="statsFriendsCached">0</p>
+              </div>
+              <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                <p class="text-orange-600 text-xs font-semibold uppercase mb-1">Total Size</p>
+                <p class="text-orange-900 text-xl font-bold" id="statsSize">0 B</p>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-100 border-b-2 border-gray-300">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Event ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">CID</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Size</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Timestamp</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Author</th>
+                  </tr>
+                </thead>
+                <tbody id="pinsTableBody" class="divide-y divide-gray-200">
+                  <tr>
+                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                      <i class="fas fa-spinner fa-spin mr-2"></i>Loading pins...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+              <div class="text-sm text-gray-600" id="paginationInfo">Showing 0 of 0</div>
+              <div class="flex gap-2">
+                <button id="prevPage"
+                  class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled>
+                  <i class="fas fa-chevron-left mr-2"></i>Previous
+                </button>
+                <button id="nextPage"
+                  class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled>
+                  Next<i class="fas fa-chevron-right ml-2"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -311,11 +398,149 @@
       return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
     }
 
+    function formatTimestamp(timestamp) {
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleString();
+    }
+
+    function truncate(str, len = 12) {
+      if (!str) return '-';
+      if (str.length <= len) return str;
+      return str.substring(0, len) + '...';
+    }
+
+    // Pins table management
+    let currentPage = 0;
+    const limit = 50;
+
+    async function loadPins() {
+      const filterType = document.getElementById("filterType").value;
+      const pinsTableBody = document.getElementById("pinsTableBody");
+
+      try {
+        pinsTableBody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
+
+        let url = `/api/pins?limit=${limit}&offset=${currentPage * limit}`;
+        if (filterType) {
+          url += `&type=${filterType}`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to load pins');
+        }
+
+        // Update stats
+        const stats = data.stats || {};
+        const selfPinned = (stats.self_pinned?.count || 0) + (stats.self_pending?.count || 0);
+        const friendsCached = (stats.friend_cached?.count || 0) + (stats.friend_pending?.count || 0);
+        const totalSize = Object.values(stats).reduce((sum, stat) => sum + (stat.totalSize || 0), 0);
+
+        document.getElementById("statsTotal").textContent = data.pagination.total;
+        document.getElementById("statsSelfPinned").textContent = selfPinned;
+        document.getElementById("statsFriendsCached").textContent = friendsCached;
+        document.getElementById("statsSize").textContent = formatBytes(totalSize);
+
+        // Update table
+        const pins = data.pins || [];
+        if (pins.length === 0) {
+          pinsTableBody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">No pins found</td></tr>';
+        } else {
+          pinsTableBody.innerHTML = pins.map(pin => {
+            const statusColor = {
+              'pinned': 'bg-green-100 text-green-800',
+              'cached': 'bg-blue-100 text-blue-800',
+              'pending': 'bg-yellow-100 text-yellow-800',
+              'failed': 'bg-red-100 text-red-800'
+            }[pin.status] || 'bg-gray-100 text-gray-800';
+
+            const typeColor = pin.type === 'self' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800';
+            
+            return `
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <a href="https://primal.net/e/${pin.eventId}" target="_blank" 
+                     class="text-blue-600 hover:underline font-mono text-xs"
+                     title="${pin.eventId}">
+                    ${truncate(pin.eventId, 16)}
+                  </a>
+                </td>
+                <td class="px-4 py-3">
+                  <a href="https://ipfs.io/ipfs/${pin.cid}" target="_blank" 
+                     class="text-blue-600 hover:underline font-mono text-xs"
+                     title="${pin.cid}">
+                    ${truncate(pin.cid, 16)}
+                  </a>
+                </td>
+                <td class="px-4 py-3 font-mono text-xs">${formatBytes(pin.size)}</td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-1 rounded-full text-xs font-semibold ${typeColor}">
+                    ${pin.type}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColor}">
+                    ${pin.status}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-600">${formatTimestamp(pin.timestamp)}</td>
+                <td class="px-4 py-3">
+                  <a href="https://nosta.me/${pin.author}" target="_blank" 
+                     class="text-blue-600 hover:underline font-mono text-xs"
+                     title="${pin.author}">
+                    ${truncate(pin.author, 12)}
+                  </a>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // Update pagination
+        const start = currentPage * limit + 1;
+        const end = Math.min((currentPage + 1) * limit, data.pagination.total);
+        document.getElementById("paginationInfo").textContent = 
+          `Showing ${start}-${end} of ${data.pagination.total}`;
+
+        document.getElementById("prevPage").disabled = currentPage === 0;
+        document.getElementById("nextPage").disabled = !data.pagination.hasMore;
+
+      } catch (err) {
+        console.error('Failed to load pins:', err);
+        pinsTableBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-red-500"><i class="fas fa-exclamation-circle mr-2"></i>Error: ${err.message}</td></tr>`;
+      }
+    }
+
     document.getElementById("refresh").addEventListener("click", () => {
       load();
     });
 
+    document.getElementById("refreshPins").addEventListener("click", () => {
+      currentPage = 0;
+      loadPins();
+    });
+
+    document.getElementById("filterType").addEventListener("change", () => {
+      currentPage = 0;
+      loadPins();
+    });
+
+    document.getElementById("prevPage").addEventListener("click", () => {
+      if (currentPage > 0) {
+        currentPage--;
+        loadPins();
+      }
+    });
+
+    document.getElementById("nextPage").addEventListener("click", () => {
+      currentPage++;
+      loadPins();
+    });
+
     load();
+    loadPins();
   </script>
 </body>
 

@@ -19,8 +19,10 @@
   "homepage": "https://github.com/besoeasy/file-drop#readme",
   "dependencies": {
     "axios": "^1.8.4",
+    "better-sqlite3": "^12.5.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "form-data": "^4.0.2",
     "mime-types": "^3.0.2",
