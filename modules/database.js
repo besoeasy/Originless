@@ -1,115 +1,44 @@
-// Database module for tracking pinned content
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+// In-memory database module for tracking pinned content
+// Stateless between reboots - resets on restart
 
-// Initialize database
-const dbDir = path.join(__dirname, '..', 'db');
-const dbPath = process.env.DB_PATH || path.join(dbDir, 'pins.db');
+// In-memory store
+const pinsMap = new Map(); // CID -> pin object
+let nextId = 1;
 
-// Ensure db directory exists
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+// Helper to create pin object
+const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
+  id,
+  event_id: eventId,
+  cid,
+  size,
+  timestamp,
+  author,
+  type,
+  status,
+  created_at: createdAt,
+  updated_at: updatedAt,
+});
 
-const db = new Database(dbPath);
-
-// Enable WAL mode for better concurrency
-db.pragma('journal_mode = WAL');
-
-// Create pins table
-db.exec(`
-  CREATE TABLE IF NOT EXISTS pins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id TEXT NOT NULL,
-    cid TEXT NOT NULL UNIQUE,
-    size INTEGER DEFAULT 0,
-    timestamp INTEGER NOT NULL,
-    author TEXT,
-    type TEXT NOT NULL CHECK(type IN ('self', 'friend')),
-    status TEXT NOT NULL DEFAULT 'pinned' CHECK(status IN ('pending', 'pinned', 'cached', 'failed')),
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_pins_cid ON pins(cid);
-  CREATE INDEX IF NOT EXISTS idx_pins_event_id ON pins(event_id);
-  CREATE INDEX IF NOT EXISTS idx_pins_type ON pins(type);
-  CREATE INDEX IF NOT EXISTS idx_pins_status ON pins(status);
-  CREATE INDEX IF NOT EXISTS idx_pins_timestamp ON pins(timestamp DESC);
-  CREATE INDEX IF NOT EXISTS idx_pins_created_at ON pins(created_at DESC);
-`);
-
-// Prepared statements
-const insertPinStmt = db.prepare(`
-  INSERT OR REPLACE INTO pins (event_id, cid, size, timestamp, author, type, status, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
-`);
-
-const updatePinSizeStmt = db.prepare(`
-  UPDATE pins SET size = ?, status = ?, updated_at = strftime('%s', 'now')
-  WHERE cid = ?
-`);
-
-const getPinByCidStmt = db.prepare(`
-  SELECT * FROM pins WHERE cid = ?
-`);
-
-const getPinsStmt = db.prepare(`
-  SELECT * FROM pins
-  ORDER BY created_at DESC
-  LIMIT ? OFFSET ?
-`);
-
-const getPinsByTypeStmt = db.prepare(`
-  SELECT * FROM pins
-  WHERE type = ?
-  ORDER BY created_at DESC
-  LIMIT ? OFFSET ?
-`);
-
-const getStatsStmt = db.prepare(`
-  SELECT 
-    type,
-    status,
-    COUNT(*) as count,
-    COALESCE(SUM(size), 0) as total_size
-  FROM pins
-  GROUP BY type, status
-`);
-
-const getTotalCountStmt = db.prepare(`
-  SELECT COUNT(*) as total FROM pins
-`);
-
-const getRecentPinsStmt = db.prepare(`
-  SELECT * FROM pins
-  ORDER BY created_at DESC
-  LIMIT ?
-`);
-
-const insertIfNotExistsStmt = db.prepare(`
-  INSERT OR IGNORE INTO pins (event_id, cid, size, timestamp, author, type, status)
-  VALUES (?, ?, 0, ?, ?, ?, 'pending')
-`);
-
-const getPendingByTypeStmt = db.prepare(`
-  SELECT * FROM pins
-  WHERE type = ? AND status = 'pending'
-  ORDER BY timestamp DESC
-  LIMIT ?
-`);
-
-const countByTypeAndStatusStmt = db.prepare(`
-  SELECT COUNT(*) as count FROM pins
-  WHERE type = ? AND status = ?
-`);
-
-// Functions
+// Record pin (INSERT OR REPLACE)
 const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned' }) => {
   try {
-    insertPinStmt.run(eventId, cid, size, timestamp, author, type, status);
-    console.log(`[DB] Recorded ${type} pin: ${cid} from event ${eventId}`);
+    const now = Math.floor(Date.now() / 1000);
+    
+    if (pinsMap.has(cid)) {
+      // Update existing
+      const existing = pinsMap.get(cid);
+      existing.size = size;
+      existing.status = status;
+      existing.updated_at = now;
+      console.log(`[DB] Updated ${type} pin: ${cid}`);
+    } else {
+      // Insert new
+      const id = nextId++;
+      const createdAt = Math.floor(Date.now() / 1000);
+      const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now);
+      pinsMap.set(cid, pin);
+      console.log(`[DB] Recorded ${type} pin: ${cid} from event ${eventId}`);
+    }
     return true;
   } catch (err) {
     console.error(`[DB] Failed to record pin:`, err.message);
@@ -117,34 +46,153 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
   }
 };
 
+// Update pin size and status
+const updatePinSize = (cid, size, status = 'pinned') => {
+  try {
+    if (pinsMap.has(cid)) {
+      const pin = pinsMap.get(cid);
+      pin.size = size;
+      pin.status = status;
+      pin.updated_at = Math.floor(Date.now() / 1000);
+      console.log(`[DB] Updated pin size: ${cid} = ${size} bytes, status = ${status}`);
+      return true;
+    } else {
+      console.warn(`[DB] CID not found: ${cid}`);
+      return false;
+    }
+  } catch (err) {
+    console.error(`[DB] Failed to update pin size:`, err.message);
+    return false;
+  }
+};
+
+// Get pin by CID
+const getPinByCid = (cid) => {
+  try {
+    return pinsMap.get(cid) || null;
+  } catch (err) {
+    console.error(`[DB] Failed to get pin by CID:`, err.message);
+    return null;
+  }
+};
+
+// Get all pins with pagination
+const getPins = (limit = 50, offset = 0) => {
+  try {
+    const pins = Array.from(pinsMap.values())
+      .sort((a, b) => b.created_at - a.created_at);
+    return pins.slice(offset, offset + limit);
+  } catch (err) {
+    console.error(`[DB] Failed to get pins:`, err.message);
+    return [];
+  }
+};
+
+// Get pins by type with pagination
+const getPinsByType = (type, limit = 50, offset = 0) => {
+  try {
+    const pins = Array.from(pinsMap.values())
+      .filter(pin => pin.type === type)
+      .sort((a, b) => b.created_at - a.created_at);
+    return pins.slice(offset, offset + limit);
+  } catch (err) {
+    console.error(`[DB] Failed to get pins by type:`, err.message);
+    return [];
+  }
+};
+
+// Get statistics by type and status
+const getStats = () => {
+  try {
+    const stats = {};
+    
+    for (const pin of pinsMap.values()) {
+      const key = `${pin.type}_${pin.status}`;
+      if (!stats[key]) {
+        stats[key] = { count: 0, total_size: 0 };
+      }
+      stats[key].count++;
+      stats[key].total_size += pin.size;
+    }
+    
+    return Object.entries(stats).map(([key, value]) => ({
+      type: key.split('_')[0],
+      status: key.split('_')[1],
+      count: value.count,
+      total_size: value.total_size,
+    }));
+  } catch (err) {
+    console.error(`[DB] Failed to get stats:`, err.message);
+    return [];
+  }
+};
+
+// Get total count
+const getTotalCount = () => {
+  try {
+    return pinsMap.size;
+  } catch (err) {
+    console.error(`[DB] Failed to get total count:`, err.message);
+    return 0;
+  }
+};
+
+// Get recent pins
+const getRecentPins = (limit = 10) => {
+  try {
+    const pins = Array.from(pinsMap.values())
+      .sort((a, b) => b.created_at - a.created_at);
+    return pins.slice(0, limit);
+  } catch (err) {
+    console.error(`[DB] Failed to get recent pins:`, err.message);
+    return [];
+  }
+};
+
+// Insert CID if not exists
 const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
   try {
-    const result = insertIfNotExistsStmt.run(eventId, cid, timestamp, author, type);
-    return result.changes > 0; // Returns true if inserted, false if already exists
+    if (pinsMap.has(cid)) {
+      return false; // Already exists
+    }
+    
+    const id = nextId++;
+    const now = Math.floor(Date.now() / 1000);
+    const pin = createPinObject(id, eventId, cid, 0, timestamp, author, type, 'pending', now, now);
+    pinsMap.set(cid, pin);
+    return true; // Inserted
   } catch (err) {
     console.error(`[DB] Failed to insert CID:`, err.message);
     return false;
   }
 };
 
+// Batch insert CIDs
 const batchInsertCids = (cids) => {
-  const insertMany = db.transaction((cidList) => {
-    let inserted = 0;
-    for (const cidObj of cidList) {
-      const result = insertIfNotExistsStmt.run(
-        cidObj.eventId,
-        cidObj.cid,
-        cidObj.timestamp,
-        cidObj.author,
-        cidObj.type
-      );
-      if (result.changes > 0) inserted++;
-    }
-    return inserted;
-  });
-  
   try {
-    const inserted = insertMany(cids);
+    let inserted = 0;
+    
+    for (const cidObj of cids) {
+      if (!pinsMap.has(cidObj.cid)) {
+        const id = nextId++;
+        const now = Math.floor(Date.now() / 1000);
+        const pin = createPinObject(
+          id,
+          cidObj.eventId,
+          cidObj.cid,
+          0,
+          cidObj.timestamp,
+          cidObj.author,
+          cidObj.type,
+          'pending',
+          now,
+          now
+        );
+        pinsMap.set(cidObj.cid, pin);
+        inserted++;
+      }
+    }
+    
     console.log(`[DB] Batch inserted ${inserted} new CIDs (${cids.length - inserted} duplicates ignored)`);
     return inserted;
   } catch (err) {
@@ -153,103 +201,69 @@ const batchInsertCids = (cids) => {
   }
 };
 
-const updatePinSize = (cid, size, status = 'pinned') => {
-  try {
-    updatePinSizeStmt.run(size, status, cid);
-    console.log(`[DB] Updated pin size: ${cid} = ${size} bytes`);
-    return true;
-  } catch (err) {
-    console.error(`[DB] Failed to update pin size:`, err.message);
-    return false;
-  }
-};
-
-const getPinByCid = (cid) => {
-  try {
-    return getPinByCidStmt.get(cid);
-  } catch (err) {
-    console.error(`[DB] Failed to get pin by CID:`, err.message);
-    return null;
-  }
-};
-
-const getPins = (limit = 50, offset = 0) => {
-  try {
-    return getPinsStmt.all(limit, offset);
-  } catch (err) {
-    console.error(`[DB] Failed to get pins:`, err.message);
-    return [];
-  }
-};
-
-const getPinsByType = (type, limit = 50, offset = 0) => {
-  try {
-    return getPinsByTypeStmt.all(type, limit, offset);
-  } catch (err) {
-    console.error(`[DB] Failed to get pins by type:`, err.message);
-    return [];
-  }
-};
-
-const getStats = () => {
-  try {
-    return getStatsStmt.all();
-  } catch (err) {
-    console.error(`[DB] Failed to get stats:`, err.message);
-    return [];
-  }
-};
-
-const getTotalCount = () => {
-  try {
-    const result = getTotalCountStmt.get();
-    return result ? result.total : 0;
-  } catch (err) {
-    console.error(`[DB] Failed to get total count:`, err.message);
-    return 0;
-  }
-};
-
-const getRecentPins = (limit = 10) => {
-  try {
-    return getRecentPinsStmt.all(limit);
-  } catch (err) {
-    console.error(`[DB] Failed to get recent pins:`, err.message);
-    return [];
-  }
-};
-
+// Get pending CIDs by type
 const getPendingCidsByType = (type, limit = 1) => {
   try {
-    return getPendingByTypeStmt.all(type, limit);
+    const pins = Array.from(pinsMap.values())
+      .filter(pin => pin.type === type && pin.status === 'pending')
+      .sort((a, b) => b.timestamp - a.timestamp);
+    return pins.slice(0, limit);
   } catch (err) {
     console.error(`[DB] Failed to get pending CIDs:`, err.message);
     return [];
   }
 };
 
+// Count by type and status
 const countByTypeAndStatus = (type, status) => {
   try {
-    const result = countByTypeAndStatusStmt.get(type, status);
-    return result ? result.count : 0;
+    let count = 0;
+    for (const pin of pinsMap.values()) {
+      if (pin.type === type && pin.status === status) {
+        count++;
+      }
+    }
+    return count;
   } catch (err) {
     console.error(`[DB] Failed to count:`, err.message);
     return 0;
   }
 };
 
-// Cleanup on exit
+// Get current store stats (for debugging)
+const getStoreStats = () => {
+  const stats = {
+    totalCids: pinsMap.size,
+    byType: {},
+    byStatus: {},
+  };
+  
+  for (const pin of pinsMap.values()) {
+    if (!stats.byType[pin.type]) {
+      stats.byType[pin.type] = 0;
+    }
+    if (!stats.byStatus[pin.status]) {
+      stats.byStatus[pin.status] = 0;
+    }
+    stats.byType[pin.type]++;
+    stats.byStatus[pin.status]++;
+  }
+  
+  return stats;
+};
+
+// Cleanup on exit (no-op for in-memory)
 process.on('exit', () => {
-  db.close();
+  console.log(`[DB] Shutting down. Final store stats:`, getStoreStats());
 });
 
 process.on('SIGINT', () => {
-  db.close();
+  console.log(`[DB] Received SIGINT. Final store stats:`, getStoreStats());
   process.exit(0);
 });
 
 module.exports = {
-  db,
+  // Core functions (same API as SQLite version)
   recordPin,
   updatePinSize,
   getPinByCid,
@@ -262,4 +276,7 @@ module.exports = {
   batchInsertCids,
   getPendingCidsByType,
   countByTypeAndStatus,
+  
+  // Utility
+  getStoreStats,
 };
