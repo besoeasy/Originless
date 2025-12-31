@@ -264,13 +264,41 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
     return { alreadyPinned: true, Pins: [cid] };
   }
 
-  // Pin the CID
-  console.log(`[pinCid] Pinning ${cid} (this may take a while)`);
+  // Try to pin directly first (instant if cached locally, or fetches if not)
   const endpoint = `${ipfsApi}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`;
-  const res = await axios.post(endpoint, null, { timeout: 900000 });
-  const duration = Date.now() - startTime;
-  console.log(`[pinCid] ✓ Successfully pinned ${cid} (${duration}ms)`);
-  return { ...res.data, alreadyPinned: false, newlyPinned: true };
+  
+  try {
+    console.log(`[pinCid] Attempting to pin ${cid} (instant if cached, otherwise fetches)`);
+    const res = await axios.post(endpoint, null, { timeout: 60000 }); // 60s timeout
+    const duration = Date.now() - startTime;
+    console.log(`[pinCid] ✓ Successfully pinned ${cid} (${duration}ms)`);
+    return { ...res.data, alreadyPinned: false, newlyPinned: true };
+  } catch (err) {
+    // If timeout or error, try caching first then pin
+    if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+      console.log(`[pinCid] Pin timeout, caching ${cid} first then pinning...`);
+      try {
+        // Cache it first
+        const cacheResult = await addCid(cid, ipfsApi);
+        console.log(`[pinCid] Cached ${(cacheResult.size / 1024 / 1024).toFixed(2)} MB, now pinning...`);
+        
+        // Now pin the cached data (should be instant)
+        const res = await axios.post(endpoint, null, { timeout: 30000 });
+        const duration = Date.now() - startTime;
+        console.log(`[pinCid] ✓ Successfully pinned ${cid} after caching (${duration}ms total)`);
+        return { ...res.data, alreadyPinned: false, newlyPinned: true, cached: true };
+      } catch (cacheErr) {
+        const duration = Date.now() - startTime;
+        console.error(`[pinCid] Failed to cache+pin ${cid} (${duration}ms):`, cacheErr.message);
+        throw cacheErr;
+      }
+    }
+    
+    // Other errors, just throw
+    const duration = Date.now() - startTime;
+    console.error(`[pinCid] Failed to pin ${cid} (${duration}ms):`, err.message);
+    throw err;
+  }
 };
 
 const addCid = async (cid, ipfsApi = IPFS_API) => {
