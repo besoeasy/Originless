@@ -239,6 +239,30 @@ app.get("/status", async (req, res) => {
   }
 });
 
+// Helper function to get total size of pinned content
+const getPinnedSize = async () => {
+  try {
+    const pinResponse = await axios.post(`${IPFS_API}/api/v0/pin/ls?type=recursive`, null, { timeout: 10000 });
+    const pins = pinResponse.data.Keys || {};
+    const cids = Object.keys(pins);
+    
+    let totalSize = 0;
+    for (const cid of cids) {
+      try {
+        const statResponse = await axios.post(`${IPFS_API}/api/v0/object/stat?arg=${encodeURIComponent(cid)}`, null, { timeout: 5000 });
+        totalSize += statResponse.data.CumulativeSize || 0;
+      } catch (err) {
+        // Skip CIDs that fail to stat
+        console.warn(`Failed to stat pinned CID ${cid}:`, err.message);
+      }
+    }
+    return { totalSize, count: cids.length };
+  } catch (err) {
+    console.error('Failed to get pinned size:', err.message);
+    return { totalSize: 0, count: 0 };
+  }
+};
+
 // Combined Nostr stats endpoint (includes repo stats and pin counts)
 app.get("/nostr", async (req, res) => {
   if (!NPUB) {
@@ -249,8 +273,12 @@ app.get("/nostr", async (req, res) => {
   }
 
   try {
-    // Fetch repo stats
-    const repoResponse = await axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 });
+    // Fetch repo stats and pinned size in parallel
+    const [repoResponse, pinnedStats] = await Promise.all([
+      axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 }),
+      getPinnedSize()
+    ]);
+    
     const repo = {
       size: repoResponse.data.RepoSize,
       storageMax: repoResponse.data.StorageMax,
@@ -294,6 +322,8 @@ app.get("/nostr", async (req, res) => {
         self: totalPinnedSelf,
         friends: totalCachedFriends,
         total: totalPinnedSelf + totalCachedFriends,
+        totalSize: pinnedStats.totalSize,
+        pinnedCount: pinnedStats.count,
       },
       queues: {
         self: {
