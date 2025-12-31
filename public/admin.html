@@ -373,9 +373,13 @@
         noFriends.classList.toggle("hidden", friends.length !== 0);
 
         // Update pin stats from the same response
-        document.getElementById("pinsTotal").textContent = data.pins?.total ?? 0;
-        document.getElementById("pinsSelf").textContent = data.pins?.self ?? 0;
-        document.getElementById("pinsFriends").textContent = data.pins?.friends ?? 0;
+        const selfTotal = data.pins?.self?.total ?? 0;
+        const friendsTotal = data.pins?.friends?.total ?? 0;
+        const pinsTotal = selfTotal + friendsTotal;
+        
+        document.getElementById("pinsTotal").textContent = pinsTotal;
+        document.getElementById("pinsSelf").textContent = selfTotal;
+        document.getElementById("pinsFriends").textContent = friendsTotal;
         const size = data.repo?.size || 0;
         document.getElementById("repoSize").textContent = formatBytes(size);
         const pinnedSize = data.pins?.totalSize || 0;
