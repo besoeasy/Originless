@@ -309,14 +309,23 @@ const syncNostrPins = async ({
   const deleteEvents = await fetchAllUserEvents({ pubkey, relays, kinds: [5] });
   const deletedIds = getDeletedIds(deleteEvents);
 
-  const cidSet = new Set();
+  const cidMap = new Map();
   events
     .filter((evt) => !deletedIds.has(evt.id))
     .forEach((evt) => {
-      extractCidsFromContent(evt.content).forEach((cid) => cidSet.add(cid));
+      extractCidsFromContent(evt.content).forEach((cid) => {
+        if (!cidMap.has(cid)) {
+          cidMap.set(cid, {
+            cid,
+            eventId: evt.id,
+            timestamp: evt.created_at,
+            author: evt.pubkey,
+          });
+        }
+      });
     });
 
-  const cids = Array.from(cidSet);
+  const cids = Array.from(cidMap.values());
   const toPin = typeof maxPins === "number" ? cids.slice(0, maxPins) : cids;
 
   if (dryRun) {
@@ -331,12 +340,12 @@ const syncNostrPins = async ({
   }
 
   const results = [];
-  for (const cid of toPin) {
+  for (const cidObj of toPin) {
     try {
-      const data = await pinCid(cid, ipfsApi);
-      results.push({ cid, ok: true, data });
+      const data = await pinCid(cidObj.cid, ipfsApi);
+      results.push({ ...cidObj, ok: true, data });
     } catch (err) {
-      results.push({ cid, ok: false, error: err.message });
+      results.push({ ...cidObj, ok: false, error: err.message });
     }
   }
 
@@ -392,14 +401,23 @@ const syncFollowPins = async ({
   const deleteEvents = await fetchAllFollowingEvents({ authors: following, relays, kinds: [5] });
   const deletedIds = getDeletedIds(deleteEvents);
 
-  const cidSet = new Set();
+  const cidMap = new Map();
   events
     .filter((evt) => !deletedIds.has(evt.id))
     .forEach((evt) => {
-      extractCidsFromContent(evt.content).forEach((cid) => cidSet.add(cid));
+      extractCidsFromContent(evt.content).forEach((cid) => {
+        if (!cidMap.has(cid)) {
+          cidMap.set(cid, {
+            cid,
+            eventId: evt.id,
+            timestamp: evt.created_at,
+            author: evt.pubkey,
+          });
+        }
+      });
     });
 
-  const cids = Array.from(cidSet);
+  const cids = Array.from(cidMap.values());
   const toPin = typeof maxPins === "number" ? cids.slice(0, maxPins) : cids;
 
   if (dryRun) {
@@ -416,12 +434,12 @@ const syncFollowPins = async ({
 
   // For friends, add without pinning (ephemeral cache, allows garbage collection)
   const results = [];
-  for (const cid of toPin) {
+  for (const cidObj of toPin) {
     try {
-      const data = await addCid(cid, ipfsApi);
-      results.push({ cid, ok: true, data });
+      const data = await addCid(cidObj.cid, ipfsApi);
+      results.push({ ...cidObj, ok: true, data });
     } catch (err) {
-      results.push({ cid, ok: false, error: err.message });
+      results.push({ ...cidObj, ok: false, error: err.message });
     }
   }
 

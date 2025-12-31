@@ -477,11 +477,11 @@ const runNostrJob = async () => {
     const selfCids = selfResult.plannedPins || [];
     const friendCids = friendsResult.plannedAdds || [];
 
-    const selfSet = new Set(selfCidQueue);
-    const friendSet = new Set(friendsCidQueue);
+    const selfCidSet = new Set(selfCidQueue.map(obj => obj.cid));
+    const friendCidSet = new Set(friendsCidQueue.map(obj => obj.cid));
 
-    const newSelfCids = selfCids.filter(cid => !selfSet.has(cid));
-    const newFriendCids = friendCids.filter(cid => !friendSet.has(cid));
+    const newSelfCids = selfCids.filter(cidObj => !selfCidSet.has(cidObj.cid));
+    const newFriendCids = friendCids.filter(cidObj => !friendCidSet.has(cidObj.cid));
 
     selfCidQueue.push(...newSelfCids);
     friendsCidQueue.push(...newFriendCids);
@@ -550,9 +550,15 @@ const pinnerJob = async () => {
         }
         
         checkedIndices.add(randomIndex);
-        const cid = selfCidQueue[randomIndex];
+        const cidObj = selfCidQueue[randomIndex];
+        const cid = cidObj.cid;
 
+        // Generate nevent link
+        const primalLink = `https://primal.net/e/${cidObj.eventId}`;
+        
         console.log(`\n[Self] Checking CID (${selfCidQueue.length} in queue): ${cid}`);
+        console.log(`  Event: ${primalLink}`);
+        console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
         const alreadyPinned = await isPinned(cid);
         if (alreadyPinned) {
@@ -600,9 +606,13 @@ const pinnerJob = async () => {
     // Process friends queue: cache CID
     if (friendsCidQueue.length > 0) {
       const randomIndex = Math.floor(Math.random() * friendsCidQueue.length);
-      const cid = friendsCidQueue[randomIndex];
+      const cidObj = friendsCidQueue[randomIndex];
+      const cid = cidObj.cid;
 
+      const primalLink = `https://primal.net/e/${cidObj.eventId}`;
       console.log(`\n[Friend] Caching CID (${friendsCidQueue.length} in queue): ${cid}`);
+      console.log(`  Event: ${primalLink}`);
+      console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
       // Fire-and-forget: start caching without waiting
       addCid(cid)
