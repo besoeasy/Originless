@@ -9,6 +9,7 @@ const fs = require("fs");
 const { promisify } = require("util");
 const mime = require("mime-types");
 const unlinkAsync = promisify(fs.unlink);
+
 const {
   syncNostrPins,
   syncFollowPins,
@@ -62,7 +63,7 @@ if (process.env.NPUB) {
   }
 }
 
-const NOSTR_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+const NOSTR_CHECK_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
 const PINNER_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
 
 let lastNostrRun = {
