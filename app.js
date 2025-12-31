@@ -551,8 +551,10 @@ const pinnerJob = async () => {
 
       if (cidToPin) {
         console.log(`\n[Self] Pinning CID: ${cidToPin}`);
-        await pinCid(cidToPin);
-        console.log(`✓ Successfully pinned: ${cidToPin}`);
+        // Fire-and-forget: start pinning without waiting
+        pinCid(cidToPin)
+          .then(() => console.log(`✓ Successfully pinned: ${cidToPin}`))
+          .catch(err => console.error(`❌ Failed to pin ${cidToPin}:`, err.message));
         selfCidQueue.splice(cidToPinIndex, 1);
         totalPinnedSelf++;
         console.log(`📊 Counter updated: totalPinnedSelf = ${totalPinnedSelf}`);
@@ -572,8 +574,10 @@ const pinnerJob = async () => {
 
       console.log(`\n[Friend] Caching CID (${friendsCidQueue.length} in queue): ${cid}`);
 
-      await addCid(cid);
-      console.log(`✓ Successfully cached: ${cid}`);
+      // Fire-and-forget: start caching without waiting
+      addCid(cid)
+        .then(() => console.log(`✓ Successfully cached: ${cid}`))
+        .catch(err => console.error(`❌ Failed to cache ${cid}:`, err.message));
       friendsCidQueue.splice(randomIndex, 1);
       totalCachedFriends++;
       console.log(`📊 Counter updated: totalCachedFriends = ${totalCachedFriends}`);
