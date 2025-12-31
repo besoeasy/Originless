@@ -37,7 +37,7 @@ const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 
 // Nostr timing configuration
-const NOSTR_CHECK_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
+const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // 7 minutes
 const PINNER_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
 module.exports = {
