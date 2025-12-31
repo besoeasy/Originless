@@ -7,10 +7,6 @@ const mime = require("mime-types");
 
 const { IPFS_API, STORAGE_MAX, FILE_LIMIT, formatBytes } = require("./config");
 const { getPinnedSize, checkIPFSHealth, getIPFSStats } = require("./ipfs");
-const {
-  getLastPinnerActivity,
-  getLastNostrRun,
-} = require("./queue");
 
 const {
   decodePubkey,
@@ -26,6 +22,8 @@ const {
   getTotalCount,
   getRecentPins,
   countByTypeAndStatus,
+  getLastPinnerActivity,
+  getLastNostrRun,
 } = require("./database");
 
 const unlinkAsync = promisify(fs.unlink);

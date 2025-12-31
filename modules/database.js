@@ -6,6 +6,15 @@ const pinsMap = new Map(); // CID -> pin object
 const inProgressMap = new Map(); // CID -> { startTime, lastProgress, type }
 let nextId = 1;
 
+// State tracking for jobs
+let lastPinnerActivity = null;
+let lastNostrRun = {
+  at: null,
+  self: null,
+  friends: null,
+  error: null,
+};
+
 // Helper to create pin object
 const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
   id,
@@ -309,6 +318,17 @@ const cleanupStaleInProgress = () => {
   }
 };
 
+// State management functions
+const getLastPinnerActivity = () => lastPinnerActivity;
+const setLastPinnerActivity = (timestamp) => {
+  lastPinnerActivity = timestamp;
+};
+
+const getLastNostrRun = () => lastNostrRun;
+const setLastNostrRun = (data) => {
+  lastNostrRun = data;
+};
+
 module.exports = {
   // Core functions (same API as SQLite version)
   recordPin,
@@ -331,6 +351,12 @@ module.exports = {
   isInProgress,
   getInProgressCids,
   cleanupStaleInProgress,
+  
+  // State management
+  getLastPinnerActivity,
+  setLastPinnerActivity,
+  getLastNostrRun,
+  setLastNostrRun,
   
   // Utility
   getStoreStats,

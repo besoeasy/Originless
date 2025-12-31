@@ -1,17 +1,14 @@
 // Nostr job management
 const { syncNostrPins, syncFollowPins } = require("./nostr");
 
-const {
-  setLastPinnerActivity,
-  setLastNostrRun,
-} = require("./queue");
-
-const { isPinned, pinCid, cacheCid } = require("./ipfs");
+const { pinCid, cacheCid } = require("./ipfs");
 const { 
   batchInsertCids,
   getPendingCidsByType,
   updatePinSize,
   countByTypeAndStatus,
+  setLastPinnerActivity,
+  setLastNostrRun,
 } = require("./database");
 
 // Nostr discovery job
@@ -117,15 +114,19 @@ const pinnerJob = async () => {
         // Pin it (function handles "already pinned" check internally)
         const result = await pinCid(cid);
         
-        if (result.success) {
+        if (result.success && !result.caching) {
+          // Only mark as pinned if it's actually pinned (not just started caching)
           updatePinSize(cid, result.size, "pinned");
           console.log(`✓ ${result.message}`);
+          didWork = true;
+        } else if (result.caching) {
+          // Started caching in background, leave as pending to check again later
+          console.log(`⏳ ${result.message} - will check again next run`);
         } else {
           updatePinSize(cid, 0, "failed");
           console.error(`✗ ${result.message}`);
+          didWork = true;
         }
-        
-        didWork = true;
       }
     }
 
@@ -144,15 +145,19 @@ const pinnerJob = async () => {
         // Cache it (function handles "already cached" check internally)
         const result = await cacheCid(cid);
         
-        if (result.success) {
+        if (result.success && !result.caching) {
+          // Only mark as cached if it's actually available locally
           updatePinSize(cid, result.size, "cached");
           console.log(`✓ ${result.message}`);
+          didWork = true;
+        } else if (result.caching) {
+          // Started caching in background, leave as pending to check again later
+          console.log(`⏳ ${result.message} - will check again next run`);
         } else {
           updatePinSize(cid, 0, "failed");
           console.error(`✗ ${result.message}`);
+          didWork = true;
         }
-        
-        didWork = true;
       }
     }
 
