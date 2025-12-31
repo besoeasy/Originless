@@ -3,6 +3,7 @@
 
 // In-memory store
 const pinsMap = new Map(); // CID -> pin object
+const inProgressMap = new Map(); // CID -> { startTime, lastProgress, type }
 let nextId = 1;
 
 // Helper to create pin object
@@ -262,6 +263,52 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+// Track in-progress operations
+const markInProgress = (cid, type) => {
+  inProgressMap.set(cid, {
+    startTime: Date.now(),
+    lastProgress: Date.now(),
+    type,
+  });
+};
+
+const updateProgress = (cid, bytes) => {
+  const progress = inProgressMap.get(cid);
+  if (progress) {
+    progress.lastProgress = Date.now();
+    progress.bytes = bytes;
+  }
+};
+
+const clearInProgress = (cid) => {
+  inProgressMap.delete(cid);
+};
+
+const isInProgress = (cid) => {
+  return inProgressMap.has(cid);
+};
+
+const getInProgressCids = () => {
+  return Array.from(inProgressMap.entries()).map(([cid, info]) => ({
+    cid,
+    ...info,
+    elapsed: Date.now() - info.startTime,
+  }));
+};
+
+// Clean up stale in-progress entries (no activity for 10 minutes)
+const cleanupStaleInProgress = () => {
+  const now = Date.now();
+  const staleThreshold = 10 * 60 * 1000; // 10 minutes
+  
+  for (const [cid, info] of inProgressMap.entries()) {
+    if (now - info.lastProgress > staleThreshold) {
+      console.log(`[DB] Removing stale in-progress entry: ${cid} (no activity for ${Math.floor((now - info.lastProgress) / 1000)}s)`);
+      inProgressMap.delete(cid);
+    }
+  }
+};
+
 module.exports = {
   // Core functions (same API as SQLite version)
   recordPin,
@@ -276,6 +323,14 @@ module.exports = {
   batchInsertCids,
   getPendingCidsByType,
   countByTypeAndStatus,
+  
+  // In-progress tracking
+  markInProgress,
+  updateProgress,
+  clearInProgress,
+  isInProgress,
+  getInProgressCids,
+  cleanupStaleInProgress,
   
   // Utility
   getStoreStats,

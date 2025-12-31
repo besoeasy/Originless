@@ -251,7 +251,7 @@ const isPinned = async (cid, ipfsApi = IPFS_API) => {
   }
 };
 
-const pinCid = async (cid, ipfsApi = IPFS_API) => {
+const pinCid = async (cid, onProgress = null, ipfsApi = IPFS_API) => {
   const startTime = Date.now();
   console.log(`[pinCid] Starting pin for ${cid}`);
 
@@ -270,8 +270,12 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
   try {
     console.log(`[pinCid] Attempting to pin ${cid} with progress tracking`);
     const res = await axios.post(endpoint, null, { 
-      timeout: 120000, // 2 min timeout - gets response immediately then streams
-      responseType: 'stream'
+      timeout: 0, // No timeout - progress keeps connection alive
+      responseType: 'stream',
+      httpAgent: new (require('http').Agent)({ 
+        keepAlive: true,
+        keepAliveMsecs: 30000
+      })
     });
     
     // Process streaming newline-delimited JSON responses
@@ -299,6 +303,11 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
               lastProgress = data.Progress;
               const progressMB = (data.Progress / 1024 / 1024).toFixed(2);
               console.log(`[pinCid] Progress: ${progressMB} MB`);
+              
+              // Call progress callback if provided
+              if (onProgress) {
+                onProgress({ cid, bytes: data.Progress, timestamp: Date.now() });
+              }
             }
             
             // Final result with Pins array
@@ -334,14 +343,18 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
     if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
       console.log(`[pinCid] Pin timeout, caching ${cid} first then pinning...`);
       try {
-        // Cache it first
-        const cacheResult = await addCid(cid, ipfsApi);
+        // Cache it first (pass along progress callback)
+        const cacheResult = await addCid(cid, ipfsApi, onProgress);
         console.log(`[pinCid] Cached ${(cacheResult.size / 1024 / 1024).toFixed(2)} MB, now pinning...`);
         
         // Now pin the cached data (should be instant) - still use progress
         const res2 = await axios.post(endpoint, null, { 
-          timeout: 30000,
-          responseType: 'stream'
+          timeout: 0, // No timeout even for cached pins
+          responseType: 'stream',
+          httpAgent: new (require('http').Agent)({ 
+            keepAlive: true,
+            keepAliveMsecs: 30000
+          })
         });
         
         // Read stream to completion
@@ -377,7 +390,7 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
   }
 };
 
-const addCid = async (cid, ipfsApi = IPFS_API) => {
+const addCid = async (cid, ipfsApi = IPFS_API, onProgress = null) => {
   const startTime = Date.now();
   console.log(`[addCid] Starting cache for ${cid}`);
 
@@ -388,16 +401,29 @@ const addCid = async (cid, ipfsApi = IPFS_API) => {
   console.log(`[addCid] Fetching ${cid} to cache (this may take a while)`);
   const endpoint = `${ipfsApi}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
   const res = await axios.post(endpoint, null, { 
-    timeout: 900000, 
+    timeout: 0, // No timeout - let it run as long as needed
     responseType: 'stream',
     maxContentLength: Infinity,
-    maxBodyLength: Infinity
+    maxBodyLength: Infinity,
+    httpAgent: new (require('http').Agent)({ 
+      keepAlive: true,
+      keepAliveMsecs: 30000 // Keep socket alive with 30s pings
+    })
   });
   
   // Stream the data and count bytes (avoids loading entire file into memory)
   let size = 0;
+  let lastProgressReport = Date.now();
   await new Promise((resolve, reject) => {
-    res.data.on('data', (chunk) => { size += chunk.length; });
+    res.data.on('data', (chunk) => { 
+      size += chunk.length;
+      
+      // Report progress every 5 seconds if callback provided
+      if (onProgress && Date.now() - lastProgressReport > 5000) {
+        lastProgressReport = Date.now();
+        onProgress({ cid, bytes: size, timestamp: Date.now() });
+      }
+    });
     res.data.on('end', resolve);
     res.data.on('error', reject);
   });
