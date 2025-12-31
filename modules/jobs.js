@@ -1,8 +1,5 @@
 // Nostr job management
-const {
-  syncNostrPins,
-  syncFollowPins,
-} = require("./nostr");
+const { syncNostrPins, syncFollowPins } = require("./nostr");
 
 const {
   getSelfQueue,
@@ -19,19 +16,13 @@ const {
 const { isPinned, pinCid, addCid, getCidSize } = require("./nostr");
 const { recordPin, updatePinSize, getPinByCid } = require("./database");
 
-let timerProbabilityMethod = 0.9;
-
 // Nostr discovery job
 const runNostrJob = async (NPUB) => {
   if (!NPUB) {
     return;
   }
 
-  if (Math.random() < timerProbabilityMethod) {
-    timerProbabilityMethod = timerProbabilityMethod - 0.025;
-    if (timerProbabilityMethod < 0.2) {
-      timerProbabilityMethod = 0.9;
-    }
+  if (Math.random() < 0.5) {
     console.log("Nostr discovery job: Executing (random trigger)");
   } else {
     console.log("Nostr discovery job: Skipping (random delay)");
@@ -50,11 +41,11 @@ const runNostrJob = async (NPUB) => {
     const selfQueue = getSelfQueue();
     const friendsQueue = getFriendsQueue();
 
-    const selfCidSet = new Set(selfQueue.map(obj => obj.cid));
-    const friendCidSet = new Set(friendsQueue.map(obj => obj.cid));
+    const selfCidSet = new Set(selfQueue.map((obj) => obj.cid));
+    const friendCidSet = new Set(friendsQueue.map((obj) => obj.cid));
 
-    const newSelfCids = selfCids.filter(cidObj => !selfCidSet.has(cidObj.cid));
-    const newFriendCids = friendCids.filter(cidObj => !friendCidSet.has(cidObj.cid));
+    const newSelfCids = selfCids.filter((cidObj) => !selfCidSet.has(cidObj.cid));
+    const newFriendCids = friendCids.filter((cidObj) => !friendCidSet.has(cidObj.cid));
 
     addToSelfQueue(newSelfCids);
     addToFriendsQueue(newFriendCids);
@@ -120,17 +111,17 @@ const pinnerJob = async () => {
       // Keep trying random CIDs until we find one that's not pinned
       while (checkedIndices.size < selfQueue.length) {
         const randomIndex = Math.floor(Math.random() * selfQueue.length);
-        
+
         if (checkedIndices.has(randomIndex)) {
           continue;
         }
-        
+
         checkedIndices.add(randomIndex);
         const cidObj = selfQueue[randomIndex];
         const cid = cidObj.cid;
 
         const primalLink = `https://primal.net/e/${cidObj.eventId}`;
-        
+
         console.log(`\n[Self] Checking CID (${selfQueue.length} in queue): ${cid}`);
         console.log(`  Event: ${primalLink}`);
         console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
@@ -143,7 +134,7 @@ const pinnerJob = async () => {
           didWork = true;
           // Adjust checked indices after splice
           const newCheckedIndices = new Set();
-          checkedIndices.forEach(idx => {
+          checkedIndices.forEach((idx) => {
             if (idx < randomIndex) {
               newCheckedIndices.add(idx);
             } else if (idx > randomIndex) {
@@ -151,7 +142,7 @@ const pinnerJob = async () => {
             }
           });
           checkedIndices.clear();
-          newCheckedIndices.forEach(idx => checkedIndices.add(idx));
+          newCheckedIndices.forEach((idx) => checkedIndices.add(idx));
         } else {
           // Found an unpinned CID
           cidToPinIndex = randomIndex;
@@ -163,7 +154,7 @@ const pinnerJob = async () => {
       if (cidToPin) {
         const cidObj = selfQueue[cidToPinIndex];
         console.log(`\n[Self] Pinning CID: ${cidToPin}`);
-        
+
         // Record to database first (as pending)
         recordPin({
           eventId: cidObj.eventId,
@@ -171,10 +162,10 @@ const pinnerJob = async () => {
           size: 0,
           timestamp: cidObj.timestamp,
           author: cidObj.author,
-          type: 'self',
-          status: 'pending'
+          type: "self",
+          status: "pending",
         });
-        
+
         // Fire-and-forget: start pinning without waiting
         pinCid(cidToPin)
           .then(async () => {
@@ -182,16 +173,16 @@ const pinnerJob = async () => {
             // Try to get size after pinning
             try {
               const size = await getCidSize(cidToPin);
-              updatePinSize(cidToPin, size, 'pinned');
+              updatePinSize(cidToPin, size, "pinned");
             } catch (err) {
-              updatePinSize(cidToPin, 0, 'pinned');
+              updatePinSize(cidToPin, 0, "pinned");
             }
           })
-          .catch(err => {
+          .catch((err) => {
             console.error(`❌ Failed to pin ${cidToPin}:`, err.message);
-            updatePinSize(cidToPin, 0, 'failed');
+            updatePinSize(cidToPin, 0, "failed");
           });
-        
+
         removeFromSelfQueue(cidToPinIndex);
         incrementPinnedSelf();
         console.log(`📊 Counter updated: totalPinnedSelf = ${incrementPinnedSelf.length}`);
@@ -222,8 +213,8 @@ const pinnerJob = async () => {
         size: 0,
         timestamp: cidObj.timestamp,
         author: cidObj.author,
-        type: 'friend',
-        status: 'pending'
+        type: "friend",
+        status: "pending",
       });
 
       // Fire-and-forget: start caching without waiting
@@ -232,13 +223,13 @@ const pinnerJob = async () => {
           console.log(`✓ Successfully cached: ${cid}`);
           // Update with actual size from result
           const size = result?.size || 0;
-          updatePinSize(cid, size, 'cached');
+          updatePinSize(cid, size, "cached");
         })
-        .catch(err => {
+        .catch((err) => {
           console.error(`❌ Failed to cache ${cid}:`, err.message);
-          updatePinSize(cid, 0, 'failed');
+          updatePinSize(cid, 0, "failed");
         });
-      
+
       removeFromFriendsQueue(randomIndex);
       incrementCachedFriends();
       console.log(`📊 Counter updated: totalCachedFriends = ${incrementCachedFriends.length}`);
