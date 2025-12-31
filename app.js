@@ -63,8 +63,8 @@ if (process.env.NPUB) {
   }
 }
 
-const NOSTR_CHECK_INTERVAL_MS = 11 * 60 * 1000; // 11 minutes
-const PINNER_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const NOSTR_CHECK_INTERVAL_MS = 15 * 60 * 1000; 
+const PINNER_INTERVAL_MS = 2 * 60 * 1000; 
 
 let lastNostrRun = {
   at: null,
