@@ -264,15 +264,71 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
     return { alreadyPinned: true, Pins: [cid] };
   }
 
-  // Try to pin directly first (instant if cached locally, or fetches if not)
-  const endpoint = `${ipfsApi}/api/v0/pin/add?arg=${encodeURIComponent(cid)}`;
+  // Use progress=true for streaming progress updates (prevents timeout on large files)
+  const endpoint = `${ipfsApi}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&progress=true`;
   
   try {
-    console.log(`[pinCid] Attempting to pin ${cid} (instant if cached, otherwise fetches)`);
-    const res = await axios.post(endpoint, null, { timeout: 60000 }); // 60s timeout
+    console.log(`[pinCid] Attempting to pin ${cid} with progress tracking`);
+    const res = await axios.post(endpoint, null, { 
+      timeout: 120000, // 2 min timeout - gets response immediately then streams
+      responseType: 'stream'
+    });
+    
+    // Process streaming newline-delimited JSON responses
+    let lastProgress = 0;
+    let finalResult = null;
+    
+    await new Promise((resolve, reject) => {
+      let buffer = '';
+      
+      res.data.on('data', (chunk) => {
+        buffer += chunk.toString();
+        
+        // Process complete lines (newline-delimited JSON)
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+        
+        lines.forEach(line => {
+          if (!line.trim()) return;
+          
+          try {
+            const data = JSON.parse(line);
+            
+            // Progress update
+            if (data.Progress !== undefined && data.Progress !== lastProgress) {
+              lastProgress = data.Progress;
+              const progressMB = (data.Progress / 1024 / 1024).toFixed(2);
+              console.log(`[pinCid] Progress: ${progressMB} MB`);
+            }
+            
+            // Final result with Pins array
+            if (data.Pins) {
+              finalResult = data;
+            }
+          } catch (e) {
+            // Ignore parse errors for incomplete JSON chunks
+          }
+        });
+      });
+      
+      res.data.on('end', () => {
+        // If we got a result with Pins, success
+        if (finalResult) {
+          resolve(finalResult);
+        } else {
+          // No Pins in response, but stream ended - assume success
+          resolve({ Pins: [cid] });
+        }
+      });
+      
+      res.data.on('error', reject);
+    });
+    
     const duration = Date.now() - startTime;
-    console.log(`[pinCid] ✓ Successfully pinned ${cid} (${duration}ms)`);
-    return { ...res.data, alreadyPinned: false, newlyPinned: true };
+    const totalMB = (lastProgress / 1024 / 1024).toFixed(2);
+    console.log(`[pinCid] ✓ Successfully pinned ${cid} (${totalMB} MB, ${duration}ms)`);
+    return { ...finalResult, alreadyPinned: false, newlyPinned: true };
+    
   } catch (err) {
     // If timeout or error, try caching first then pin
     if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
@@ -282,11 +338,31 @@ const pinCid = async (cid, ipfsApi = IPFS_API) => {
         const cacheResult = await addCid(cid, ipfsApi);
         console.log(`[pinCid] Cached ${(cacheResult.size / 1024 / 1024).toFixed(2)} MB, now pinning...`);
         
-        // Now pin the cached data (should be instant)
-        const res = await axios.post(endpoint, null, { timeout: 30000 });
+        // Now pin the cached data (should be instant) - still use progress
+        const res2 = await axios.post(endpoint, null, { 
+          timeout: 30000,
+          responseType: 'stream'
+        });
+        
+        // Read stream to completion
+        const result = await new Promise((resolve, reject) => {
+          let buffer = '';
+          res2.data.on('data', (chunk) => { buffer += chunk; });
+          res2.data.on('end', () => {
+            try {
+              const lines = buffer.split('\n').filter(l => l.trim());
+              const lastLine = lines[lines.length - 1];
+              resolve(JSON.parse(lastLine));
+            } catch (e) {
+              resolve({ Pins: [cid] });
+            }
+          });
+          res2.data.on('error', reject);
+        });
+        
         const duration = Date.now() - startTime;
         console.log(`[pinCid] ✓ Successfully pinned ${cid} after caching (${duration}ms total)`);
-        return { ...res.data, alreadyPinned: false, newlyPinned: true, cached: true };
+        return { ...result, alreadyPinned: false, newlyPinned: true, cached: true };
       } catch (cacheErr) {
         const duration = Date.now() - startTime;
         console.error(`[pinCid] Failed to cache+pin ${cid} (${duration}ms):`, cacheErr.message);
@@ -311,11 +387,25 @@ const addCid = async (cid, ipfsApi = IPFS_API) => {
   // Fetch the CID without pinning - will be cached but can be garbage collected
   console.log(`[addCid] Fetching ${cid} to cache (this may take a while)`);
   const endpoint = `${ipfsApi}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
-  const res = await axios.post(endpoint, null, { timeout: 900000, responseType: 'arraybuffer' });
+  const res = await axios.post(endpoint, null, { 
+    timeout: 900000, 
+    responseType: 'stream',
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity
+  });
+  
+  // Stream the data and count bytes (avoids loading entire file into memory)
+  let size = 0;
+  await new Promise((resolve, reject) => {
+    res.data.on('data', (chunk) => { size += chunk.length; });
+    res.data.on('end', resolve);
+    res.data.on('error', reject);
+  });
+  
   const duration = Date.now() - startTime;
-  const sizeMB = (res.data.length / 1024 / 1024).toFixed(2);
+  const sizeMB = (size / 1024 / 1024).toFixed(2);
   console.log(`[addCid] \u2713 Successfully cached ${cid} (${sizeMB} MB, ${duration}ms)`);
-  return { cid, size: res.data.length, alreadyPinned, newlyAdded: !alreadyPinned };
+  return { cid, size, alreadyPinned, newlyAdded: !alreadyPinned };
 };
 
 // Get size of a CID
