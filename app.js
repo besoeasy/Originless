@@ -69,6 +69,8 @@ const server = app.listen(PORT, HOST, () => {
 let nostrTimers = { discovery: null, pinner: null };
 
 if (NPUB) {
+  // Run once on startup, then continue on interval
+  runNostrJob(NPUB).catch((err) => console.error("Initial Nostr discovery failed", err.message));
   nostrTimers.discovery = setInterval(() => runNostrJob(NPUB), NOSTR_CHECK_INTERVAL_MS);
   nostrTimers.pinner = setInterval(pinnerJob, PINNER_INTERVAL_MS);
   console.log("Nostr queue-based pinning enabled");
