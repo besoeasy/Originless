@@ -6,23 +6,13 @@ const {
   setLastNostrRun,
 } = require("./queue");
 
-const { isPinned, pinCid, addCid, getCidSize } = require("./nostr");
+const { isPinned, pinCid, cacheCid } = require("./ipfs");
 const { 
   batchInsertCids,
   getPendingCidsByType,
   updatePinSize,
   countByTypeAndStatus,
-  markInProgress,
-  updateProgress,
-  clearInProgress,
-  isInProgress,
-  getInProgressCids,
-  cleanupStaleInProgress,
 } = require("./database");
-
-// Configuration for concurrent processing
-const MAX_CONCURRENT_SELF = 2;  // Max concurrent pins for self CIDs
-const MAX_CONCURRENT_FRIENDS = 3; // Max concurrent caches for friend CIDs
 
 // Nostr discovery job
 const runNostrJob = async (NPUB) => {
@@ -99,165 +89,75 @@ const runNostrJob = async (NPUB) => {
   }
 };
 
-// Pinner job - processes multiple CIDs concurrently
+// Pinner job - processes CIDs one at a time, sequentially
 const pinnerJob = async () => {
   try {
     console.log(`\n════ Pinner Job Started ════`);
 
-    // Cleanup stale in-progress entries first
-    cleanupStaleInProgress();
-
-    // Get current in-progress operations
-    const inProgressCids = getInProgressCids();
-    const inProgressSelf = inProgressCids.filter(p => p.type === 'self').length;
-    const inProgressFriends = inProgressCids.filter(p => p.type === 'friend').length;
-
-    // Get counts
+    // Get pending counts
     const selfPending = countByTypeAndStatus('self', 'pending');
     const friendsPending = countByTypeAndStatus('friend', 'pending');
     
-    console.log(`Database Status: Self Pending=${selfPending} (${inProgressSelf} in-progress), Friends Pending=${friendsPending} (${inProgressFriends} in-progress)`);
+    console.log(`Database Status: Self Pending=${selfPending}, Friends Pending=${friendsPending}`);
 
     let didWork = false;
 
-    // Process self queue: pin CIDs (permanent) - up to MAX_CONCURRENT_SELF at a time
-    const selfSlotsAvailable = MAX_CONCURRENT_SELF - inProgressSelf;
-    if (selfSlotsAvailable > 0 && selfPending > 0) {
-      const pendingCids = getPendingCidsByType('self', selfSlotsAvailable);
+    // Process ONE self CID (pin it permanently)
+    if (selfPending > 0) {
+      const [cidObj] = getPendingCidsByType('self', 1);
       
-      for (const cidObj of pendingCids) {
+      if (cidObj) {
         const cid = cidObj.cid;
-        
-        // Skip if already in progress
-        if (isInProgress(cid)) {
-          console.log(`[Self] CID ${cid} already in progress, skipping`);
-          continue;
-        }
-
         const primalLink = `https://primal.net/e/${cidObj.event_id}`;
-        console.log(`\n[Self] Starting pin for CID: ${cid}`);
+        
+        console.log(`\n[Self] Processing CID: ${cid}`);
         console.log(`  Event: ${primalLink}`);
         console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
-        // Check if already pinned in IPFS
-        const alreadyPinned = await isPinned(cid);
+        // Pin it (function handles "already pinned" check internally)
+        const result = await pinCid(cid);
         
-        if (alreadyPinned) {
-          console.log(`⏭️  Already pinned in IPFS, updating database`);
-          try {
-            const size = await getCidSize(cid);
-            updatePinSize(cid, size, "pinned");
-          } catch (err) {
-            updatePinSize(cid, 0, "pinned");
-          }
-          didWork = true;
+        if (result.success) {
+          updatePinSize(cid, result.size, "pinned");
+          console.log(`✓ ${result.message}`);
         } else {
-          // Mark as in-progress
-          markInProgress(cid, 'self');
-          
-          // Fire-and-forget: start pinning without blocking
-          pinCid(cid, (progress) => {
-            // Update progress in database
-            updateProgress(progress.cid, progress.bytes);
-            const sizeMB = (progress.bytes / 1024 / 1024).toFixed(2);
-            console.log(`[Self] ${progress.cid}: ${sizeMB} MB pinned`);
-          })
-            .then(async () => {
-              console.log(`✓ Successfully pinned: ${cid}`);
-              try {
-                const size = await getCidSize(cid);
-                updatePinSize(cid, size, "pinned");
-              } catch (err) {
-                updatePinSize(cid, 0, "pinned");
-              }
-              clearInProgress(cid);
-            })
-            .catch((err) => {
-              console.error(`❌ Failed to pin ${cid}:`, err.message);
-              updatePinSize(cid, 0, "failed");
-              clearInProgress(cid);
-            });
-          
-          didWork = true;
-          console.log(`🚀 Pin started for ${cid} (non-blocking)`);
+          updatePinSize(cid, 0, "failed");
+          console.error(`✗ ${result.message}`);
         }
+        
+        didWork = true;
       }
     }
 
-    // Process friends queue: cache CIDs (ephemeral) - up to MAX_CONCURRENT_FRIENDS at a time
-    const friendsSlotsAvailable = MAX_CONCURRENT_FRIENDS - inProgressFriends;
-    if (friendsSlotsAvailable > 0 && friendsPending > 0) {
-      const pendingCids = getPendingCidsByType('friend', friendsSlotsAvailable);
+    // Process ONE friend CID (cache it, not pinned)
+    if (friendsPending > 0) {
+      const [cidObj] = getPendingCidsByType('friend', 1);
       
-      for (const cidObj of pendingCids) {
+      if (cidObj) {
         const cid = cidObj.cid;
-        
-        // Skip if already in progress
-        if (isInProgress(cid)) {
-          console.log(`[Friend] CID ${cid} already in progress, skipping`);
-          continue;
-        }
-
         const primalLink = `https://primal.net/e/${cidObj.event_id}`;
-        console.log(`\n[Friend] Starting cache for CID: ${cid}`);
+        
+        console.log(`\n[Friend] Processing CID: ${cid}`);
         console.log(`  Event: ${primalLink}`);
         console.log(`  Author: ${cidObj.author} | Time: ${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
-        // Check if already available locally in IPFS
-        const alreadyAvailable = await isPinned(cid);
+        // Cache it (function handles "already cached" check internally)
+        const result = await cacheCid(cid);
         
-        if (alreadyAvailable) {
-          console.log(`⏭️  Already available locally, updating database`);
-          try {
-            const size = await getCidSize(cid);
-            updatePinSize(cid, size, "cached");
-          } catch (err) {
-            updatePinSize(cid, 0, "cached");
-          }
-          didWork = true;
+        if (result.success) {
+          updatePinSize(cid, result.size, "cached");
+          console.log(`✓ ${result.message}`);
         } else {
-          // Mark as in-progress
-          markInProgress(cid, 'friend');
-          
-          // Fire-and-forget: start caching without blocking
-          addCid(cid, undefined, (progress) => {
-            // Update progress in database
-            updateProgress(progress.cid, progress.bytes);
-            const sizeMB = (progress.bytes / 1024 / 1024).toFixed(2);
-            console.log(`[Friend] ${progress.cid}: ${sizeMB} MB downloaded`);
-          })
-            .then((result) => {
-              console.log(`✓ Successfully cached: ${cid}`);
-              const size = result?.size || 0;
-              updatePinSize(cid, size, "cached");
-              clearInProgress(cid);
-            })
-            .catch((err) => {
-              console.error(`❌ Failed to cache ${cid}:`, err.message);
-              updatePinSize(cid, 0, "failed");
-              clearInProgress(cid);
-            });
-          
-          didWork = true;
-          console.log(`🚀 Cache started for ${cid} (non-blocking)`);
+          updatePinSize(cid, 0, "failed");
+          console.error(`✗ ${result.message}`);
         }
+        
+        didWork = true;
       }
     }
 
     if (didWork) {
       setLastPinnerActivity(new Date().toISOString());
-      console.log(`\n⏰ Activity timestamp updated`);
-    }
-
-    // Show summary of in-progress operations
-    const finalInProgress = getInProgressCids();
-    if (finalInProgress.length > 0) {
-      console.log(`\n📊 Currently processing ${finalInProgress.length} CID(s):`);
-      finalInProgress.forEach(p => {
-        const elapsedMin = (p.elapsed / 1000 / 60).toFixed(1);
-        const sizeMB = p.bytes ? (p.bytes / 1024 / 1024).toFixed(2) + ' MB' : 'starting...';
-        console.log(`  ${p.type}: ${p.cid} - ${elapsedMin} min - ${sizeMB}`);
-      });
     }
 
     console.log(`════ Pinner Job Complete ════\n`);
