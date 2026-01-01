@@ -2,9 +2,6 @@
 const axios = require("axios");
 const { IPFS_API } = require("./config");
 
-// Track CIDs currently being fetched in background to prevent duplicates
-const fetchingInProgress = new Set();
-
 /**
  * Check if a CID is pinned in IPFS
  * @param {string} cid - The CID to check
@@ -22,154 +19,61 @@ const isPinned = async (cid) => {
 };
 
 /**
- * Check if a CID is available locally (pinned or cached)
+ * Check if a CID is pinned (read-only check, does not attempt to pin)
  * @param {string} cid - The CID to check
- * @returns {Promise<boolean>} - True if available locally, false otherwise
- */
-const isCachedLocally = async (cid) => {
-  try {
-    // Try to stat the CID - if successful, it's available locally
-    const endpoint = `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`;
-    await axios.post(endpoint, null, { timeout: 15000 });
-    return true;
-  } catch (err) {
-    // If error (404, timeout, etc), it's not available locally
-    return false;
-  }
-};
-
-/**
- * Start fetching a CID in the background (fire-and-forget)
- * @param {string} cid - The CID to fetch
- */
-const startFetchingInBackground = (cid) => {
-  // Prevent duplicate background fetch operations
-  if (fetchingInProgress.has(cid)) {
-    console.log(`[IPFS] BACKGROUND_FETCH_ALREADY_IN_PROGRESS cid=${cid}`);
-    return;
-  }
-  
-  fetchingInProgress.add(cid);
-  
-  const endpoint = `${IPFS_API}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
-  const startTime = Date.now();
-  
-  console.log(`[IPFS] BACKGROUND_FETCH_START cid=${cid}`);
-  
-  // Fire and forget - don't await, just start the request
-  axios.post(endpoint, null, { 
-    timeout: 0, // No timeout
-    responseType: 'stream',
-    maxContentLength: Infinity,
-    httpAgent: new (require('http').Agent)({ keepAlive: true })
-  })
-    .then(res => {
-      // Stream and discard data to ensure it's cached
-      let size = 0;
-      let lastLog = Date.now();
-      
-      res.data.on('data', (chunk) => { 
-        size += chunk.length;
-        // Log progress every 30 seconds
-        if (Date.now() - lastLog > 30000) {
-          const sizeMB = (size / 1024 / 1024).toFixed(2);
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          console.log(`[IPFS] BACKGROUND_FETCH_PROGRESS cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
-          lastLog = Date.now();
-        }
-      });
-      
-      res.data.on('end', () => {
-        const sizeMB = (size / 1024 / 1024).toFixed(2);
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[IPFS] BACKGROUND_FETCH_COMPLETE cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
-        fetchingInProgress.delete(cid);
-      });
-      
-      res.data.on('error', (err) => {
-        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.error(`[IPFS] BACKGROUND_FETCH_ERROR cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
-        fetchingInProgress.delete(cid);
-      });
-    })
-    .catch(err => {
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.error(`[IPFS] BACKGROUND_FETCH_FAILED cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
-      fetchingInProgress.delete(cid);
-    });
-};
-
-/**
- * Pin a CID (permanent storage)
- * @param {string} cid - The CID to pin
  * @returns {Promise<{success: boolean, size: number, message: string}>}
  */
 const pinCid = async (cid) => {
   const startTime = Date.now();
-  
+
   try {
     console.log(`[IPFS] PIN_CHECK_START cid=${cid}`);
-    
-    // First check if already pinned
+
+    // Check if already pinned
     const alreadyPinned = await isPinned(cid);
     if (alreadyPinned) {
       const size = await getCidSize(cid);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
       const duration = Date.now() - startTime;
       console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
-      return { 
-        success: true, 
-        size, 
+      return {
+        success: true,
+        size,
         message: `Already pinned (${sizeMB} MB)`,
         alreadyPinned: true
       };
     }
 
-    // Not pinned, check if it's cached/available locally
-    console.log(`[IPFS] PIN_CHECK_CACHE cid=${cid}`);
-    const isCached = await isCachedLocally(cid);
-    
-    if (isCached) {
-      // It's cached, so we can pin it quickly
-      console.log(`[IPFS] PIN_FROM_CACHE_START cid=${cid}`);
-      const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&progress=false`;
-      
-      await axios.post(endpoint, null, { 
-        timeout: 10800000, // 3 hours - allow time for large files
-        httpAgent: new (require('http').Agent)({ keepAlive: true })
-      });
-      
-      const size = await getCidSize(cid);
-      const sizeMB = (size / 1024 / 1024).toFixed(2);
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[IPFS] PIN_FROM_CACHE_SUCCESS cid=${cid} size_mb=${sizeMB} duration_sec=${duration}`);
-      
-      return { 
-        success: true, 
-        size, 
-        message: `Pinned from cache (${sizeMB} MB)`,
-        alreadyPinned: false
-      };
-    } else {
-      // Not cached, fire off a fetch request (fire-and-forget)
-      const duration = Date.now() - startTime;
-      console.log(`[IPFS] PIN_FETCH_NEEDED cid=${cid} action=background_fetch_started duration_ms=${duration}`);
-      startFetchingInBackground(cid);
-      
-      return { 
-        success: true, 
-        size: 0, 
-        message: `Fetching in background`,
-        fetching: true
-      };
-    }
-    
+    console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
+
+    await axios.post(
+      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
+      null,
+      {
+        timeout: 0, // allow long pins without timing out
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    const size = await getCidSize(cid);
+    const sizeMB = (size / 1024 / 1024).toFixed(2);
+    const duration = Date.now() - startTime;
+    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
+
+    return {
+      success: true,
+      size,
+      message: `Pinned (${sizeMB} MB)`,
+      alreadyPinned: false
+    };
+
   } catch (err) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`[IPFS] PIN_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
-    return { 
-      success: false, 
-      size: 0, 
+    return {
+      success: false,
+      size: 0,
       message: `Failed: ${err.message}`,
       error: err.message
     };
@@ -184,8 +88,8 @@ const pinCid = async (cid) => {
 const getCidSize = async (cid) => {
   try {
     const statResponse = await axios.post(
-      `${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, 
-      {}, 
+      `${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`,
+      {},
       { timeout: 15000 }
     );
     return statResponse.data.CumulativeSize || statResponse.data.Size || 0;
@@ -193,8 +97,8 @@ const getCidSize = async (cid) => {
     // Try block/stat as fallback
     try {
       const blockResponse = await axios.post(
-        `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, 
-        {}, 
+        `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`,
+        {},
         { timeout: 15000 }
       );
       return blockResponse.data.Size || 0;
@@ -210,7 +114,7 @@ const getPinnedSize = async () => {
     const pinResponse = await axios.post(`${IPFS_API}/api/v0/pin/ls?type=recursive`, {}, { timeout: 10000 });
     const pins = pinResponse.data.Keys || {};
     const cids = Object.keys(pins);
-    
+
     let totalSize = 0;
     for (const cid of cids) {
       const size = await getCidSize(cid);
@@ -272,7 +176,6 @@ const getIPFSStats = async () => {
 
 module.exports = {
   isPinned,
-  isCachedLocally,
   pinCid,
   getCidSize,
   getPinnedSize,
