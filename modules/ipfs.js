@@ -60,7 +60,6 @@ const pinCid = async (cid) => {
 
     // Handle streaming progress events
     let progressCount = 0;
-    let lastLogTime = Date.now();
     
     for await (const chunk of response.data) {
       const lines = chunk.toString().split('\n').filter(line => line.trim());
@@ -68,12 +67,11 @@ const pinCid = async (cid) => {
         try {
           const progress = JSON.parse(line);
           progressCount++;
-          
-          // Log progress every 2 seconds or every 100 items
-          const now = Date.now();
-          if (now - lastLogTime > 10000 || progressCount % 100 === 0) {
-            console.log(`[IPFS] PIN_PROGRESS cid=${cid} items=${progressCount} duration_ms=${now - startTime}`);
-            lastLogTime = now;
+                    
+          // Log detailed progress for significant updates
+          if (progress.Bytes && progressCount % 500 === 0) {
+            const bytesMB = ((progress.Bytes || 0) / 1024 / 1024).toFixed(2);
+            console.log(`[IPFS] PIN_DETAIL cid=${cid} bytes_mb=${bytesMB} items=${progressCount}`);
           }
         } catch (e) {
           // Ignore parse errors for non-JSON lines
