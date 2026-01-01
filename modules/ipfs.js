@@ -2,6 +2,9 @@
 const axios = require("axios");
 const { IPFS_API } = require("./config");
 
+// Track CIDs currently being cached in background to prevent duplicates
+const cachingInProgress = new Set();
+
 /**
  * Check if a CID is pinned in IPFS
  * @param {string} cid - The CID to check
@@ -10,7 +13,7 @@ const { IPFS_API } = require("./config");
 const isPinned = async (cid) => {
   try {
     const endpoint = `${IPFS_API}/api/v0/pin/ls?arg=${encodeURIComponent(cid)}&type=recursive`;
-    const res = await axios.post(endpoint, null, { timeout: 3000 });
+    const res = await axios.post(endpoint, null, { timeout: 10000 });
     return res.data?.Keys && Object.keys(res.data.Keys).length > 0;
   } catch (err) {
     // If error (404, timeout, etc), assume not pinned
@@ -27,7 +30,7 @@ const isCachedLocally = async (cid) => {
   try {
     // Try to stat the CID - if successful, it's available locally
     const endpoint = `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`;
-    await axios.post(endpoint, null, { timeout: 3000 });
+    await axios.post(endpoint, null, { timeout: 15000 });
     return true;
   } catch (err) {
     // If error (404, timeout, etc), it's not available locally
@@ -40,6 +43,14 @@ const isCachedLocally = async (cid) => {
  * @param {string} cid - The CID to cache
  */
 const startCachingInBackground = (cid) => {
+  // Prevent duplicate background cache operations
+  if (cachingInProgress.has(cid)) {
+    console.log(`[IPFS] BACKGROUND_CACHE_ALREADY_IN_PROGRESS cid=${cid}`);
+    return;
+  }
+  
+  cachingInProgress.add(cid);
+  
   const endpoint = `${IPFS_API}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
   const startTime = Date.now();
   
@@ -72,16 +83,19 @@ const startCachingInBackground = (cid) => {
         const sizeMB = (size / 1024 / 1024).toFixed(2);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`[IPFS] BACKGROUND_CACHE_COMPLETE cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
+        cachingInProgress.delete(cid);
       });
       
       res.data.on('error', (err) => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.error(`[IPFS] BACKGROUND_CACHE_ERROR cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
+        cachingInProgress.delete(cid);
       });
     })
     .catch(err => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.error(`[IPFS] BACKGROUND_CACHE_FAILED cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
+      cachingInProgress.delete(cid);
     });
 };
 
@@ -121,7 +135,7 @@ const pinCid = async (cid) => {
       const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&progress=false`;
       
       await axios.post(endpoint, null, { 
-        timeout: 30000, // 30 seconds - should be fast since it's cached
+        timeout: 120000, // 120 seconds - can be slow for large files
         httpAgent: new (require('http').Agent)({ keepAlive: true })
       });
       
@@ -222,7 +236,7 @@ const getCidSize = async (cid) => {
     const statResponse = await axios.post(
       `${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, 
       {}, 
-      { timeout: 5000 }
+      { timeout: 15000 }
     );
     return statResponse.data.CumulativeSize || statResponse.data.Size || 0;
   } catch (err) {
@@ -231,7 +245,7 @@ const getCidSize = async (cid) => {
       const blockResponse = await axios.post(
         `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, 
         {}, 
-        { timeout: 5000 }
+        { timeout: 15000 }
       );
       return blockResponse.data.Size || 0;
     } catch (blockErr) {
