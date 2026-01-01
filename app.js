@@ -71,6 +71,7 @@ const server = app.listen(PORT, HOST, () => {
 let nostrTimers = { discovery: null, pinner: null };
 
 if (NPUB) {
+  runNostrJob(NPUB); // Initial run
   nostrTimers.discovery = setInterval(() => runNostrJob(NPUB), NOSTR_CHECK_INTERVAL_MS);
   nostrTimers.pinner = setInterval(pinnerJob, PINNER_INTERVAL_MS);
   console.log(`[STARTUP] NOSTR_ENABLED npub=${NPUB} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_interval_ms=${PINNER_INTERVAL_MS}`);
