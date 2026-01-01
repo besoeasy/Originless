@@ -50,7 +50,7 @@ const pinCid = async (cid) => {
       `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
       null,
       {
-        timeout: 0, // allow long pins without timing out
+        timeout: 10800000, // allow long pins without timing out (3 hours)
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       }
