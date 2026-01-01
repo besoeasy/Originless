@@ -71,7 +71,7 @@ const pinCid = async (cid) => {
           
           // Log progress every 2 seconds or every 100 items
           const now = Date.now();
-          if (now - lastLogTime > 2000 || progressCount % 100 === 0) {
+          if (now - lastLogTime > 10000 || progressCount % 100 === 0) {
             console.log(`[IPFS] PIN_PROGRESS cid=${cid} items=${progressCount} duration_ms=${now - startTime}`);
             lastLogTime = now;
           }
