@@ -220,7 +220,7 @@ const batchInsertCids = (cids) => {
 const getPendingCidsByType = (type, limit = 1) => {
   try {
     const pins = Array.from(pinsMap.values())
-      .filter(pin => pin.type === type && pin.status !== 'pinned');
+      .filter(pin => pin.type === type && pin.status !== 'pinned' && !inProgressMap.has(pin.cid));
     
     // Shuffle randomly (Fisher-Yates)
     for (let i = pins.length - 1; i > 0; i--) {

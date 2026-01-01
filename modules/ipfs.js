@@ -135,7 +135,7 @@ const pinCid = async (cid) => {
       const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&progress=false`;
       
       await axios.post(endpoint, null, { 
-        timeout: 120000, // 120 seconds - can be slow for large files
+        timeout: 10800000, // 3 hours - allow time for large files
         httpAgent: new (require('http').Agent)({ keepAlive: true })
       });
       

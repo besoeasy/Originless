@@ -5,6 +5,8 @@ const { pinCid } = require("./ipfs");
 const {
   batchInsertCids,
   getPendingCidsByType,
+  markInProgress,
+  clearInProgress,
   updatePinSize,
   countByTypeAndStatus,
   setLastPinnerActivity,
@@ -84,28 +86,33 @@ const pinnerJob = async () => {
 
         console.log(`[JOB] PINNER_PROCESSING_SELF cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} `);
 
-        // Pin it (function handles "already pinned" check internally)
-        const result = await pinCid(cid);
+        // Start pinning asynchronously so one bad CID can't stall the queue
+        markInProgress(cid, 'self');
+        didWork = true;
+        setLastPinnerActivity(new Date().toISOString());
 
-        if (result.success && !result.fetching) {
-          // Only mark as pinned if it's actually pinned (not just started fetching)
-          const sizeMB = (result.size / 1024 / 1024).toFixed(2);
-          updatePinSize(cid, result.size, "pinned");
-          console.log(`[JOB] PINNER_SELF_COMPLETE cid=${cid} status=pinned size_mb=${sizeMB} message="${result.message}"`);
-          didWork = true;
-        } else if (result.fetching) {
-          // Started fetching in background, leave as pending to check again later
-          console.log(`[JOB] PINNER_SELF_FETCHING cid=${cid} status=pending action=background_download message="${result.message}"`);
-        } else {
-          updatePinSize(cid, 0, "failed");
-          console.error(`[JOB] PINNER_SELF_FAILED cid=${cid} status=failed error="${result.message}"`);
-          didWork = true;
-        }
+        pinCid(cid)
+          .then((result) => {
+            if (result.success && !result.fetching) {
+              const sizeMB = (result.size / 1024 / 1024).toFixed(2);
+              updatePinSize(cid, result.size, "pinned");
+              console.log(`[JOB] PINNER_SELF_COMPLETE cid=${cid} status=pinned size_mb=${sizeMB} message="${result.message}"`);
+            } else if (result.fetching) {
+              // Started fetching in background, leave as pending to check again later
+              console.log(`[JOB] PINNER_SELF_FETCHING cid=${cid} status=pending action=background_download message="${result.message}"`);
+            } else {
+              updatePinSize(cid, 0, "failed");
+              console.error(`[JOB] PINNER_SELF_FAILED cid=${cid} status=failed error="${result.message}"`);
+            }
+          })
+          .catch((err) => {
+            updatePinSize(cid, 0, "failed");
+            console.error(`[JOB] PINNER_SELF_FAILED cid=${cid} status=failed error="${err.message}"`);
+          })
+          .finally(() => {
+            clearInProgress(cid);
+          });
       }
-    }
-
-    if (didWork) {
-      setLastPinnerActivity(new Date().toISOString());
     }
 
     console.log(`[JOB] PINNER_COMPLETE work_done=${didWork}\n`);
