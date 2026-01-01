@@ -371,4 +371,5 @@ module.exports = {
   
   // Utility
   getStoreStats,
+  getRandomCid,
 };

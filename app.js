@@ -73,8 +73,8 @@ let nostrTimers = { discovery: null, pinner: null };
 if (NPUB) {
   runNostrJob(NPUB); // Initial run
   nostrTimers.discovery = setInterval(() => runNostrJob(NPUB), NOSTR_CHECK_INTERVAL_MS);
-  nostrTimers.pinner = setInterval(pinnerJob, PINNER_INTERVAL_MS);
-  console.log(`[STARTUP] NOSTR_ENABLED npub=${NPUB} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_interval_ms=${PINNER_INTERVAL_MS}`);
+  pinnerJob(); // Start continuous pinner loop
+  console.log(`[STARTUP] NOSTR_ENABLED npub=${NPUB} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_mode=continuous`);
 } else {
   console.log(`[STARTUP] NOSTR_DISABLED reason=no_npub_configured`);
 }
@@ -90,7 +90,6 @@ const gracefulShutdown = (signal) => {
 
   // Clear Nostr timers
   if (nostrTimers.discovery) clearInterval(nostrTimers.discovery);
-  if (nostrTimers.pinner) clearInterval(nostrTimers.pinner);
   console.log(`[SHUTDOWN] NOSTR_TIMERS_CLEARED`);
 
   // Give active requests 5 seconds to complete
