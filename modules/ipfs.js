@@ -46,20 +46,45 @@ const pinCid = async (cid) => {
 
     console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
 
-    await axios.post(
-      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
+    // Use progress=true to get streaming progress updates
+    const response = await axios.post(
+      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`,
       null,
       {
         timeout: 10800000, // allow long pins without timing out (3 hours)
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
+        responseType: 'stream'
       }
     );
+
+    // Handle streaming progress events
+    let progressCount = 0;
+    let lastLogTime = Date.now();
+    
+    for await (const chunk of response.data) {
+      const lines = chunk.toString().split('\n').filter(line => line.trim());
+      for (const line of lines) {
+        try {
+          const progress = JSON.parse(line);
+          progressCount++;
+          
+          // Log progress every 2 seconds or every 100 items
+          const now = Date.now();
+          if (now - lastLogTime > 2000 || progressCount % 100 === 0) {
+            console.log(`[IPFS] PIN_PROGRESS cid=${cid} items=${progressCount} duration_ms=${now - startTime}`);
+            lastLogTime = now;
+          }
+        } catch (e) {
+          // Ignore parse errors for non-JSON lines
+        }
+      }
+    }
 
     const size = await getCidSize(cid);
     const sizeMB = (size / 1024 / 1024).toFixed(2);
     const duration = Date.now() - startTime;
-    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
+    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} items=${progressCount} duration_ms=${duration}`);
 
     return {
       success: true,
