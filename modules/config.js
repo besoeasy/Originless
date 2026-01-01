@@ -38,7 +38,6 @@ const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 
 // Nostr timing configuration
 const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // 7 minutes
-const PINNER_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
 module.exports = {
   parseSize,
@@ -50,5 +49,4 @@ module.exports = {
   HOST,
   UPLOAD_TEMP_DIR,
   NOSTR_CHECK_INTERVAL_MS,
-  PINNER_INTERVAL_MS,
 };

@@ -10,7 +10,6 @@ const {
   HOST, 
   UPLOAD_TEMP_DIR,
   NOSTR_CHECK_INTERVAL_MS,
-  PINNER_INTERVAL_MS,
 } = require("./modules/config");
 
 const { setupMiddleware, upload, errorHandler } = require("./modules/middleware");
