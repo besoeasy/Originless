@@ -165,22 +165,6 @@
                 </div>
               </div>
             </div>
-
-            <!-- Friends Card -->
-            <div id="friendsCard" class="glassmorphism rounded-2xl shadow-xl p-6 hover-lift animate-fade-in">
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                  <i class="fas fa-users text-2xl text-black"></i>
-                  <div>
-                    <h2 class="text-lg font-semibold text-black">Friends</h2>
-                  </div>
-                </div>
-                <span id="friendsStatus"
-                  class="px-3 py-1 text-xs rounded-full bg-gray-200 text-black font-medium"></span>
-              </div>
-              <div id="noFriends" class="text-gray-500 text-sm hidden">No follows detected.</div>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto" id="friendsList"></div>
-            </div>
           </div>
 
           <!-- Right Column - Stats -->
@@ -199,12 +183,6 @@
                   <div class="flex justify-between items-center">
                     <span class="text-gray-600 text-sm font-medium">Self</span>
                     <span class="text-black font-bold" id="pinsSelf">0</span>
-                  </div>
-                </div>
-                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div class="flex justify-between items-center">
-                    <span class="text-gray-600 text-sm font-medium">Friends</span>
-                    <span class="text-black font-bold" id="pinsFriends">0</span>
                   </div>
                 </div>
         
@@ -229,11 +207,6 @@
                 </div>
               </div>
               <div class="flex gap-2">
-                <select id="filterType" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                  <option value="">All Types</option>
-                  <option value="self">Self Only</option>
-                  <option value="friend">Friends Only</option>
-                </select>
                 <button id="refreshPins"
                   class="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors">
                   <i class="fas fa-sync-alt mr-2"></i>Refresh
@@ -242,7 +215,7 @@
             </div>
 
             <!-- Stats Row -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div class="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <p class="text-blue-600 text-xs font-semibold uppercase mb-1">Total Pins</p>
                 <p class="text-blue-900 text-2xl font-bold" id="statsTotal">0</p>
@@ -250,10 +223,6 @@
               <div class="bg-green-50 rounded-lg p-4 border border-green-200">
                 <p class="text-green-600 text-xs font-semibold uppercase mb-1">Self Pinned</p>
                 <p class="text-green-900 text-2xl font-bold" id="statsSelfPinned">0</p>
-              </div>
-              <div class="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <p class="text-purple-600 text-xs font-semibold uppercase mb-1">Friends Cached</p>
-                <p class="text-purple-900 text-2xl font-bold" id="statsFriendsCached">0</p>
               </div>
               <div class="bg-orange-50 rounded-lg p-4 border border-orange-200">
                 <p class="text-orange-600 text-xs font-semibold uppercase mb-1">Total Size</p>
@@ -324,12 +293,8 @@
     const operatorLink = document.getElementById("operatorLink");
     const relaysEl = document.getElementById("relays");
     const lastRunEl = document.getElementById("lastRun");
-    const friendsStatus = document.getElementById("friendsStatus");
-    const friendsList = document.getElementById("friendsList");
-    const noFriends = document.getElementById("noFriends");
     const alertBox = document.getElementById("alert");
     const alertContent = document.getElementById("alertContent");
-    const friendsCard = document.getElementById("friendsCard");
     const operatorCard = document.getElementById("operatorCard");
 
     async function load() {
@@ -342,12 +307,10 @@
           alertBox.classList.remove("hidden");
           alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Nostr Disabled</div><div class="text-red-600 text-sm mt-1">${data.reason || "NPUB not set"}</div></div>`;
           operatorCard.classList.add("hidden");
-          friendsCard.classList.add("hidden");
           return;
         }
 
         operatorCard.classList.remove("hidden");
-        friendsCard.classList.remove("hidden");
 
         const op = data.operator || "Unknown";
         operatorLink.textContent = op;
@@ -355,27 +318,11 @@
         relaysEl.textContent = (data.relays || []).join(" · ") || "-";
         lastRunEl.textContent = data.lastRun?.at || "-";
 
-        // Friends caching is always enabled
-        friendsStatus.textContent = "Caching Enabled";
-        friendsStatus.className = "px-3 py-1 text-xs rounded-full bg-black text-white font-medium";
-        const friends = data.friends || [];
-        friendsList.innerHTML = "";
-        friends.forEach((f) => {
-          const card = document.createElement("div");
-          card.className = "border border-gray-200 bg-white rounded-lg px-3 py-2 text-sm hover:border-black hover:shadow-md transition-all";
-          card.innerHTML = `<a class="text-black hover:underline font-medium break-all" href="https://nosta.me/${encodeURIComponent(f)}" target="_blank">${f}</a>`;
-          friendsList.appendChild(card);
-        });
-        noFriends.classList.toggle("hidden", friends.length !== 0);
-
         // Update pin stats from the same response
         const selfTotal = data.pins?.self?.total ?? 0;
-        const friendsTotal = data.pins?.friends?.total ?? 0;
-        const pinsTotal = selfTotal + friendsTotal;
         
-        document.getElementById("pinsTotal").textContent = pinsTotal;
+        document.getElementById("pinsTotal").textContent = selfTotal;
         document.getElementById("pinsSelf").textContent = selfTotal;
-        document.getElementById("pinsFriends").textContent = friendsTotal;
         const size = data.repo?.size || 0;
         document.getElementById("repoSize").textContent = formatBytes(size);
       } catch (err) {
@@ -384,7 +331,6 @@
         // Reset pin stats on error
         document.getElementById("pinsTotal").textContent = "-";
         document.getElementById("pinsSelf").textContent = "-";
-        document.getElementById("pinsFriends").textContent = "-";
         document.getElementById("repoSize").textContent = "Error";
       }
     }
@@ -412,16 +358,12 @@
     const limit = 50;
 
     async function loadPins() {
-      const filterType = document.getElementById("filterType").value;
       const pinsTableBody = document.getElementById("pinsTableBody");
 
       try {
         pinsTableBody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading...</td></tr>';
 
         let url = `/api/pins?limit=${limit}&offset=${currentPage * limit}`;
-        if (filterType) {
-          url += `&type=${filterType}`;
-        }
 
         const res = await fetch(url);
         const data = await res.json();
@@ -433,12 +375,10 @@
         // Update stats
         const stats = data.stats || {};
         const selfPinned = (stats.self_pinned?.count || 0) + (stats.self_pending?.count || 0);
-        const friendsCached = (stats.friend_cached?.count || 0) + (stats.friend_pending?.count || 0);
         const totalSize = Object.values(stats).reduce((sum, stat) => sum + (stat.totalSize || 0), 0);
 
         document.getElementById("statsTotal").textContent = data.pagination.total;
         document.getElementById("statsSelfPinned").textContent = selfPinned;
-        document.getElementById("statsFriendsCached").textContent = friendsCached;
         document.getElementById("statsSize").textContent = formatBytes(totalSize);
 
         // Update table
@@ -449,12 +389,11 @@
           pinsTableBody.innerHTML = pins.map(pin => {
             const statusColor = {
               'pinned': 'bg-green-100 text-green-800',
-              'cached': 'bg-blue-100 text-blue-800',
               'pending': 'bg-yellow-100 text-yellow-800',
               'failed': 'bg-red-100 text-red-800'
             }[pin.status] || 'bg-gray-100 text-gray-800';
 
-            const typeColor = pin.type === 'self' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800';
+            const typeColor = 'bg-purple-100 text-purple-800'; // Only 'self' type now
             
             return `
               <tr class="hover:bg-gray-50">
@@ -516,11 +455,6 @@
     });
 
     document.getElementById("refreshPins").addEventListener("click", () => {
-      currentPage = 0;
-      loadPins();
-    });
-
-    document.getElementById("filterType").addEventListener("change", () => {
       currentPage = 0;
       loadPins();
     });

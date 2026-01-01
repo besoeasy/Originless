@@ -12,7 +12,7 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 - Resilient by design: served from IPFS; your node needn’t be online 24/7
 - Nostr-optimized: you are your own media host (no domain or servers)
 - Self-healing: content repopulates across IPFS when your node comes online
-- Friend mesh: optionally cache media from people you follow for redundancy (ephemeral)
+
 
 ## Supported Platforms
 

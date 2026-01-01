@@ -2,8 +2,8 @@
 const axios = require("axios");
 const { IPFS_API } = require("./config");
 
-// Track CIDs currently being cached in background to prevent duplicates
-const cachingInProgress = new Set();
+// Track CIDs currently being fetched in background to prevent duplicates
+const fetchingInProgress = new Set();
 
 /**
  * Check if a CID is pinned in IPFS
@@ -39,22 +39,22 @@ const isCachedLocally = async (cid) => {
 };
 
 /**
- * Start caching a CID in the background (fire-and-forget)
- * @param {string} cid - The CID to cache
+ * Start fetching a CID in the background (fire-and-forget)
+ * @param {string} cid - The CID to fetch
  */
-const startCachingInBackground = (cid) => {
-  // Prevent duplicate background cache operations
-  if (cachingInProgress.has(cid)) {
-    console.log(`[IPFS] BACKGROUND_CACHE_ALREADY_IN_PROGRESS cid=${cid}`);
+const startFetchingInBackground = (cid) => {
+  // Prevent duplicate background fetch operations
+  if (fetchingInProgress.has(cid)) {
+    console.log(`[IPFS] BACKGROUND_FETCH_ALREADY_IN_PROGRESS cid=${cid}`);
     return;
   }
   
-  cachingInProgress.add(cid);
+  fetchingInProgress.add(cid);
   
   const endpoint = `${IPFS_API}/api/v0/block/get?arg=${encodeURIComponent(cid)}`;
   const startTime = Date.now();
   
-  console.log(`[IPFS] BACKGROUND_CACHE_START cid=${cid}`);
+  console.log(`[IPFS] BACKGROUND_FETCH_START cid=${cid}`);
   
   // Fire and forget - don't await, just start the request
   axios.post(endpoint, null, { 
@@ -74,7 +74,7 @@ const startCachingInBackground = (cid) => {
         if (Date.now() - lastLog > 30000) {
           const sizeMB = (size / 1024 / 1024).toFixed(2);
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          console.log(`[IPFS] BACKGROUND_CACHE_PROGRESS cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
+          console.log(`[IPFS] BACKGROUND_FETCH_PROGRESS cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
           lastLog = Date.now();
         }
       });
@@ -82,20 +82,20 @@ const startCachingInBackground = (cid) => {
       res.data.on('end', () => {
         const sizeMB = (size / 1024 / 1024).toFixed(2);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[IPFS] BACKGROUND_CACHE_COMPLETE cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
-        cachingInProgress.delete(cid);
+        console.log(`[IPFS] BACKGROUND_FETCH_COMPLETE cid=${cid} size_mb=${sizeMB} elapsed_sec=${elapsed}`);
+        fetchingInProgress.delete(cid);
       });
       
       res.data.on('error', (err) => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.error(`[IPFS] BACKGROUND_CACHE_ERROR cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
-        cachingInProgress.delete(cid);
+        console.error(`[IPFS] BACKGROUND_FETCH_ERROR cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
+        fetchingInProgress.delete(cid);
       });
     })
     .catch(err => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.error(`[IPFS] BACKGROUND_CACHE_FAILED cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
-      cachingInProgress.delete(cid);
+      console.error(`[IPFS] BACKGROUND_FETCH_FAILED cid=${cid} error="${err.message}" elapsed_sec=${elapsed}`);
+      fetchingInProgress.delete(cid);
     });
 };
 
@@ -151,72 +151,22 @@ const pinCid = async (cid) => {
         alreadyPinned: false
       };
     } else {
-      // Not cached, fire off a cache request (fire-and-forget)
+      // Not cached, fire off a fetch request (fire-and-forget)
       const duration = Date.now() - startTime;
-      console.log(`[IPFS] PIN_CACHE_NEEDED cid=${cid} action=background_cache_started duration_ms=${duration}`);
-      startCachingInBackground(cid);
+      console.log(`[IPFS] PIN_FETCH_NEEDED cid=${cid} action=background_fetch_started duration_ms=${duration}`);
+      startFetchingInBackground(cid);
       
       return { 
         success: true, 
         size: 0, 
-        message: `Caching in background`,
-        caching: true
+        message: `Fetching in background`,
+        fetching: true
       };
     }
     
   } catch (err) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`[IPFS] PIN_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
-    return { 
-      success: false, 
-      size: 0, 
-      message: `Failed: ${err.message}`,
-      error: err.message
-    };
-  }
-};
-
-/**
- * Cache a CID (fetch without pinning, can be garbage collected)
- * @param {string} cid - The CID to cache
- * @returns {Promise<{success: boolean, size: number, message: string}>}
- */
-const cacheCid = async (cid) => {
-  const startTime = Date.now();
-  
-  try {
-    console.log(`[IPFS] CACHE_CHECK_START cid=${cid}`);
-    
-    // First check if already available locally
-    const alreadyAvailable = await isCachedLocally(cid);
-    if (alreadyAvailable) {
-      const size = await getCidSize(cid);
-      const sizeMB = (size / 1024 / 1024).toFixed(2);
-      const duration = Date.now() - startTime;
-      console.log(`[IPFS] CACHE_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
-      return { 
-        success: true, 
-        size, 
-        message: `Already cached (${sizeMB} MB)`,
-        alreadyCached: true
-      };
-    }
-
-    // Not cached, fire off cache request (fire-and-forget)
-    const duration = Date.now() - startTime;
-    console.log(`[IPFS] CACHE_START_BACKGROUND cid=${cid} action=background_cache_started duration_ms=${duration}`);
-    startCachingInBackground(cid);
-    
-    return { 
-      success: true, 
-      size: 0, 
-      message: `Caching in background`,
-      caching: true
-    };
-    
-  } catch (err) {
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.error(`[IPFS] CACHE_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
     return { 
       success: false, 
       size: 0, 
@@ -324,7 +274,6 @@ module.exports = {
   isPinned,
   isCachedLocally,
   pinCid,
-  cacheCid,
   getCidSize,
   getPinnedSize,
   checkIPFSHealth,

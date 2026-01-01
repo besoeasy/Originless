@@ -531,93 +531,6 @@ const toNpub = (hex) => {
   }
 };
 
-const syncFollowPins = async ({
-  npubOrPubkey,
-  ipfsApi = IPFS_API,
-  kinds = KIND_WHITELIST,
-  since,
-  limit,
-  maxPins,
-  dryRun = false,
-} = {}) => {
-  if (!npubOrPubkey) {
-    throw new Error("npubOrPubkey is required");
-  }
-
-  const pubkey = decodePubkey(npubOrPubkey);
-  const relays = getRandomRelays();
-  const following = await fetchFollowingPubkeys({ pubkey });
-  if (!following.length) {
-    return {
-      dryRun,
-      relaysUsed: relays,
-      following: [],
-      eventsScanned: 0,
-      deletesSeen: 0,
-      cidsFound: 0,
-      plannedPins: [],
-    };
-  }
-
-  const events = limit ? await fetchEvents({ authors: following, relays, kinds, since, limit }) : await fetchAllFollowingEvents({ authors: following, relays, kinds });
-  const deleteEvents = await fetchAllFollowingEvents({ authors: following, relays, kinds: [5] });
-  const deletedIds = getDeletedIds(deleteEvents);
-
-  const cidMap = new Map();
-  events
-    .filter((evt) => !deletedIds.has(evt.id))
-    .forEach((evt) => {
-      extractCidsFromContent(evt.content).forEach((cid) => {
-        if (!cidMap.has(cid)) {
-          cidMap.set(cid, {
-            cid,
-            eventId: evt.id,
-            timestamp: evt.created_at,
-            author: evt.pubkey,
-          });
-        }
-      });
-    });
-
-  const cids = Array.from(cidMap.values());
-  const toPin = typeof maxPins === "number" ? cids.slice(0, maxPins) : cids;
-
-  if (dryRun) {
-    return {
-      dryRun: true,
-      relaysUsed: relays,
-      following: following.map(toNpub),
-      eventsScanned: events.length,
-      deletesSeen: deletedIds.size,
-      cidsFound: cids.length,
-      plannedAdds: toPin, // Changed from plannedPins to plannedAdds
-    };
-  }
-
-  // For friends, add without pinning (ephemeral cache, allows garbage collection)
-  const results = [];
-  for (const cidObj of toPin) {
-    try {
-      const data = await addCid(cidObj.cid, ipfsApi);
-      results.push({ ...cidObj, ok: true, data });
-    } catch (err) {
-      results.push({ ...cidObj, ok: false, error: err.message });
-    }
-  }
-
-  return {
-    dryRun: false,
-    relaysUsed: relays,
-    following: following.map(toNpub),
-    eventsScanned: events.length,
-    deletesSeen: deletedIds.size,
-    cidsFound: cids.length,
-    added: results.filter((r) => r.ok).length, // Changed from 'pinned' to 'added'
-    failed: results.filter((r) => !r.ok).length,
-    results,
-  };
-};
-
 module.exports = {
   decodePubkey,
   extractCidsFromContent,
@@ -631,7 +544,6 @@ module.exports = {
   addCid,
   getCidSize,
   syncNostrPins,
-  syncFollowPins,
   toNpub,
   constants: {
     IPFS_API,

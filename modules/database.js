@@ -11,7 +11,6 @@ let lastPinnerActivity = null;
 let lastNostrRun = {
   at: null,
   self: null,
-  friends: null,
   error: null,
 };
 

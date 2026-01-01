@@ -9,8 +9,6 @@ const { IPFS_API, STORAGE_MAX, FILE_LIMIT, formatBytes } = require("./config");
 const { getPinnedSize, checkIPFSHealth, getIPFSStats } = require("./ipfs");
 
 const {
-  decodePubkey,
-  fetchFollowingPubkeys,
   toNpub,
   constants: { DEFAULT_RELAYS },
 } = require("./nostr");
@@ -106,31 +104,12 @@ const nostrHandler = async (req, res, NPUB) => {
     };
 
     const lastNostrRun = getLastNostrRun();
-
-    // Get friends list
-    let friendsList = [];
-    if (lastNostrRun?.friends?.following) {
-      friendsList = lastNostrRun.friends.following;
-    } else {
-      try {
-        const hex = decodePubkey(NPUB);
-        const follows = await fetchFollowingPubkeys({ pubkey: hex });
-        friendsList = follows.map((f) => toNpub(f));
-      } catch (err) {
-        console.error("Failed to fetch following list for API", err.message);
-      }
-    }
-
     const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
 
     // Get counts from database
     const selfPinned = countByTypeAndStatus('self', 'pinned');
     const selfPending = countByTypeAndStatus('self', 'pending');
     const selfFailed = countByTypeAndStatus('self', 'failed');
-    
-    const friendsCached = countByTypeAndStatus('friend', 'cached');
-    const friendsPending = countByTypeAndStatus('friend', 'pending');
-    const friendsFailed = countByTypeAndStatus('friend', 'failed');
 
     // Build lastRun object
     let lastRun = null;
@@ -139,7 +118,6 @@ const nostrHandler = async (req, res, NPUB) => {
         at: lastNostrRun.at,
         error: lastNostrRun.error,
         self: lastNostrRun.self || null,
-        friends: lastNostrRun.friends || null,
       };
     }
 
@@ -147,7 +125,6 @@ const nostrHandler = async (req, res, NPUB) => {
       enabled: true,
       operator: operatorNpub,
       relays: DEFAULT_RELAYS,
-      friends: friendsList,
       repo,
       pins: {
         self: {
@@ -155,12 +132,6 @@ const nostrHandler = async (req, res, NPUB) => {
           pending: selfPending,
           failed: selfFailed,
           total: selfPinned + selfPending + selfFailed,
-        },
-        friends: {
-          cached: friendsCached,
-          pending: friendsPending,
-          failed: friendsFailed,
-          total: friendsCached + friendsPending + friendsFailed,
         },
         totalSize: pinnedStats.totalSize,
         pinnedCount: pinnedStats.count,
@@ -281,14 +252,9 @@ const pinsHandler = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const offset = parseInt(req.query.offset) || 0;
-    const type = req.query.type; // 'self', 'friend', or undefined for all
 
-    let pins;
-    if (type && (type === 'self' || type === 'friend')) {
-      pins = getPinsByType(type, limit, offset);
-    } else {
-      pins = getPins(limit, offset);
-    }
+    // Only 'self' type is supported now
+    const pins = getPins(limit, offset);
 
     const total = getTotalCount();
     const stats = getStats();

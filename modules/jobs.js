@@ -1,7 +1,7 @@
 // Nostr job management
-const { syncNostrPins, syncFollowPins } = require("./nostr");
+const { syncNostrPins } = require("./nostr");
 
-const { pinCid, cacheCid } = require("./ipfs");
+const { pinCid } = require("./ipfs");
 const {
   batchInsertCids,
   getPendingCidsByType,
@@ -27,7 +27,6 @@ const runNostrJob = async (NPUB) => {
   try {
     // Fetch CIDs without pinning (dryRun = true)
     const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: true });
-    const friendsResult = await syncFollowPins({ npubOrPubkey: NPUB, dryRun: true });
 
     // Prepare CIDs for database insertion
     const selfCids = (selfResult.plannedPins || []).map(cidObj => ({
@@ -35,18 +34,11 @@ const runNostrJob = async (NPUB) => {
       type: 'self'
     }));
 
-    const friendCids = (friendsResult.plannedAdds || []).map(cidObj => ({
-      ...cidObj,
-      type: 'friend'
-    }));
-
     // Batch insert to database (duplicates automatically ignored)
-    const allCids = [...selfCids, ...friendCids];
-    const insertedCount = batchInsertCids(allCids);
+    const insertedCount = batchInsertCids(selfCids);
 
-    // Get current pending counts
+    // Get current pending count
     const selfPending = countByTypeAndStatus('self', 'pending');
-    const friendsPending = countByTypeAndStatus('friend', 'pending');
 
     setLastNostrRun({
       at: new Date().toISOString(),
@@ -56,22 +48,15 @@ const runNostrJob = async (NPUB) => {
         newCids: selfCids.length,
         pendingInDb: selfPending,
       },
-      friends: {
-        eventsScanned: friendsResult.eventsScanned,
-        cidsFound: friendsResult.cidsFound,
-        newCids: friendCids.length,
-        pendingInDb: friendsPending,
-      },
       error: null,
     });
 
-    console.log(`[JOB] NOSTR_DISCOVERY_COMPLETE total_discovered=${allCids.length} inserted=${insertedCount} duplicates=${allCids.length - insertedCount} self_pending=${selfPending} friends_pending=${friendsPending}`);
-    console.log(`[JOB] NOSTR_DISCOVERY_DETAILS self_events=${selfResult.eventsScanned} self_cids=${selfResult.cidsFound} friends_events=${friendsResult.eventsScanned} friends_cids=${friendsResult.cidsFound}`);
+    console.log(`[JOB] NOSTR_DISCOVERY_COMPLETE total_discovered=${selfCids.length} inserted=${insertedCount} duplicates=${selfCids.length - insertedCount} self_pending=${selfPending}`);
+    console.log(`[JOB] NOSTR_DISCOVERY_DETAILS self_events=${selfResult.eventsScanned} self_cids=${selfResult.cidsFound}`);
   } catch (err) {
     setLastNostrRun({
       at: new Date().toISOString(),
       self: null,
-      friends: null,
       error: err.message,
     });
     console.error(`[JOB] NOSTR_DISCOVERY_ERROR error="${err.message}"`);
@@ -83,11 +68,10 @@ const pinnerJob = async () => {
   try {
     console.log(`[JOB] PINNER_START`);
 
-    // Get pending counts
+    // Get pending count
     const selfPending = countByTypeAndStatus('self', 'pending');
-    const friendsPending = countByTypeAndStatus('friend', 'pending');
 
-    console.log(`[JOB] PINNER_QUEUE_STATUS self_pending=${selfPending} friends_pending=${friendsPending}`);
+    console.log(`[JOB] PINNER_QUEUE_STATUS self_pending=${selfPending}`);
 
     let didWork = false;
 
@@ -103,47 +87,18 @@ const pinnerJob = async () => {
         // Pin it (function handles "already pinned" check internally)
         const result = await pinCid(cid);
 
-        if (result.success && !result.caching) {
-          // Only mark as pinned if it's actually pinned (not just started caching)
+        if (result.success && !result.fetching) {
+          // Only mark as pinned if it's actually pinned (not just started fetching)
           const sizeMB = (result.size / 1024 / 1024).toFixed(2);
           updatePinSize(cid, result.size, "pinned");
           console.log(`[JOB] PINNER_SELF_COMPLETE cid=${cid} status=pinned size_mb=${sizeMB} message="${result.message}"`);
           didWork = true;
-        } else if (result.caching) {
-          // Started caching in background, leave as pending to check again later
-          console.log(`[JOB] PINNER_SELF_CACHING cid=${cid} status=pending action=background_download message="${result.message}"`);
+        } else if (result.fetching) {
+          // Started fetching in background, leave as pending to check again later
+          console.log(`[JOB] PINNER_SELF_FETCHING cid=${cid} status=pending action=background_download message="${result.message}"`);
         } else {
           updatePinSize(cid, 0, "failed");
           console.error(`[JOB] PINNER_SELF_FAILED cid=${cid} status=failed error="${result.message}"`);
-          didWork = true;
-        }
-      }
-    }
-
-    // Process ONE friend CID (cache it, not pinned)
-    if (friendsPending > 0) {
-      const [cidObj] = getPendingCidsByType('friend', 1);
-
-      if (cidObj) {
-        const cid = cidObj.cid;
-
-        console.log(`[JOB] PINNER_PROCESSING_FRIEND cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()}`);
-
-        // Cache it (function handles "already cached" check internally)
-        const result = await cacheCid(cid);
-
-        if (result.success && !result.caching) {
-          // Only mark as cached if it's actually available locally
-          const sizeMB = (result.size / 1024 / 1024).toFixed(2);
-          updatePinSize(cid, result.size, "cached");
-          console.log(`[JOB] PINNER_FRIEND_COMPLETE cid=${cid} status=cached size_mb=${sizeMB} message="${result.message}"`);
-          didWork = true;
-        } else if (result.caching) {
-          // Started caching in background, leave as pending to check again later
-          console.log(`[JOB] PINNER_FRIEND_CACHING cid=${cid} status=pending action=background_download message="${result.message}"`);
-        } else {
-          updatePinSize(cid, 0, "failed");
-          console.error(`[JOB] PINNER_FRIEND_FAILED cid=${cid} status=failed error="${result.message}"`);
           didWork = true;
         }
       }
