@@ -75,8 +75,8 @@ const pinnerJob = async () => {
       const cidObj = getRandomCid();
       
       if (!cidObj) {
-        console.log(`[JOB] PINNER_NO_CIDS waiting=5s`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log(`[JOB] PINNER_NO_CIDS waiting=44s`);
+        await new Promise(resolve => setTimeout(resolve, 44 * 1000));
         continue;
       }
       
