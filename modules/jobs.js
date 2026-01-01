@@ -2,7 +2,7 @@
 const { syncNostrPins, syncFollowPins } = require("./nostr");
 
 const { pinCid, cacheCid } = require("./ipfs");
-const { 
+const {
   batchInsertCids,
   getPendingCidsByType,
   updatePinSize,
@@ -34,7 +34,7 @@ const runNostrJob = async (NPUB) => {
       ...cidObj,
       type: 'self'
     }));
-    
+
     const friendCids = (friendsResult.plannedAdds || []).map(cidObj => ({
       ...cidObj,
       type: 'friend'
@@ -86,7 +86,7 @@ const pinnerJob = async () => {
     // Get pending counts
     const selfPending = countByTypeAndStatus('self', 'pending');
     const friendsPending = countByTypeAndStatus('friend', 'pending');
-    
+
     console.log(`[JOB] PINNER_QUEUE_STATUS self_pending=${selfPending} friends_pending=${friendsPending}`);
 
     let didWork = false;
@@ -94,16 +94,15 @@ const pinnerJob = async () => {
     // Process ONE self CID (pin it permanently)
     if (selfPending > 0) {
       const [cidObj] = getPendingCidsByType('self', 1);
-      
+
       if (cidObj) {
         const cid = cidObj.cid;
-        const primalLink = `https://primal.net/e/${cidObj.event_id}`;
-        
-        console.log(`[JOB] PINNER_PROCESSING_SELF cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} event_url=${primalLink}`);
+
+        console.log(`[JOB] PINNER_PROCESSING_SELF cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} `);
 
         // Pin it (function handles "already pinned" check internally)
         const result = await pinCid(cid);
-        
+
         if (result.success && !result.caching) {
           // Only mark as pinned if it's actually pinned (not just started caching)
           const sizeMB = (result.size / 1024 / 1024).toFixed(2);
@@ -124,16 +123,15 @@ const pinnerJob = async () => {
     // Process ONE friend CID (cache it, not pinned)
     if (friendsPending > 0) {
       const [cidObj] = getPendingCidsByType('friend', 1);
-      
+
       if (cidObj) {
         const cid = cidObj.cid;
-        const primalLink = `https://primal.net/e/${cidObj.event_id}`;
-        
-        console.log(`[JOB] PINNER_PROCESSING_FRIEND cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()} event_url=${primalLink}`);
+
+        console.log(`[JOB] PINNER_PROCESSING_FRIEND cid=${cid} event_id=${cidObj.event_id} author=${cidObj.author} timestamp=${new Date(cidObj.timestamp * 1000).toISOString()}`);
 
         // Cache it (function handles "already cached" check internally)
         const result = await cacheCid(cid);
-        
+
         if (result.success && !result.caching) {
           // Only mark as cached if it's actually available locally
           const sizeMB = (result.size / 1024 / 1024).toFixed(2);
