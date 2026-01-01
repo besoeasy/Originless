@@ -329,6 +329,26 @@ const cleanupStaleInProgress = () => {
   }
 };
 
+// Get a random CID for pinner job
+const getRandomCid = () => {
+  try {
+    // Get all CIDs that are not in progress
+    const availablePins = Array.from(pinsMap.values())
+      .filter(pin => !inProgressMap.has(pin.cid));
+    
+    if (availablePins.length === 0) {
+      return null;
+    }
+    
+    // Return a random pin
+    const randomIndex = Math.floor(Math.random() * availablePins.length);
+    return availablePins[randomIndex];
+  } catch (err) {
+    console.error(`[DB] Failed to get random CID:`, err.message);
+    return null;
+  }
+};
+
 // State management functions
 const getLastPinnerActivity = () => lastPinnerActivity;
 const setLastPinnerActivity = (timestamp) => {
