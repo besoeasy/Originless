@@ -27,8 +27,6 @@ const pinCid = async (cid) => {
   const startTime = Date.now();
 
   try {
-    console.log(`[IPFS] PIN_CHECK_START cid=${cid}`);
-
     // Check if already pinned
     const alreadyPinned = await isPinned(cid);
     if (alreadyPinned) {
@@ -40,40 +38,70 @@ const pinCid = async (cid) => {
         success: true,
         size,
         message: `Already pinned (${sizeMB} MB)`,
-        alreadyPinned: true
+        alreadyPinned: true,
       };
     }
 
     console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
 
-    // Pin without progress first - more reliable than streaming
-    const response = await axios.post(
-      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
-      null,
-      {
-        timeout: 10800000, // allow long pins without timing out (3 hours)
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
-      }
-    );
+    // Use streaming with progress tracking
+    const response = await axios.post(`${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`, null, {
+      timeout: 0, // Disable timeout - we'll track progress instead
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      responseType: "stream",
+    });
 
-    // Verify the response indicates success
-    if (!response.data || !response.data.Pins) {
-      throw new Error('Invalid response from IPFS pin/add endpoint');
-    }
+    let lastProgressTime = Date.now();
+    let progressCount = 0;
+    const STALL_TIMEOUT = 600000; // 10 minutes of no progress = stalled
 
-    const size = await getCidSize(cid);
-    const sizeMB = (size / 1024 / 1024).toFixed(2);
-    const duration = Date.now() - startTime;
-    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} pins=${response.data.Pins.length} duration_ms=${duration}`);
+    return new Promise((resolve, reject) => {
+      const stallChecker = setInterval(() => {
+        const timeSinceProgress = Date.now() - lastProgressTime;
+        if (timeSinceProgress > STALL_TIMEOUT) {
+          clearInterval(stallChecker);
+          response.data.destroy();
+          reject(new Error(`Stalled: no progress for ${STALL_TIMEOUT / 60000} minutes`));
+        }
+      }, 30000); // Check every 30 seconds
 
-    return {
-      success: true,
-      size,
-      message: `Pinned (${sizeMB} MB)`,
-      alreadyPinned: false
-    };
+      response.data.on("data", (chunk) => {
+        lastProgressTime = Date.now();
+        progressCount++;
 
+        // Log progress every 100 chunks
+        if (progressCount % 100 === 0) {
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+          console.log(`[IPFS] PIN_PROGRESS cid=${cid} chunks=${progressCount} elapsed_sec=${elapsed}`);
+        }
+      });
+
+      response.data.on("end", async () => {
+        clearInterval(stallChecker);
+
+        try {
+          const size = await getCidSize(cid);
+          const sizeMB = (size / 1024 / 1024).toFixed(2);
+          const duration = Date.now() - startTime;
+          console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} chunks=${progressCount} duration_ms=${duration}`);
+
+          resolve({
+            success: true,
+            size,
+            message: `Pinned (${sizeMB} MB)`,
+            alreadyPinned: false,
+          });
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      response.data.on("error", (err) => {
+        clearInterval(stallChecker);
+        reject(err);
+      });
+    });
   } catch (err) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.error(`[IPFS] PIN_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
@@ -81,7 +109,7 @@ const pinCid = async (cid) => {
       success: false,
       size: 0,
       message: `Failed: ${err.message}`,
-      error: err.message
+      error: err.message,
     };
   }
 };
@@ -93,20 +121,12 @@ const pinCid = async (cid) => {
  */
 const getCidSize = async (cid) => {
   try {
-    const statResponse = await axios.post(
-      `${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`,
-      {},
-      { timeout: 15000 }
-    );
+    const statResponse = await axios.post(`${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, {}, { timeout: 15000 });
     return statResponse.data.CumulativeSize || statResponse.data.Size || 0;
   } catch (err) {
     // Try block/stat as fallback
     try {
-      const blockResponse = await axios.post(
-        `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`,
-        {},
-        { timeout: 15000 }
-      );
+      const blockResponse = await axios.post(`${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, {}, { timeout: 15000 });
       return blockResponse.data.Size || 0;
     } catch (blockErr) {
       return 0;
@@ -128,7 +148,7 @@ const getPinnedSize = async () => {
     }
     return { totalSize, count: cids.length };
   } catch (err) {
-    console.error('Failed to get pinned size:', err.message);
+    console.error("Failed to get pinned size:", err.message);
     return { totalSize: 0, count: 0 };
   }
 };

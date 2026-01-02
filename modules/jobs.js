@@ -81,7 +81,6 @@ const pinnerJob = async () => {
       }
       
       const cid = cidObj.cid;
-      console.log(`[JOB] PINNER_SELECTED cid=${cid} type=${cidObj.type} status=${cidObj.status} event_id=${cidObj.event_id}`);
       
       markInProgress(cid, cidObj.type);
       setLastPinnerActivity(new Date().toISOString());

@@ -61,9 +61,6 @@ app.use(errorHandler);
 // Start server
 const server = app.listen(PORT, HOST, () => {
   console.log(`[STARTUP] SERVER_LISTENING host=${HOST} port=${PORT} url=http://${HOST}:${PORT}`);
-  console.log(`[STARTUP] IPFS_API_ENDPOINT url=http://127.0.0.1:5001`);
-  console.log(`[STARTUP] ROUTES_ENABLED endpoints=[/health,/status,/nostr,/api/pins,/upload]`);
-  console.log(`[STARTUP] FRONTEND_PAGES pages=[/index.html,/admin.html]`);
 });
 
 // Setup Nostr jobs
