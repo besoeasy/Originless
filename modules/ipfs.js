@@ -1,6 +1,23 @@
 // IPFS-related helper functions - SIMPLIFIED
 const axios = require("axios");
+const http = require("http");
+const https = require("https");
 const { IPFS_API } = require("./config");
+
+// Create persistent HTTP agents with keep-alive for long-running connections
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 10,
+  timeout: 0,
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 10,
+  timeout: 0,
+});
 
 /**
  * Check if a CID is pinned in IPFS
@@ -44,47 +61,43 @@ const pinCid = async (cid) => {
 
     console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
 
-    // Use streaming with progress tracking
-    const response = await axios.post(`${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`, null, {
-      timeout: 0, // Disable timeout - we'll track progress instead
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      responseType: "stream",
-    });
+    // Use streaming to keep connection alive, but don't process individual chunks
+    const response = await axios.post(
+      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`,
+      null,
+      {
+        timeout: 0,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        responseType: "stream",
+        httpAgent: IPFS_API.startsWith("http://") ? httpAgent : undefined,
+        httpsAgent: IPFS_API.startsWith("https://") ? httpsAgent : undefined,
+      }
+    );
 
-    let lastProgressTime = Date.now();
-    let progressCount = 0;
-    const STALL_TIMEOUT = 600000; // 10 minutes of no progress = stalled
+    let buffer = "";
+    let lastLogTime = Date.now();
+    const LOG_INTERVAL = 10000; // Log every 10 seconds
 
     return new Promise((resolve, reject) => {
-      const stallChecker = setInterval(() => {
-        const timeSinceProgress = Date.now() - lastProgressTime;
-        if (timeSinceProgress > STALL_TIMEOUT) {
-          clearInterval(stallChecker);
-          response.data.destroy();
-          reject(new Error(`Stalled: no progress for ${STALL_TIMEOUT / 60000} minutes`));
-        }
-      }, 30000); // Check every 30 seconds
-
       response.data.on("data", (chunk) => {
-        lastProgressTime = Date.now();
-        progressCount++;
-
-        // Log progress every 100 chunks
-        if (progressCount % 100 === 0) {
+        // Keep connection alive by consuming data, log occasionally
+        buffer += chunk.toString();
+        
+        // Log progress periodically (not for every chunk!)
+        if (Date.now() - lastLogTime > LOG_INTERVAL) {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-          console.log(`[IPFS] PIN_PROGRESS cid=${cid} chunks=${progressCount} elapsed_sec=${elapsed}`);
+          console.log(`[IPFS] PIN_PROGRESS cid=${cid} elapsed_sec=${elapsed}`);
+          lastLogTime = Date.now();
         }
       });
 
       response.data.on("end", async () => {
-        clearInterval(stallChecker);
-
         try {
           const size = await getCidSize(cid);
           const sizeMB = (size / 1024 / 1024).toFixed(2);
           const duration = Date.now() - startTime;
-          console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} chunks=${progressCount} duration_ms=${duration}`);
+          console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
 
           resolve({
             success: true,
@@ -98,7 +111,6 @@ const pinCid = async (cid) => {
       });
 
       response.data.on("error", (err) => {
-        clearInterval(stallChecker);
         reject(err);
       });
     });
