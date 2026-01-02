@@ -46,43 +46,26 @@ const pinCid = async (cid) => {
 
     console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
 
-    // Use progress=true to get streaming progress updates
+    // Pin without progress first - more reliable than streaming
     const response = await axios.post(
-      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`,
+      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
       null,
       {
         timeout: 10800000, // allow long pins without timing out (3 hours)
         maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        responseType: 'stream'
+        maxBodyLength: Infinity
       }
     );
 
-    // Handle streaming progress events
-    let progressCount = 0;
-    
-    for await (const chunk of response.data) {
-      const lines = chunk.toString().split('\n').filter(line => line.trim());
-      for (const line of lines) {
-        try {
-          const progress = JSON.parse(line);
-          progressCount++;
-                    
-          // Log detailed progress for significant updates
-          if (progress.Bytes && progressCount % 500 === 0) {
-            const bytesMB = ((progress.Bytes || 0) / 1024 / 1024).toFixed(2);
-            console.log(`[IPFS] PIN_DETAIL cid=${cid} bytes_mb=${bytesMB} items=${progressCount}`);
-          }
-        } catch (e) {
-          // Ignore parse errors for non-JSON lines
-        }
-      }
+    // Verify the response indicates success
+    if (!response.data || !response.data.Pins) {
+      throw new Error('Invalid response from IPFS pin/add endpoint');
     }
 
     const size = await getCidSize(cid);
     const sizeMB = (size / 1024 / 1024).toFixed(2);
     const duration = Date.now() - startTime;
-    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} items=${progressCount} duration_ms=${duration}`);
+    console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} pins=${response.data.Pins.length} duration_ms=${duration}`);
 
     return {
       success: true,
