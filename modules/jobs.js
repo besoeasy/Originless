@@ -86,27 +86,27 @@ const pinnerJob = async () => {
       setLastPinnerActivity(new Date().toISOString());
       
       try {
-        console.log(`[JOB] PINNER_CHECKING cid=${cid}`);
         const result = await pinCid(cid);
         
         if (result.success) {
           const sizeMB = (result.size / 1024 / 1024).toFixed(2);
           updatePinSize(cid, result.size, "pinned");
-          console.log(`[JOB] PINNER_SUCCESS cid=${cid} status=pinned size_mb=${sizeMB} newly_pinned=${!result.alreadyPinned}`);
+          if (!result.alreadyPinned) {
+            console.log(`[PIN] ✓ ${cid.slice(0, 12)}... ${sizeMB} MB`);
+          }
         } else {
           updatePinSize(cid, 0, "failed");
-          console.log(`[JOB] PINNER_FAILED cid=${cid} status=failed message="${result.message}"`);
+          console.log(`[PIN] ✗ ${cid.slice(0, 12)}... ${result.message}`);
         }
       } catch (err) {
         updatePinSize(cid, 0, "failed");
-        console.error(`[JOB] PINNER_ERROR cid=${cid} error="${err.message}"`);
+        console.error(`[PIN] ✗ ${cid.slice(0, 12)}... ${err.message}`);
       } finally {
         clearInProgress(cid);
       }
       
       // Random delay between 30-100 seconds before next iteration
       const delaySeconds = 30 + Math.floor(Math.random() * 71); // 30-100 seconds
-      console.log(`[JOB] PINNER_WAITING delay_sec=${delaySeconds}`);
       await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
       
     } catch (err) {

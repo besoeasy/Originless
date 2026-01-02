@@ -49,8 +49,6 @@ const pinCid = async (cid) => {
     if (alreadyPinned) {
       const size = await getCidSize(cid);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
-      const duration = Date.now() - startTime;
-      console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
       return {
         success: true,
         size,
@@ -58,8 +56,6 @@ const pinCid = async (cid) => {
         alreadyPinned: true,
       };
     }
-
-    console.log(`[IPFS] PIN_ADD_START cid=${cid}`);
 
     // Use streaming to keep connection alive, but don't process individual chunks
     const response = await axios.post(
@@ -96,8 +92,6 @@ const pinCid = async (cid) => {
         try {
           const size = await getCidSize(cid);
           const sizeMB = (size / 1024 / 1024).toFixed(2);
-          const duration = Date.now() - startTime;
-          console.log(`[IPFS] PIN_ADDED cid=${cid} size_mb=${sizeMB} duration_ms=${duration}`);
 
           resolve({
             success: true,

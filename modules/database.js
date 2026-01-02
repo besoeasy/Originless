@@ -62,14 +62,11 @@ const updatePinSize = (cid, size, status = 'pinned') => {
   try {
     if (pinsMap.has(cid)) {
       const pin = pinsMap.get(cid);
-      const sizeMB = (size / 1024 / 1024).toFixed(2);
       pin.size = size;
       pin.status = status;
       pin.updated_at = Math.floor(Date.now() / 1000);
-      console.log(`[DB] PIN_SIZE_UPDATE cid=${cid} status=${status} size_mb=${sizeMB} size_bytes=${size}`);
       return true;
     } else {
-      console.warn(`[DB] PIN_SIZE_UPDATE_NOTFOUND cid=${cid} action=skipped`);
       return false;
     }
   } catch (err) {
