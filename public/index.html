@@ -629,11 +629,13 @@
         </a>
         <span class="text-gray-400">•</span>
         <span class="text-gray-300 font-mono text-sm">v{{ status.appver }}</span>
-        <span class="text-gray-400">•</span>
-        <a href="/admin.html" class="text-white hover:text-gray-300 transition-colors duration-300 flex items-center gap-2">
-          <i class="fas fa-cog"></i>
-          <span>Admin</span>
-        </a>
+        <template v-if="nostrEnabled">
+          <span class="text-gray-400">•</span>
+          <a href="/admin.html" class="text-white hover:text-gray-300 transition-colors duration-300 flex items-center gap-2">
+            <i class="fas fa-cog"></i>
+            <span>Admin</span>
+          </a>
+        </template>
       </div>
     </footer>
   </div>
@@ -655,6 +657,7 @@
           showCli: false,
           copied: false,
           currentUrl: window.location.origin,
+          nostrEnabled: false,
           status: {
             nodeId: "Loading...",
             bandwidth: "Loading...",
@@ -866,9 +869,19 @@
             };
           }
         },
+        async checkNostrEnabled() {
+          try {
+            const response = await fetch("/nostr");
+            const data = await response.json();
+            this.nostrEnabled = data.enabled === true;
+          } catch (error) {
+            this.nostrEnabled = false;
+          }
+        },
       },
       mounted() {
         this.fetchStatus();
+        this.checkNostrEnabled();
         setInterval(this.fetchStatus, 10000);
 
         // Add global paste event listener
