@@ -36,20 +36,18 @@ const isPinned = async (cid) => {
 };
 
 /**
- * Check if a CID is pinned (read-only check, does not attempt to pin)
- * @param {string} cid - The CID to check
+ * Pin a CID in IPFS (fire-and-forget - returns immediately, IPFS handles it in background)
+ * @param {string} cid - The CID to pin
  * @returns {Promise<{success: boolean, size: number, message: string}>}
  */
 const pinCid = async (cid) => {
-  const startTime = Date.now();
-  const PIN_TIMEOUT = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
-
   try {
     // Check if already pinned
     const alreadyPinned = await isPinned(cid);
     if (alreadyPinned) {
       const size = await getCidSize(cid);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
+      console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB}`);
       return {
         success: true,
         size,
@@ -58,70 +56,33 @@ const pinCid = async (cid) => {
       };
     }
 
-    // Use streaming to keep connection alive, but don't process individual chunks
-    const response = await axios.post(
-      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`,
+    // Fire and forget - just start the pin operation, don't wait for completion
+    // IPFS daemon will handle the pinning in the background
+    console.log(`[IPFS] PIN_INITIATED cid=${cid}`);
+    
+    // Start the pin operation without waiting for completion (background=true if supported)
+    axios.post(
+      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
       null,
       {
-        timeout: 0,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        responseType: "stream",
+        timeout: 5000,
         httpAgent: IPFS_API.startsWith("http://") ? httpAgent : undefined,
         httpsAgent: IPFS_API.startsWith("https://") ? httpsAgent : undefined,
       }
-    );
-
-    let buffer = "";
-    let lastLogTime = Date.now();
-    const LOG_INTERVAL = 10000; // Log every 10 seconds
-
-    return new Promise((resolve, reject) => {
-      // Set up timeout handler
-      const timeoutHandler = setTimeout(() => {
-        response.data.destroy();
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.error(`[IPFS] PIN_TIMEOUT cid=${cid} duration_sec=${duration} max_hours=3`);
-        reject(new Error(`Pin operation timed out after 3 hours`));
-      }, PIN_TIMEOUT);
-
-      response.data.on("data", (chunk) => {
-        // Keep connection alive by consuming data, log occasionally
-        buffer += chunk.toString();
-        
-        // Log progress periodically (not for every chunk!)
-        if (Date.now() - lastLogTime > LOG_INTERVAL) {
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-          console.log(`[IPFS] PIN_PROGRESS cid=${cid} elapsed_sec=${elapsed}`);
-          lastLogTime = Date.now();
-        }
-      });
-
-      response.data.on("end", async () => {
-        clearTimeout(timeoutHandler);
-        try {
-          const size = await getCidSize(cid);
-          const sizeMB = (size / 1024 / 1024).toFixed(2);
-
-          resolve({
-            success: true,
-            size,
-            message: `Pinned (${sizeMB} MB)`,
-            alreadyPinned: false,
-          });
-        } catch (err) {
-          reject(err);
-        }
-      });
-
-      response.data.on("error", (err) => {
-        clearTimeout(timeoutHandler);
-        reject(err);
-      });
+    ).catch(err => {
+      console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
     });
+
+    // Return immediately - pin is being handled by IPFS daemon
+    return {
+      success: false,
+      size: 0,
+      message: `Pin initiated (processing in background)`,
+      alreadyPinned: false,
+      background: true,
+    };
   } catch (err) {
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.error(`[IPFS] PIN_ERROR cid=${cid} error="${err.message}" duration_sec=${duration}`);
+    console.error(`[IPFS] PIN_CHECK_ERROR cid=${cid} error="${err.message}"`);
     return {
       success: false,
       size: 0,
