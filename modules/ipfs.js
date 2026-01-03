@@ -24,6 +24,26 @@ const httpsAgent = new https.Agent({
 });
 
 /**
+ * Clean up expired entries from the pin request cache
+ * Removes entries older than PIN_REQUEST_COOLDOWN
+ */
+const cleanupExpiredCacheEntries = () => {
+  const now = Date.now();
+  let removedCount = 0;
+
+  for (const [cid, timestamp] of pinRequestCache.entries()) {
+    if (now - timestamp >= PIN_REQUEST_COOLDOWN) {
+      pinRequestCache.delete(cid);
+      removedCount++;
+    }
+  }
+
+  if (removedCount > 0) {
+    console.log(`[IPFS] CACHE_CLEANUP removed=${removedCount} cache_size=${pinRequestCache.size}`);
+  }
+};
+
+/**
  * Check if a CID is pinned in IPFS
  * @param {string} cid - The CID to check
  * @returns {Promise<boolean>} - True if pinned, false otherwise
@@ -46,22 +66,7 @@ const isPinned = async (cid) => {
  */
 const pinCid = async (cid) => {
   try {
-    // Check if we recently requested this CID
-    const lastRequest = pinRequestCache.get(cid);
-    const now = Date.now();
-    
-    if (lastRequest && (now - lastRequest) < PIN_REQUEST_COOLDOWN) {
-      const hoursAgo = ((now - lastRequest) / (1000 * 60 * 60)).toFixed(1);
-      console.log(`[IPFS] PIN_REQUEST_BLOCKED cid=${cid} reason="requested ${hoursAgo}h ago, cooldown=3h"`);
-      return {
-        success: false,
-        size: 0,
-        message: `Pin request blocked (already requested ${hoursAgo}h ago)`,
-        blocked: true,
-      };
-    }
-    
-    // Check if already pinned
+    // Check if already pinned first (most efficient check)
     const alreadyPinned = await isPinned(cid);
     if (alreadyPinned) {
       const size = await getCidSize(cid);
@@ -76,26 +81,42 @@ const pinCid = async (cid) => {
         alreadyPinned: true,
       };
     }
-    
+
+    // Clean up expired cache entries (lazy cleanup)
+    cleanupExpiredCacheEntries();
+
+    // Check if we recently requested this CID
+    const lastRequest = pinRequestCache.get(cid);
+    const now = Date.now();
+
+    if (lastRequest && now - lastRequest < PIN_REQUEST_COOLDOWN) {
+      const hoursAgo = ((now - lastRequest) / (1000 * 60 * 60)).toFixed(1);
+      console.log(`[IPFS] PIN_REQUEST_BLOCKED cid=${cid} reason="requested ${hoursAgo}h ago, cooldown=3h"`);
+      return {
+        success: false,
+        size: 0,
+        message: `Pin request blocked (already requested ${hoursAgo}h ago)`,
+        blocked: true,
+      };
+    }
+
     // Record this pin request
     pinRequestCache.set(cid, now);
 
     // Fire and forget - just start the pin operation, don't wait for completion
     // IPFS daemon will handle the pinning in the background
     console.log(`[IPFS] PIN_INITIATED cid=${cid}`);
-    
+
     // Start the pin operation without waiting for completion (background=true if supported)
-    axios.post(
-      `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`,
-      null,
-      {
+    axios
+      .post(`${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`, null, {
         timeout: 5000,
         httpAgent: IPFS_API.startsWith("http://") ? httpAgent : undefined,
         httpsAgent: IPFS_API.startsWith("https://") ? httpsAgent : undefined,
-      }
-    ).catch(err => {
-      console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
-    });
+      })
+      .catch((err) => {
+        console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
+      });
 
     // Return immediately - pin is being handled by IPFS daemon
     return {
