@@ -40,16 +40,25 @@ const pinCid = async (cid) => {
     }
 
     const pinEndpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
-    axios
-      .post(pinEndpoint, null, { timeout: 1000  })
-      .then(() => {
-        console.log(`[IPFS] PIN_REQUESTED cid=${cid}`);
-      })
-      .catch((err) => {
-        console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
-      });
+    await axios.post(pinEndpoint, null, { timeout: 30000 });
+
+    console.log(`[IPFS] PIN_REQUESTED cid=${cid}`);
+
+    return {
+      success: false,
+      pending: true,
+      size: 0,
+      message: "Pin requested (pending)",
+      alreadyPinned: false,
+    };
   } catch (err) {
-    console.error(`[IPFS] PIN_CHECK_ERROR cid=${cid} error="${err.message}"`);
+    console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
+    return {
+      success: false,
+      size: 0,
+      message: err.message || "Pin request failed",
+      alreadyPinned: false,
+    };
   }
 };
 
@@ -146,5 +155,4 @@ module.exports = {
   getPinnedSize,
   checkIPFSHealth,
   getIPFSStats,
-  pinRequestCache, // Export for debugging/admin purposes
 };
