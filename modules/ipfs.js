@@ -72,8 +72,6 @@ const pinCid = async (cid) => {
       const size = await getCidSize(cid);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
       console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB}`);
-      // Remove from cache if it's already pinned
-      pinRequestCache.delete(cid);
       return {
         success: true,
         size,
