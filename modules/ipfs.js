@@ -42,6 +42,7 @@ const isPinned = async (cid) => {
  */
 const pinCid = async (cid) => {
   const startTime = Date.now();
+  const PIN_TIMEOUT = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 
   try {
     // Check if already pinned
@@ -76,6 +77,14 @@ const pinCid = async (cid) => {
     const LOG_INTERVAL = 10000; // Log every 10 seconds
 
     return new Promise((resolve, reject) => {
+      // Set up timeout handler
+      const timeoutHandler = setTimeout(() => {
+        response.data.destroy();
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.error(`[IPFS] PIN_TIMEOUT cid=${cid} duration_sec=${duration} max_hours=3`);
+        reject(new Error(`Pin operation timed out after 3 hours`));
+      }, PIN_TIMEOUT);
+
       response.data.on("data", (chunk) => {
         // Keep connection alive by consuming data, log occasionally
         buffer += chunk.toString();
@@ -89,6 +98,7 @@ const pinCid = async (cid) => {
       });
 
       response.data.on("end", async () => {
+        clearTimeout(timeoutHandler);
         try {
           const size = await getCidSize(cid);
           const sizeMB = (size / 1024 / 1024).toFixed(2);
@@ -105,6 +115,7 @@ const pinCid = async (cid) => {
       });
 
       response.data.on("error", (err) => {
+        clearTimeout(timeoutHandler);
         reject(err);
       });
     });
