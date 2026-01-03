@@ -1,47 +1,6 @@
 // IPFS-related helper functions - SIMPLIFIED
 const axios = require("axios");
-const http = require("http");
-const https = require("https");
 const { IPFS_API } = require("./config");
-
-// Track pin requests to avoid duplicates (CID -> timestamp)
-const pinRequestCache = new Map();
-const PIN_REQUEST_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
-
-// Create persistent HTTP agents with keep-alive for long-running connections
-const httpAgent = new http.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 10,
-  timeout: 0,
-});
-
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 30000,
-  maxSockets: 10,
-  timeout: 0,
-});
-
-/**
- * Clean up expired entries from the pin request cache
- * Removes entries older than PIN_REQUEST_COOLDOWN
- */
-const cleanupExpiredCacheEntries = () => {
-  const now = Date.now();
-  let removedCount = 0;
-
-  for (const [cid, timestamp] of pinRequestCache.entries()) {
-    if (now - timestamp >= PIN_REQUEST_COOLDOWN) {
-      pinRequestCache.delete(cid);
-      removedCount++;
-    }
-  }
-
-  if (removedCount > 0) {
-    console.log(`[IPFS] CACHE_CLEANUP removed=${removedCount} cache_size=${pinRequestCache.size}`);
-  }
-};
 
 /**
  * Check if a CID is pinned in IPFS
@@ -80,58 +39,17 @@ const pinCid = async (cid) => {
       };
     }
 
-    // Clean up expired cache entries (lazy cleanup)
-    cleanupExpiredCacheEntries();
-
-    // Check if we recently requested this CID
-    const lastRequest = pinRequestCache.get(cid);
-    const now = Date.now();
-
-    if (lastRequest && now - lastRequest < PIN_REQUEST_COOLDOWN) {
-      const hoursAgo = ((now - lastRequest) / (1000 * 60 * 60)).toFixed(1);
-      console.log(`[IPFS] PIN_REQUEST_BLOCKED cid=${cid} reason="requested ${hoursAgo}h ago, cooldown=3h"`);
-      return {
-        success: false,
-        size: 0,
-        message: `Pin request blocked (already requested ${hoursAgo}h ago)`,
-        blocked: true,
-      };
-    }
-
-    // Record this pin request
-    pinRequestCache.set(cid, now);
-
-    // Fire and forget - just start the pin operation, don't wait for completion
-    // IPFS daemon will handle the pinning in the background
-    console.log(`[IPFS] PIN_INITIATED cid=${cid}`);
-
-    // Start the pin operation without waiting for completion (background=true if supported)
+    const pinEndpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
     axios
-      .post(`${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`, null, {
-        timeout: 5000,
-        httpAgent: IPFS_API.startsWith("http://") ? httpAgent : undefined,
-        httpsAgent: IPFS_API.startsWith("https://") ? httpsAgent : undefined,
+      .post(pinEndpoint, null, { timeout: 1000  })
+      .then(() => {
+        console.log(`[IPFS] PIN_REQUESTED cid=${cid}`);
       })
       .catch((err) => {
         console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
       });
-
-    // Return immediately - pin is being handled by IPFS daemon
-    return {
-      success: false,
-      size: 0,
-      message: `Pin initiated (processing in background)`,
-      alreadyPinned: false,
-      background: true,
-    };
   } catch (err) {
     console.error(`[IPFS] PIN_CHECK_ERROR cid=${cid} error="${err.message}"`);
-    return {
-      success: false,
-      size: 0,
-      message: `Failed: ${err.message}`,
-      error: err.message,
-    };
   }
 };
 
