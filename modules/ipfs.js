@@ -19,6 +19,9 @@ const isPinned = async (cid) => {
   }
 };
 
+let cidarray = [];
+let cidarrayupdateTime = Date.now();
+
 /**
  * Pin a CID in IPFS using CLI (blocking, waits for completion)
  * @param {string} cid - The CID to pin
@@ -40,29 +43,38 @@ const pinCid = async (cid) => {
       };
     }
 
-    // Use IPFS CLI to pin - fire-and-forget (non-blocking)
-    const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
+    if (!cidarray.includes(cid)) {
+      // Use IPFS CLI to pin - fire-and-forget (non-blocking)
+      const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
 
-    // Handle process events in background
-    child.stdout.on("data", (data) => {
-      console.log(`[IPFS-CLI] stdout cid=${cid} ${data.toString().trim()}`);
-    });
+      // Handle process events in background
+      child.stdout.on("data", (data) => {
+        console.log(`[IPFS-CLI] stdout cid=${cid} ${data.toString().trim()}`);
+      });
 
-    child.stderr.on("data", (data) => {
-      console.log(`[IPFS-CLI] stderr cid=${cid} ${data.toString().trim()}`);
-    });
+      child.stderr.on("data", (data) => {
+        console.log(`[IPFS-CLI] stderr cid=${cid} ${data.toString().trim()}`);
+      });
 
-    child.on("close", (code) => {
-      if (code === 0) {
-        console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
-      } else {
-        console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} exit_code=${code}`);
-      }
-    });
+      child.on("close", (code) => {
+        if (code === 0) {
+          console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
+        } else {
+          console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} exit_code=${code}`);
+        }
+      });
 
-    child.on("error", (err) => {
-      console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
-    });
+      child.on("error", (err) => {
+        console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
+      });
+
+      cidarray.push(cid);
+    }
+
+    if (Date.now() - cidarrayupdateTime > 2 * 60 * 60 * 1000) {
+      cidarray = [];
+      cidarrayupdateTime = Date.now();
+    }
 
     // Return immediately - pin is queued
     return {
