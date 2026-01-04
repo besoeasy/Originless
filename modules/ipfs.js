@@ -34,7 +34,6 @@ const pinCid = async (cid) => {
     if (alreadyPinned) {
       const size = await getCidSize(cid);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
-      console.log(`[IPFS] PIN_ALREADY_EXISTS cid=${cid} size_mb=${sizeMB}`);
       return {
         success: true,
         size,
@@ -44,17 +43,10 @@ const pinCid = async (cid) => {
     }
 
     if (!cidarray.includes(cid)) {
+      console.log(`[IPFS-CLI] PIN_STARTING cid=${cid}`);
+
       // Use IPFS CLI to pin - fire-and-forget (non-blocking)
       const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
-
-      // Handle process events in background
-      child.stdout.on("data", (data) => {
-        console.log(`[IPFS-CLI] stdout cid=${cid} ${data.toString().trim()}`);
-      });
-
-      child.stderr.on("data", (data) => {
-        console.log(`[IPFS-CLI] stderr cid=${cid} ${data.toString().trim()}`);
-      });
 
       child.on("close", (code) => {
         if (code === 0) {
