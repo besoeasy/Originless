@@ -46,7 +46,17 @@ const pinCid = async (cid) => {
       };
     }
 
-    console.log(`[IPFS-API] PIN_STARTING cid=${cid} mode=fire_and_forget`);
+    // Get peer count before pinning
+    let peerCount = 0;
+    try {
+      const peersResponse = await axios.post(`${IPFS_API}/api/v0/swarm/peers`, {}, { timeout: 3000 });
+      peerCount = peersResponse.data.Peers?.length || 0;
+    } catch (err) {
+      console.warn(`[IPFS-API] Failed to get peer count: ${err.message}`);
+    }
+
+    console.log(`[IPFS-API] PIN_STARTING cid=${cid} mode=fire_and_forget peers=${peerCount}`);
+    console.log(`[IPFS] Trying to fetch CID ${cid.slice(0, 12)}..., using ${peerCount} peers`);
 
     // Fire-and-forget: Start pin in background without waiting
     const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`;
