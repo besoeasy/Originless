@@ -40,53 +40,38 @@ const pinCid = async (cid) => {
       };
     }
 
-    // Use IPFS CLI to pin - blocking operation
-    const result = await new Promise((resolve) => {
-      const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
-      let stdout = "";
-      let stderr = "";
+    // Use IPFS CLI to pin - fire-and-forget (non-blocking)
+    const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
 
-      child.stdout.on("data", (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on("data", (data) => {
-        stderr += data.toString();
-      });
-
-      child.on("close", (code) => {
-        if (code === 0) {
-          console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
-          resolve({ success: true, output: stdout });
-        } else {
-          console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} error="${stderr}"`);
-          resolve({ success: false, error: stderr || "Pin failed" });
-        }
-      });
-
-      child.on("error", (err) => {
-        console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
-        resolve({ success: false, error: err.message });
-      });
+    // Handle process events in background
+    child.stdout.on("data", (data) => {
+      console.log(`[IPFS-CLI] stdout cid=${cid} ${data.toString().trim()}`);
     });
 
-    if (result.success) {
-      const size = await getCidSize(cid);
-      const sizeMB = (size / 1024 / 1024).toFixed(2);
-      return {
-        success: true,
-        size,
-        message: `Pinned successfully (${sizeMB} MB)`,
-        alreadyPinned: false,
-      };
-    } else {
-      return {
-        success: false,
-        size: 0,
-        message: result.error || "Pin failed",
-        alreadyPinned: false,
-      };
-    }
+    child.stderr.on("data", (data) => {
+      console.log(`[IPFS-CLI] stderr cid=${cid} ${data.toString().trim()}`);
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
+      } else {
+        console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} exit_code=${code}`);
+      }
+    });
+
+    child.on("error", (err) => {
+      console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
+    });
+
+    // Return immediately - pin is queued
+    return {
+      success: false,
+      pending: true,
+      size: 0,
+      message: "Pin queued (background process started)",
+      alreadyPinned: false,
+    };
   } catch (err) {
     console.error(`[IPFS-CLI] UNEXPECTED_ERROR cid=${cid} error="${err.message}"`);
     return {
