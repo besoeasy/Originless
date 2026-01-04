@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FileDrop Admin</title>
+  <title>FileDrop Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
   <style>
@@ -110,7 +110,7 @@
           <div class="flex items-center gap-3">
             <i class="fas fa-chart-line text-2xl"></i>
             <div>
-              <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+              <h1 class="text-3xl font-bold">Dashboard</h1>
               <p class="text-gray-300 text-sm">Nostr pinning and media overview</p>
             </div>
           </div>
@@ -149,12 +149,17 @@
                   <i class="fas fa-user-shield text-2xl text-black"></i>
                 </div>
                 <div class="flex-1">
-                  <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Operator</p>
-                  <a id="operatorLink" href="#" target="_blank"
-                    class="text-lg font-semibold text-black hover:underline break-all"></a>
+                  <p class="text-xs uppercase tracking-wider text-gray-500 font-medium">Operators</p>
+                  <p class="text-lg font-semibold text-black" id="operatorCount">0</p>
                 </div>
               </div>
               <div class="space-y-2 text-sm">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <p class="text-gray-500 font-medium text-xs uppercase mb-2">NPUBs</p>
+                  <div id="operatorsList" class="space-y-1">
+                    <p class="text-black text-sm">-</p>
+                  </div>
+                </div>
                 <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                   <p class="text-gray-500 font-medium text-xs uppercase">Relays</p>
                   <p class="text-black font-mono text-sm" id="relays">-</p>
@@ -185,7 +190,7 @@
                     <span class="text-black font-bold" id="pinsSelf">0</span>
                   </div>
                 </div>
-        
+
                 <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                   <p class="text-gray-500 font-medium text-xs uppercase mb-1">Repository Size</p>
                   <p class="text-black font-bold text-lg" id="repoSize">-</p>
@@ -284,13 +289,14 @@
           <span class="font-semibold">GitHub</span>
         </a>
         <span class="text-gray-400">•</span>
-        <span class="text-gray-300 font-mono text-sm">Admin Panel</span>
+        <span class="text-gray-300 font-mono text-sm">Dashboard</span>
       </div>
     </footer>
   </div>
 
   <script>
-    const operatorLink = document.getElementById("operatorLink");
+    const operatorsList = document.getElementById("operatorsList");
+    const operatorCount = document.getElementById("operatorCount");
     const relaysEl = document.getElementById("relays");
     const lastRunEl = document.getElementById("lastRun");
     const alertBox = document.getElementById("alert");
@@ -305,22 +311,35 @@
 
         if (!data.enabled) {
           alertBox.classList.remove("hidden");
-          alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Nostr Disabled</div><div class="text-red-600 text-sm mt-1">${data.reason || "NPUB not set"}</div></div>`;
+          alertContent.innerHTML = `<div><div class="font-semibold text-red-800">Nostr Disabled</div><div class="text-red-600 text-sm mt-1">${data.reason || "NPUBs not configured"}</div></div>`;
           operatorCard.classList.add("hidden");
           return;
         }
 
         operatorCard.classList.remove("hidden");
 
-        const op = data.operator || "Unknown";
-        operatorLink.textContent = op;
-        operatorLink.href = `https://nosta.me/${encodeURIComponent(op)}`;
+        // Display operators as a list
+        const operators = data.operators || [];
+        operatorCount.textContent = operators.length;
+
+        if (operators.length > 0) {
+          operatorsList.innerHTML = operators.map(op =>
+            `<a href="https://nosta.me/${encodeURIComponent(op)}" target="_blank"
+                class="text-blue-600 hover:underline font-mono text-xs block break-all"
+                title="${op}">
+              ${op}
+            </a>`
+          ).join('');
+        } else {
+          operatorsList.innerHTML = '<p class="text-black text-sm">-</p>';
+        }
+
         relaysEl.textContent = (data.relays || []).join(" · ") || "-";
         lastRunEl.textContent = data.lastRun?.at || "-";
 
         // Update pin stats from the same response
         const selfTotal = data.pins?.self?.total ?? 0;
-        
+
         document.getElementById("pinsTotal").textContent = selfTotal;
         document.getElementById("pinsSelf").textContent = selfTotal;
         const size = data.repo?.size || 0;
@@ -394,7 +413,7 @@
             }[pin.status] || 'bg-gray-100 text-gray-800';
 
             const typeColor = 'bg-purple-100 text-purple-800'; // Only 'self' type now
-            
+
             return `
               <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3">
@@ -438,7 +457,7 @@
         // Update pagination
         const start = currentPage * limit + 1;
         const end = Math.min((currentPage + 1) * limit, data.pagination.total);
-        document.getElementById("paginationInfo").textContent = 
+        document.getElementById("paginationInfo").textContent =
           `Showing ${start}-${end} of ${data.pagination.total}`;
 
         document.getElementById("prevPage").disabled = currentPage === 0;

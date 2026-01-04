@@ -5,18 +5,18 @@ const express = require("express");
 const fs = require("fs");
 
 // Import modules
-const { 
-  PORT, 
-  HOST, 
+const {
+  PORT,
+  HOST,
   UPLOAD_TEMP_DIR,
   NOSTR_CHECK_INTERVAL_MS,
 } = require("./modules/config");
 
 const { setupMiddleware, upload, errorHandler } = require("./modules/middleware");
-const { 
-  healthHandler, 
-  statusHandler, 
-  nostrHandler, 
+const {
+  healthHandler,
+  statusHandler,
+  nostrHandler,
   uploadHandler,
   pinsHandler,
 } = require("./modules/routes");
@@ -24,16 +24,38 @@ const {
 const { runNostrJob, pinnerJob } = require("./modules/jobs");
 const { decodePubkey } = require("./modules/nostr");
 
-// Validate NPUB - treat invalid NPUBs as unset
-let NPUB = null;
+// Validate NPUBs - treat invalid NPUBs as unset
+let NPUBS = [];
 if (process.env.NPUB) {
-  try {
-    // Validate by attempting to decode
-    decodePubkey(process.env.NPUB);
-    NPUB = process.env.NPUB;
-    console.log(`[STARTUP] NPUB_VALID npub=${NPUB}`);
-  } catch (err) {
-    console.error(`[STARTUP] NPUB_INVALID npub="${process.env.NPUB}" error="${err.message}" action=nostr_disabled`);
+  // Parse comma-separated NPUBs
+  const rawNpubs = process.env.NPUB.split(',').map(n => n.trim()).filter(n => n);
+  const validNpubs = [];
+  const invalidNpubs = [];
+
+  for (const npub of rawNpubs) {
+    try {
+      // Validate by attempting to decode
+      decodePubkey(npub);
+      validNpubs.push(npub);
+    } catch (err) {
+      invalidNpubs.push({ npub, error: err.message });
+    }
+  }
+
+  NPUBS = validNpubs;
+
+  if (validNpubs.length > 0) {
+    console.log(`[STARTUP] NPUBS_VALID count=${validNpubs.length} npubs=${validNpubs.map(n => n.slice(0, 12) + '...').join(',')}`);
+  }
+
+  if (invalidNpubs.length > 0) {
+    invalidNpubs.forEach(({ npub, error }) => {
+      console.error(`[STARTUP] NPUB_INVALID npub="${npub}" error="${error}" action=skipped`);
+    });
+  }
+
+  if (validNpubs.length === 0) {
+    console.error(`[STARTUP] NO_VALID_NPUBS total_provided=${rawNpubs.length} action=nostr_disabled`);
   }
 }
 
@@ -51,7 +73,7 @@ setupMiddleware(app);
 // API Routes
 app.get("/health", healthHandler);
 app.get("/status", statusHandler);
-app.get("/nostr", (req, res) => nostrHandler(req, res, NPUB));
+app.get("/nostr", (req, res) => nostrHandler(req, res, NPUBS));
 app.get("/api/pins", pinsHandler);
 app.post("/upload", upload.single("file"), uploadHandler);
 
@@ -66,13 +88,13 @@ const server = app.listen(PORT, HOST, () => {
 // Setup Nostr jobs
 let nostrTimers = { discovery: null, pinner: null };
 
-if (NPUB) {
-  runNostrJob(NPUB); // Initial run
-  nostrTimers.discovery = setInterval(() => runNostrJob(NPUB), NOSTR_CHECK_INTERVAL_MS);
+if (NPUBS.length > 0) {
+  runNostrJob(NPUBS); // Initial run
+  nostrTimers.discovery = setInterval(() => runNostrJob(NPUBS), NOSTR_CHECK_INTERVAL_MS);
   pinnerJob(); // Start continuous pinner loop
-  console.log(`[STARTUP] NOSTR_ENABLED npub=${NPUB} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_mode=continuous`);
+  console.log(`[STARTUP] NOSTR_ENABLED npub_count=${NPUBS.length} discovery_interval_ms=${NOSTR_CHECK_INTERVAL_MS} pinner_mode=continuous`);
 } else {
-  console.log(`[STARTUP] NOSTR_DISABLED reason=no_npub_configured`);
+  console.log(`[STARTUP] NOSTR_DISABLED reason=no_valid_npubs_configured`);
 }
 
 // Graceful shutdown handler

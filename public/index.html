@@ -312,10 +312,10 @@
         <h1 class="text-3xl font-bold">File Drop</h1>
       </div>
       <p class="text-gray-300 text-sm">Anonymous File Sharing</p>
-      
+
       <!-- Donate Button -->
       <a href="https://dweb.link/ipns/donate.besoeasy.com/" target="_blank" rel="noopener noreferrer"
-         class="absolute top-6 right-6 bg-white text-black px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
+        class="absolute top-6 right-6 bg-white text-black px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl">
         <i class="fas fa-heart"></i>
         <span>Donate</span>
       </a>
@@ -631,9 +631,10 @@
         <span class="text-gray-300 font-mono text-sm">v{{ status.appver }}</span>
         <template v-if="nostrEnabled">
           <span class="text-gray-400">•</span>
-          <a href="/admin.html" class="text-white hover:text-gray-300 transition-colors duration-300 flex items-center gap-2">
-            <i class="fas fa-cog"></i>
-            <span>Admin</span>
+          <a href="/dashboard.html"
+            class="text-white hover:text-gray-300 transition-colors duration-300 flex items-center gap-2">
+            <i class="fas fa-chart-line"></i>
+            <span class="font-semibold">Dashboard</span>
           </a>
         </template>
       </div>

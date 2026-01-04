@@ -15,7 +15,7 @@ let lastNostrRun = {
 };
 
 // Helper to create pin object
-const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
+const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt, npub = null) => ({
   id,
   event_id: eventId,
   cid,
@@ -26,10 +26,11 @@ const createPinObject = (id, eventId, cid, size, timestamp, author, type, status
   status,
   created_at: createdAt,
   updated_at: updatedAt,
+  npub,
 });
 
 // Record pin (INSERT OR REPLACE)
-const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned' }) => {
+const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned', npub = null }) => {
   try {
     const now = Math.floor(Date.now() / 1000);
     
@@ -45,10 +46,10 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
       // Insert new
       const id = nextId++;
       const createdAt = Math.floor(Date.now() / 1000);
-      const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now);
+      const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now, npub);
       pinsMap.set(cid, pin);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
-      console.log(`[DB] PIN_INSERT cid=${cid} type=${type} status=${status} event_id=${eventId} size_mb=${sizeMB}`);
+      console.log(`[DB] PIN_INSERT cid=${cid} type=${type} status=${status} event_id=${eventId} size_mb=${sizeMB} npub=${npub ? npub.slice(0, 12) + '...' : 'none'}`);
     }
     return true;
   } catch (err) {
@@ -159,7 +160,7 @@ const getRecentPins = (limit = 10) => {
 };
 
 // Insert CID if not exists
-const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
+const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type, npub = null }) => {
   try {
     if (pinsMap.has(cid)) {
       return false; // Already exists
@@ -167,7 +168,7 @@ const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
     
     const id = nextId++;
     const now = Math.floor(Date.now() / 1000);
-    const pin = createPinObject(id, eventId, cid, 0, timestamp, author, type, 'pending', now, now);
+    const pin = createPinObject(id, eventId, cid, 0, timestamp, author, type, 'pending', now, now, npub);
     pinsMap.set(cid, pin);
     return true; // Inserted
   } catch (err) {
@@ -196,7 +197,8 @@ const batchInsertCids = (cids) => {
           cidObj.type,
           'pending',
           now,
-          now
+          now,
+          cidObj.npub || null
         );
         pinsMap.set(cidObj.cid, pin);
         inserted++;

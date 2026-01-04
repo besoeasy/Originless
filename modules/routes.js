@@ -30,7 +30,7 @@ const unlinkAsync = promisify(fs.unlink);
 const healthHandler = async (req, res) => {
   try {
     const { healthy, peers, error } = await checkIPFSHealth();
-    
+
     if (healthy) {
       res.status(200).json({ status: "healthy", peers });
     } else {
@@ -82,11 +82,11 @@ const statusHandler = async (req, res) => {
 };
 
 // Nostr stats endpoint
-const nostrHandler = async (req, res, NPUB) => {
-  if (!NPUB) {
+const nostrHandler = async (req, res, NPUBS) => {
+  if (!NPUBS || NPUBS.length === 0) {
     return res.status(200).json({
       enabled: false,
-      reason: "NPUB not set",
+      reason: "No NPUBs configured",
     });
   }
 
@@ -96,7 +96,7 @@ const nostrHandler = async (req, res, NPUB) => {
       axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 }),
       getPinnedSize()
     ]);
-    
+
     const repo = {
       size: repoResponse.data.RepoSize,
       storageMax: repoResponse.data.StorageMax,
@@ -104,26 +104,20 @@ const nostrHandler = async (req, res, NPUB) => {
     };
 
     const lastNostrRun = getLastNostrRun();
-    const operatorNpub = NPUB.startsWith("npub") ? NPUB : toNpub(NPUB);
+
+    // Convert all NPUBs to npub format for display
+    const operatorNpubs = NPUBS.map(npub => npub.startsWith("npub") ? npub : toNpub(npub));
 
     // Get counts from database
     const selfPinned = countByTypeAndStatus('self', 'pinned');
     const selfPending = countByTypeAndStatus('self', 'pending');
     const selfFailed = countByTypeAndStatus('self', 'failed');
 
-    // Build lastRun object
-    let lastRun = null;
-    if (lastNostrRun?.at) {
-      lastRun = {
-        at: lastNostrRun.at,
-        error: lastNostrRun.error,
-        self: lastNostrRun.self || null,
-      };
-    }
-
-    res.status(200).json({
+    // Build response with multi-NPUB support
+    const response = {
       enabled: true,
-      operator: operatorNpub,
+      operators: operatorNpubs, // Array of NPUBs
+      operatorCount: NPUBS.length,
       relays: DEFAULT_RELAYS,
       repo,
       pins: {
@@ -140,8 +134,19 @@ const nostrHandler = async (req, res, NPUB) => {
         lastDiscovery: lastNostrRun?.at || null,
         lastPinner: getLastPinnerActivity(),
       },
-      lastRun,
-    });
+    };
+
+    // Add lastRun data if available
+    if (lastNostrRun?.at) {
+      response.lastRun = {
+        at: lastNostrRun.at,
+        error: lastNostrRun.error,
+        npubs: lastNostrRun.npubs || null,
+        aggregate: lastNostrRun.aggregate || null,
+      };
+    }
+
+    res.status(200).json(response);
   } catch (err) {
     console.error("Nostr stats error:", err.message);
     return res.status(503).json({

@@ -14,54 +14,87 @@ const {
 } = require("./database");
 
 // Nostr discovery job
-const runNostrJob = async (NPUB) => {
-  if (!NPUB) {
+const runNostrJob = async (NPUBS) => {
+  if (!NPUBS || NPUBS.length === 0) {
     return;
   }
 
   if (Math.random() < 0.5) {
-    console.log(`[JOB] NOSTR_DISCOVERY_EXECUTE random_trigger=true`);
+    console.log(`[JOB] NOSTR_DISCOVERY_EXECUTE random_trigger=true npub_count=${NPUBS.length}`);
   } else {
     return;
   }
 
   try {
-    // Fetch CIDs without pinning (dryRun = true)
-    const selfResult = await syncNostrPins({ npubOrPubkey: NPUB, dryRun: true });
+    const allResults = [];
+    const allCids = [];
+    let totalEventsScanned = 0;
+    let totalCidsFound = 0;
 
-    // Prepare CIDs for database insertion
-    const selfCids = (selfResult.plannedPins || []).map((cidObj) => ({
-      ...cidObj,
-      type: "self",
-    }));
+    // Process each NPUB
+    for (const npub of NPUBS) {
+      try {
+        // Fetch CIDs without pinning (dryRun = true)
+        const result = await syncNostrPins({ npubOrPubkey: npub, dryRun: true });
+
+        totalEventsScanned += result.eventsScanned;
+        totalCidsFound += result.cidsFound;
+
+        // Tag CIDs with their source NPUB
+        const cidsWithNpub = (result.plannedPins || []).map((cidObj) => ({
+          ...cidObj,
+          type: "self",
+          npub: npub, // Add NPUB identifier
+        }));
+
+        allCids.push(...cidsWithNpub);
+        allResults.push({
+          npub: npub,
+          eventsScanned: result.eventsScanned,
+          cidsFound: result.cidsFound,
+          newCids: cidsWithNpub.length,
+        });
+
+        console.log(`[JOB] NOSTR_DISCOVERY_NPUB npub=${npub.slice(0, 12)}... events=${result.eventsScanned} cids=${result.cidsFound}`);
+      } catch (npubErr) {
+        console.error(`[JOB] NOSTR_DISCOVERY_NPUB_ERROR npub=${npub.slice(0, 12)}... error="${npubErr.message}"`);
+        allResults.push({
+          npub: npub,
+          error: npubErr.message,
+        });
+      }
+    }
 
     // Batch insert to database (duplicates automatically ignored)
-    const insertedCount = batchInsertCids(selfCids);
+    const insertedCount = batchInsertCids(allCids);
 
     // Get current pending count
     const selfPending = countByTypeAndStatus("self", "pending");
 
     setLastNostrRun({
       at: new Date().toISOString(),
-      self: {
-        eventsScanned: selfResult.eventsScanned,
-        cidsFound: selfResult.cidsFound,
-        newCids: selfCids.length,
+      npubs: allResults,
+      aggregate: {
+        eventsScanned: totalEventsScanned,
+        cidsFound: totalCidsFound,
+        newCids: allCids.length,
+        inserted: insertedCount,
+        duplicates: allCids.length - insertedCount,
         pendingInDb: selfPending,
       },
       error: null,
     });
 
     console.log(
-      `[JOB] NOSTR_DISCOVERY_COMPLETE total_discovered=${selfCids.length} inserted=${insertedCount} duplicates=${
-        selfCids.length - insertedCount
-      } self_pending=${selfPending}`
+      `[JOB] NOSTR_DISCOVERY_COMPLETE npubs=${NPUBS.length} total_discovered=${allCids.length} inserted=${insertedCount} duplicates=${allCids.length - insertedCount
+      } pending=${selfPending}`
     );
-    console.log(`[JOB] NOSTR_DISCOVERY_DETAILS self_events=${selfResult.eventsScanned} self_cids=${selfResult.cidsFound}`);
+    console.log(`[JOB] NOSTR_DISCOVERY_AGGREGATE events=${totalEventsScanned} cids=${totalCidsFound}`);
   } catch (err) {
     setLastNostrRun({
       at: new Date().toISOString(),
-      self: null,
+      npubs: null,
+      aggregate: null,
       error: err.message,
     });
     console.error(`[JOB] NOSTR_DISCOVERY_ERROR error="${err.message}"`);

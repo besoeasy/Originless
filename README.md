@@ -34,7 +34,7 @@ docker run -d --restart unless-stopped \
   -v file-drop-data:/data \
   -e STORAGE_MAX=200GB \
   -e FILE_LIMIT=5GB \
-  -e NPUB=npub1yourkey... \
+  -e NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3... \
   --stop-timeout 15 \
   --name file-drop \
   ghcr.io/besoeasy/file-drop:main
@@ -58,7 +58,7 @@ services:
     environment:
       - STORAGE_MAX=200GB
       - FILE_LIMIT=5GB
-      - NPUB=npub1yourkey...
+      - NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3...
 
 volumes:
   file-drop-data:
@@ -70,7 +70,7 @@ Open http://localhost:3232 after starting.
 
 - `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
 - `FILE_LIMIT` (default: 5GB) – Max size per upload
-- `NPUB` – Your Nostr pubkey (npub or hex) to enable Nostr mode
+- `NPUB` – Comma-separated list of Nostr pubkeys (npub or hex) to enable Nostr mode. Example: `npub1abc...,npub2def...,npub3ghi...`
 
 Persist your IPFS repo by mounting `/data` (recommended).
 
@@ -83,12 +83,13 @@ Persist your IPFS repo by mounting `/data` (recommended).
 
 ## Nostr Mode (Optional)
 
-- Fetches all your posts (pagination) and filters out expired notes
+- Supports multiple NPUBs (comma-separated)
+- Fetches all posts from each configured NPUB (with pagination) and filters out expired notes
 - Extracts IPFS CIDs and pins them locally (permanent)
 - Caches media from people you follow for redundancy (ephemeral, garbage collected)
 - Runs automatically every 3 hours; view status in the admin
 
-## Admin & API
+## Dashboard & API
 
-- Admin dashboard: /admin.html
+- Dashboard: /dashboard.html
 - Upload API: `PUT /upload` with form field `file`
