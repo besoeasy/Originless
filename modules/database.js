@@ -331,6 +331,17 @@ const cleanupStaleInProgress = () => {
 // Get a random CID for pinner job
 const getRandomCid = () => {
   try {
+    const now = Date.now();
+    const THREE_HOURS = 3 * 60 * 60 * 1000;
+    
+    // Clean up expired in-progress items (older than 3 hours)
+    for (const [cid, data] of inProgressMap.entries()) {
+      if (now - data.startTime > THREE_HOURS) {
+        console.log(`[DB] IN_PROGRESS_EXPIRED cid=${cid} age_hours=${((now - data.startTime) / 1000 / 60 / 60).toFixed(1)}`);
+        inProgressMap.delete(cid);
+      }
+    }
+    
     // Get all CIDs that are not in progress
     const availablePins = Array.from(pinsMap.values())
       .filter(pin => !inProgressMap.has(pin.cid));

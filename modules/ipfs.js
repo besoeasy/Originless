@@ -26,9 +26,9 @@ let cidarray = [];
 let cidarrayupdateTime = Date.now();
 
 /**
- * Pin a CID in IPFS using CLI (blocking, waits for completion)
+ * Pin a CID in IPFS using API (fire-and-forget, non-blocking)
  * @param {string} cid - The CID to pin
- * @returns {Promise<{success: boolean, size: number, message: string, alreadyPinned: boolean}>}
+ * @returns {Promise<{success: boolean, size: number, message: string, alreadyPinned: boolean, pending: boolean}>}
  */
 const pinCid = async (cid) => {
   try {
@@ -42,111 +42,43 @@ const pinCid = async (cid) => {
         size,
         message: `Already pinned (${sizeMB} MB)`,
         alreadyPinned: true,
+        pending: false,
       };
     }
 
-    if (!cidarray.includes(cid)) {
+    console.log(`[IPFS-API] PIN_STARTING cid=${cid} mode=fire_and_forget`);
 
-      cidarray.push(cid);
-      
-      console.log(`[IPFS-CLI] PIN_STARTING cid=${cid}`);
-
-      // Download from gateway then add to IPFS
-      const tmpDir = path.join(os.tmpdir(), 'ipfs-pins');
-      const tmpFile = path.join(tmpDir, `${cid}.tmp`);
-      
-      // Ensure tmp directory exists
-      if (!fs.existsSync(tmpDir)) {
-        fs.mkdirSync(tmpDir, { recursive: true });
+    // Fire-and-forget: Start pin in background without waiting
+    const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`;
+    
+    // Start the pin operation but don't await it
+    axios.post(endpoint, null, { 
+      timeout: 3 * 60 * 60 * 1000 // 3 hours
+    }).then((pinResponse) => {
+      if (pinResponse.data && pinResponse.data.Pins) {
+        console.log(`[IPFS-API] PIN_COMPLETED cid=${cid}`);
+      } else {
+        console.error(`[IPFS-API] PIN_FAILED cid=${cid} no_pins_in_response`);
       }
+    }).catch((err) => {
+      console.error(`[IPFS-API] PIN_ERROR cid=${cid} error="${err.message}"`);
+    });
 
-      // Download using curl with timeout
-      const download = spawn("curl", [
-        "-L", // follow redirects
-        "-f", // fail on HTTP errors
-        "-s", // silent
-        "--max-time", "1800", // 30 min timeout
-        "-o", tmpFile,
-        `https://dweb.link/ipfs/${cid}`
-      ]);
-
-      download.stderr.on('data', (data) => {
-        console.error(`[IPFS-DOWNLOAD] STDERR cid=${cid}: ${data}`);
-      });
-
-      download.on("close", (code) => {
-        if (code === 0) {
-          console.log(`[IPFS-DOWNLOAD] COMPLETED cid=${cid} - adding to IPFS`);
-          
-          // Add and pin the downloaded file to IPFS
-          const add = spawn("ipfs", ["add", "-r", "-Q", "--pin=true", tmpFile]);
-          
-          let addedCid = '';
-          add.stdout.on('data', (data) => {
-            addedCid += data.toString().trim();
-          });
-
-          add.on("close", (addCode) => {
-            // Clean up temp file
-            try {
-              fs.unlinkSync(tmpFile);
-            } catch (err) {
-              console.error(`[IPFS-CLEANUP] Failed to delete ${tmpFile}: ${err.message}`);
-            }
-
-            if (addCode === 0) {
-              console.log(`[IPFS-ADD] COMPLETED original_cid=${cid} added_cid=${addedCid}`);
-              if (addedCid !== cid) {
-                console.warn(`[IPFS-ADD] CID_MISMATCH original=${cid} new=${addedCid}`);
-              }
-            } else {
-              console.error(`[IPFS-ADD] FAILED cid=${cid} exit_code=${addCode}`);
-            }
-          });
-
-          add.on("error", (err) => {
-            console.error(`[IPFS-ADD] ERROR cid=${cid} error="${err.message}"`);
-            try {
-              fs.unlinkSync(tmpFile);
-            } catch {}
-          });
-
-        } else {
-          console.error(`[IPFS-DOWNLOAD] FAILED cid=${cid} exit_code=${code}`);
-          // Clean up partial file if exists
-          try {
-            if (fs.existsSync(tmpFile)) {
-              fs.unlinkSync(tmpFile);
-            }
-          } catch {}
-        }
-      });
-
-      download.on("error", (err) => {
-        console.error(`[IPFS-DOWNLOAD] SPAWN_ERROR cid=${cid} error="${err.message}"`);
-      });
-
-    }
-
-    if (Date.now() - cidarrayupdateTime > 2 * 60 * 60 * 1000) {
-      cidarray = [];
-      cidarrayupdateTime = Date.now();
-    }
-
-    // Return immediately - pin is queued
+    // Return immediately - pin is now running in background
     return {
       success: false,
       pending: true,
       size: 0,
-      message: "Pin queued (background process started)",
+      message: "Pin started in background",
       alreadyPinned: false,
     };
   } catch (err) {
-    console.error(`[IPFS-CLI] UNEXPECTED_ERROR cid=${cid} error="${err.message}"`);
+    console.error(`[IPFS-API] PIN_CHECK_ERROR cid=${cid} error="${err.message}"`);
     return {
       success: false,
+      pending: false,
       size: 0,
-      message: err.message || "Pin request failed",
+      message: err.message || "Pin check failed",
       alreadyPinned: false,
     };
   }
