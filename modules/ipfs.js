@@ -40,7 +40,11 @@ const pinCid = async (cid) => {
     }
 
     const pinEndpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
-    await axios.post(pinEndpoint, null, { timeout: 30000 });
+    
+    // Fire-and-forget pin request with 1 day timeout
+    axios.post(pinEndpoint, null, { timeout: 86400000 })
+      .then(() => console.log(`[IPFS] PIN_COMPLETED cid=${cid}`))
+      .catch(err => console.error(`[IPFS] PIN_FAILED cid=${cid} error="${err.message}"`));
 
     console.log(`[IPFS] PIN_REQUESTED cid=${cid}`);
 
