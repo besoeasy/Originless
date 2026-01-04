@@ -43,6 +43,9 @@ const pinCid = async (cid) => {
     }
 
     if (!cidarray.includes(cid)) {
+
+      cidarray.push(cid);
+      
       console.log(`[IPFS-CLI] PIN_STARTING cid=${cid}`);
 
       // Use IPFS CLI to pin - fire-and-forget (non-blocking)
@@ -60,7 +63,6 @@ const pinCid = async (cid) => {
         console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
       });
 
-      cidarray.push(cid);
     }
 
     if (Date.now() - cidarrayupdateTime > 2 * 60 * 60 * 1000) {
