@@ -2,6 +2,9 @@
 const axios = require("axios");
 const { spawn } = require("child_process");
 const { IPFS_API } = require("./config");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 /**
  * Check if a CID is pinned in IPFS
@@ -48,19 +51,79 @@ const pinCid = async (cid) => {
       
       console.log(`[IPFS-CLI] PIN_STARTING cid=${cid}`);
 
-      // Use IPFS CLI to pin - fire-and-forget (non-blocking)
-      const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
+      // Download from gateway then add to IPFS
+      const tmpDir = path.join(os.tmpdir(), 'ipfs-pins');
+      const tmpFile = path.join(tmpDir, `${cid}.tmp`);
+      
+      // Ensure tmp directory exists
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
 
-      child.on("close", (code) => {
+      // Download using curl with timeout
+      const download = spawn("curl", [
+        "-L", // follow redirects
+        "-f", // fail on HTTP errors
+        "-s", // silent
+        "--max-time", "1800", // 30 min timeout
+        "-o", tmpFile,
+        `https://dweb.link/ipfs/${cid}`
+      ]);
+
+      download.stderr.on('data', (data) => {
+        console.error(`[IPFS-DOWNLOAD] STDERR cid=${cid}: ${data}`);
+      });
+
+      download.on("close", (code) => {
         if (code === 0) {
-          console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
+          console.log(`[IPFS-DOWNLOAD] COMPLETED cid=${cid} - adding to IPFS`);
+          
+          // Add and pin the downloaded file to IPFS
+          const add = spawn("ipfs", ["add", "-r", "-Q", "--pin=true", tmpFile]);
+          
+          let addedCid = '';
+          add.stdout.on('data', (data) => {
+            addedCid += data.toString().trim();
+          });
+
+          add.on("close", (addCode) => {
+            // Clean up temp file
+            try {
+              fs.unlinkSync(tmpFile);
+            } catch (err) {
+              console.error(`[IPFS-CLEANUP] Failed to delete ${tmpFile}: ${err.message}`);
+            }
+
+            if (addCode === 0) {
+              console.log(`[IPFS-ADD] COMPLETED original_cid=${cid} added_cid=${addedCid}`);
+              if (addedCid !== cid) {
+                console.warn(`[IPFS-ADD] CID_MISMATCH original=${cid} new=${addedCid}`);
+              }
+            } else {
+              console.error(`[IPFS-ADD] FAILED cid=${cid} exit_code=${addCode}`);
+            }
+          });
+
+          add.on("error", (err) => {
+            console.error(`[IPFS-ADD] ERROR cid=${cid} error="${err.message}"`);
+            try {
+              fs.unlinkSync(tmpFile);
+            } catch {}
+          });
+
         } else {
-          console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} exit_code=${code}`);
+          console.error(`[IPFS-DOWNLOAD] FAILED cid=${cid} exit_code=${code}`);
+          // Clean up partial file if exists
+          try {
+            if (fs.existsSync(tmpFile)) {
+              fs.unlinkSync(tmpFile);
+            }
+          } catch {}
         }
       });
 
-      child.on("error", (err) => {
-        console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
+      download.on("error", (err) => {
+        console.error(`[IPFS-DOWNLOAD] SPAWN_ERROR cid=${cid} error="${err.message}"`);
       });
 
     }
