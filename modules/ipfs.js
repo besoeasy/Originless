@@ -1,5 +1,6 @@
 // IPFS-related helper functions - SIMPLIFIED
 const axios = require("axios");
+const { spawn } = require("child_process");
 const { IPFS_API } = require("./config");
 
 /**
@@ -19,9 +20,9 @@ const isPinned = async (cid) => {
 };
 
 /**
- * Pin a CID in IPFS (fire-and-forget - returns immediately, IPFS handles it in background)
+ * Pin a CID in IPFS using CLI (blocking, waits for completion)
  * @param {string} cid - The CID to pin
- * @returns {Promise<{success: boolean, size: number, message: string}>}
+ * @returns {Promise<{success: boolean, size: number, message: string, alreadyPinned: boolean}>}
  */
 const pinCid = async (cid) => {
   try {
@@ -39,24 +40,55 @@ const pinCid = async (cid) => {
       };
     }
 
-    const pinEndpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
-    
-    // Fire-and-forget pin request with 1 day timeout
-    axios.post(pinEndpoint, null, { timeout: 86400000 })
-      .then(() => console.log(`[IPFS] PIN_COMPLETED cid=${cid}`))
-      .catch(err => console.error(`[IPFS] PIN_FAILED cid=${cid} error="${err.message}"`));
+    // Use IPFS CLI to pin - blocking operation
+    const result = await new Promise((resolve) => {
+      const child = spawn("ipfs", ["pin", "add", cid, "--recursive", "--progress"]);
+      let stdout = "";
+      let stderr = "";
 
-    console.log(`[IPFS] PIN_REQUESTED cid=${cid}`);
+      child.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
 
-    return {
-      success: false,
-      pending: true,
-      size: 0,
-      message: "Pin requested (pending)",
-      alreadyPinned: false,
-    };
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          console.log(`[IPFS-CLI] PIN_COMPLETED cid=${cid}`);
+          resolve({ success: true, output: stdout });
+        } else {
+          console.error(`[IPFS-CLI] PIN_FAILED cid=${cid} error="${stderr}"`);
+          resolve({ success: false, error: stderr || "Pin failed" });
+        }
+      });
+
+      child.on("error", (err) => {
+        console.error(`[IPFS-CLI] SPAWN_ERROR cid=${cid} error="${err.message}"`);
+        resolve({ success: false, error: err.message });
+      });
+    });
+
+    if (result.success) {
+      const size = await getCidSize(cid);
+      const sizeMB = (size / 1024 / 1024).toFixed(2);
+      return {
+        success: true,
+        size,
+        message: `Pinned successfully (${sizeMB} MB)`,
+        alreadyPinned: false,
+      };
+    } else {
+      return {
+        success: false,
+        size: 0,
+        message: result.error || "Pin failed",
+        alreadyPinned: false,
+      };
+    }
   } catch (err) {
-    console.error(`[IPFS] PIN_REQUEST_ERROR cid=${cid} error="${err.message}"`);
+    console.error(`[IPFS-CLI] UNEXPECTED_ERROR cid=${cid} error="${err.message}"`);
     return {
       success: false,
       size: 0,
