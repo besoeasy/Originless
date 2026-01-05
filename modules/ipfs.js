@@ -59,11 +59,14 @@ const pinCid = async (cid) => {
     console.log(`[IPFS] Trying to fetch CID ${cid.slice(0, 12)}..., using ${peerCount} peers`);
 
     // Fire-and-forget: Start pin in background without waiting
-    const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true&progress=true`;
-    
-    // Start the pin operation but don't await it
-    axios.post(endpoint, null, { 
-      timeout: 3 * 60 * 60 * 1000 // 3 hours
+    const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
+
+    // Start the pin operation but don't await it (cap body size to avoid buffer growth)
+    axios.post(endpoint, null, {
+      timeout: 3 * 60 * 60 * 1000, // 3 hours
+      responseType: "json",
+      maxContentLength: 1024 * 1024, // 1 MB safety cap
+      maxBodyLength: 1024 * 1024,
     }).then((pinResponse) => {
       if (pinResponse.data && pinResponse.data.Pins) {
         console.log(`[IPFS-API] PIN_COMPLETED cid=${cid}`);
