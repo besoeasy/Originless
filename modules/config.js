@@ -32,8 +32,8 @@ const formatBytes = (bytes) => {
 const IPFS_API = "http://127.0.0.1:5001";
 const PORT = 3232;
 const STORAGE_MAX = process.env.STORAGE_MAX || "200GB";
-const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
-const PROXY_FILE_LIMIT = parseSize(process.env.REMOTE_FILE_LIMIT || "2GB"); // Remote upload file size limit
+const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || STORAGE_MAX);
+const PROXY_FILE_LIMIT = parseSize(process.env.REMOTE_FILE_LIMIT || STORAGE_MAX); // Remote upload file size limit
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 

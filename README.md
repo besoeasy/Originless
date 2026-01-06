@@ -26,6 +26,19 @@ FileDrop is integrated into the following platforms:
 
 [![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/file-drop)
 
+**Minimal setup:**
+
+```bash
+docker run -d --restart unless-stopped \
+  -p 3232:3232 \
+  -p 4001:4001/tcp \
+  -p 4001:4001/udp \
+  -e STORAGE_MAX=200GB \
+  ghcr.io/besoeasy/file-drop:main
+```
+
+**Full configuration:**
+
 ```bash
 docker run -d --restart unless-stopped \
   -p 3232:3232 \
