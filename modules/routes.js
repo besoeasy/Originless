@@ -1,5 +1,6 @@
 // API route handlers
 const axios = require("axios");
+const got = require("got");
 const FormData = require("form-data");
 const fs = require("fs");
 const { promisify } = require("util");
@@ -401,17 +402,47 @@ const remoteUploadHandler = async (req, res) => {
 
     console.log(`[REMOTE-UPLOAD] Starting download from: ${targetUrl}`);
 
-    // Download the file with streaming and size limit
+    // Download the file with got's built-in streaming, timeout, and retry support
     const downloadStart = Date.now();
     let downloadedSize = 0;
-    let lastDataTime = Date.now();
 
-    const response = await axios({
-      method: "GET",
-      url: targetUrl,
-      responseType: "stream",
-      timeout: 60000, // 60 second timeout for connection
+    const downloadStream = got.stream(targetUrl, {
+      // Comprehensive timeout settings (replaces manual timeout logic)
+      timeout: {
+        lookup: 10000,       // DNS lookup timeout: 10s
+        connect: 10000,      // TCP connect timeout: 10s
+        secureConnect: 10000, // TLS handshake timeout: 10s
+        socket: 60000,       // Idle socket timeout: 60s (replaces manual idle timeout)
+        response: 60000,     // Time to receive first byte: 60s
+        send: 60000,         // Request send timeout: 60s
+        request: 1800000     // Overall request timeout: 30 minutes
+      },
+
+      // Automatic retry configuration with exponential backoff
+      retry: {
+        limit: 2,
+        methods: ['GET'],
+        statusCodes: [408, 413, 429, 500, 502, 503, 504],
+        errorCodes: [
+          'ETIMEDOUT',
+          'ECONNRESET',
+          'EADDRINUSE',
+          'ECONNREFUSED',
+          'EPIPE',
+          'ENOTFOUND',
+          'ENETUNREACH',
+          'EAI_AGAIN'
+        ],
+        backoffLimit: 3000  // Max backoff of 3 seconds
+      },
+
+      // HTTP settings
+      followRedirect: true,
       maxRedirects: 5,
+      decompress: true,
+
+      // Enable download progress events
+      isStream: true
     });
 
     // Generate temp file path
@@ -421,64 +452,15 @@ const remoteUploadHandler = async (req, res) => {
     // Create write stream
     const writeStream = fs.createWriteStream(tempFilePath);
 
-    // Timeout safeguards
-    let idleTimeoutId = null;
-    let overallTimeoutId = null;
-    let isAborted = false;
-
-    const cleanup = () => {
-      if (idleTimeoutId) clearTimeout(idleTimeoutId);
-      if (overallTimeoutId) clearTimeout(overallTimeoutId);
-    };
-
-    const abortDownload = (reason) => {
-      if (isAborted) return;
-      isAborted = true;
-
-      console.error(`[REMOTE-UPLOAD] Aborting download: ${reason}`);
-      cleanup();
-      response.data.destroy();
-      writeStream.destroy();
-
-      // Clean up temp file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
-    };
-
-    // Overall download timeout (30 minutes)
-    overallTimeoutId = setTimeout(() => {
-      const error = new Error("Download timeout: exceeded 30 minute maximum");
-      error.code = "DOWNLOAD_TIMEOUT";
-      abortDownload("overall timeout (30 minutes)");
-    }, 30 * 60 * 1000);
-
-    // Function to reset idle timeout
-    const resetIdleTimeout = () => {
-      if (idleTimeoutId) clearTimeout(idleTimeoutId);
-
-      // Idle timeout (1 minute of no data)
-      idleTimeoutId = setTimeout(() => {
-        const error = new Error("Download stalled: no data received for 60 seconds");
-        error.code = "DOWNLOAD_STALLED";
-        abortDownload("idle timeout (60 seconds)");
-      }, 60 * 1000);
-    };
-
-    // Start idle timeout
-    resetIdleTimeout();
-
-    // Monitor download size
-    response.data.on("data", (chunk) => {
-      if (isAborted) return;
-
+    // Monitor download size with size limit check
+    downloadStream.on("data", (chunk) => {
       downloadedSize += chunk.length;
-      lastDataTime = Date.now();
-      resetIdleTimeout(); // Reset idle timer on each data chunk
 
       // Check size limit
       if (downloadedSize > PROXY_FILE_LIMIT) {
-        abortDownload(`size limit exceeded (${formatBytes(PROXY_FILE_LIMIT)})`);
+        console.error(`[REMOTE-UPLOAD] Size limit exceeded: ${formatBytes(downloadedSize)} > ${formatBytes(PROXY_FILE_LIMIT)}`);
+        downloadStream.destroy();
+        writeStream.destroy();
 
         const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
         error.code = "FILE_TOO_LARGE";
@@ -486,21 +468,26 @@ const remoteUploadHandler = async (req, res) => {
       }
     });
 
+    // Optional: Log download progress
+    downloadStream.on('downloadProgress', progress => {
+      if (progress.total) {
+        const percent = (progress.percent * 100).toFixed(1);
+        console.log(`[REMOTE-UPLOAD] Progress: ${percent}% (${formatBytes(progress.transferred)}/${formatBytes(progress.total)})`);
+      }
+    });
+
     // Pipe download to file
-    response.data.pipe(writeStream);
+    downloadStream.pipe(writeStream);
 
     // Wait for download to complete
     await new Promise((resolve, reject) => {
       writeStream.on("finish", () => {
-        cleanup();
         resolve();
       });
       writeStream.on("error", (err) => {
-        cleanup();
         reject(err);
       });
-      response.data.on("error", (err) => {
-        cleanup();
+      downloadStream.on("error", (err) => {
         reject(err);
       });
     });
@@ -509,18 +496,27 @@ const remoteUploadHandler = async (req, res) => {
     console.log(`[REMOTE-UPLOAD] Downloaded ${formatBytes(downloadedSize)} in ${downloadDuration}ms`);
 
     // Get filename from URL or Content-Disposition header
+    // With got streams, we need to wait for response event to get headers
     let filename = path.basename(url.pathname) || "download";
-    const contentDisposition = response.headers["content-disposition"];
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1].replace(/['"]/g, "");
-      }
-    }
+    let mimeType = "application/octet-stream";
 
-    // Detect MIME type
-    const contentType = response.headers["content-type"];
-    const mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
+    // Try to get headers from the stream's response
+    if (downloadStream.response) {
+      const contentDisposition = downloadStream.response.headers["content-disposition"];
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, "");
+        }
+      }
+
+      // Detect MIME type from Content-Type header
+      const contentType = downloadStream.response.headers["content-type"];
+      mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
+    } else {
+      // Fallback: detect MIME type from filename
+      mimeType = mime.lookup(filename) || "application/octet-stream";
+    }
 
     // Upload to IPFS
     const formData = new FormData();
@@ -583,10 +579,13 @@ const remoteUploadHandler = async (req, res) => {
     console.error("[REMOTE-UPLOAD] Error:", {
       message: err.message,
       code: err.code,
+      name: err.name,
       timestamp: new Date().toISOString(),
     });
 
     // Handle specific error types
+
+    // File size limit error
     if (err.code === "FILE_TOO_LARGE") {
       return res.status(413).json({
         error: "File too large",
@@ -597,33 +596,40 @@ const remoteUploadHandler = async (req, res) => {
       });
     }
 
-    if (err.code === "DOWNLOAD_TIMEOUT") {
+    // Got-specific TimeoutError
+    if (err.name === "TimeoutError") {
+      const timeoutEvent = err.event || "request";
       return res.status(504).json({
         error: "Download timeout",
         status: "error",
-        message: "Download exceeded 30 minute maximum",
+        message: `Timeout during ${timeoutEvent} phase`,
+        details: err.message,
         timestamp: new Date().toISOString(),
       });
     }
 
-    if (err.code === "DOWNLOAD_STALLED") {
-      return res.status(504).json({
-        error: "Download stalled",
+    // Got-specific HTTPError (non-2xx status codes)
+    if (err.name === "HTTPError") {
+      return res.status(err.response?.statusCode || 502).json({
+        error: "HTTP error",
         status: "error",
-        message: "No data received for 60 seconds",
+        message: `Remote server returned ${err.response?.statusCode || "error"}: ${err.message}`,
         timestamp: new Date().toISOString(),
       });
     }
 
-    if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+    // Got-specific RequestError (network errors)
+    if (err.name === "RequestError" || err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
       return res.status(502).json({
         error: "Failed to download URL",
         status: "error",
         message: "Could not connect to the remote server",
+        details: err.message,
         timestamp: new Date().toISOString(),
       });
     }
 
+    // Fallback for any other errors
     res.status(500).json({
       error: "Remote upload failed",
       status: "error",
