@@ -98,6 +98,86 @@ const getPins = (limit = 50, offset = 0) => {
   }
 };
 
+// Get pins by NPUB with pagination
+const getPinsByNpub = (npub, limit = 50, offset = 0) => {
+  try {
+    const pins = Array.from(pinsMap.values())
+      .filter(pin => pin.npub === npub)
+      .sort((a, b) => b.created_at - a.created_at);
+    return pins.slice(offset, offset + limit);
+  } catch (err) {
+    console.error(`[DB] Failed to get pins by npub:`, err.message);
+    return [];
+  }
+};
+
+// Get pins grouped by NPUB
+const getPinsGroupedByNpub = (limit = 50, offset = 0) => {
+  try {
+    const grouped = {};
+    const allPins = Array.from(pinsMap.values())
+      .sort((a, b) => b.created_at - a.created_at);
+    
+    allPins.forEach(pin => {
+      const npubKey = pin.npub || 'unknown';
+      if (!grouped[npubKey]) {
+        grouped[npubKey] = [];
+      }
+      grouped[npubKey].push(pin);
+    });
+    
+    // Apply pagination to each group
+    Object.keys(grouped).forEach(npubKey => {
+      grouped[npubKey] = grouped[npubKey].slice(offset, offset + limit);
+    });
+    
+    return grouped;
+  } catch (err) {
+    console.error(`[DB] Failed to get pins grouped by npub:`, err.message);
+    return {};
+  }
+};
+
+// Get stats by NPUB
+const getStatsByNpub = (npub) => {
+  try {
+    const pins = Array.from(pinsMap.values()).filter(pin => pin.npub === npub);
+    const stats = {};
+    
+    pins.forEach(pin => {
+      const key = `${pin.type}_${pin.status}`;
+      if (!stats[key]) {
+        stats[key] = { count: 0, total_size: 0 };
+      }
+      stats[key].count++;
+      stats[key].total_size += pin.size || 0;
+    });
+    
+    return Object.entries(stats).map(([key, value]) => {
+      const [type, status] = key.split('_');
+      return {
+        type,
+        status,
+        count: value.count,
+        total_size: value.total_size,
+      };
+    });
+  } catch (err) {
+    console.error(`[DB] Failed to get stats by npub:`, err.message);
+    return [];
+  }
+};
+
+// Count pins by NPUB
+const countByNpub = (npub) => {
+  try {
+    return Array.from(pinsMap.values()).filter(pin => pin.npub === npub).length;
+  } catch (err) {
+    console.error(`[DB] Failed to count by npub:`, err.message);
+    return 0;
+  }
+};
+
 // Get pins by type with pagination
 const getPinsByType = (type, limit = 50, offset = 0) => {
   try {
@@ -377,6 +457,10 @@ module.exports = {
   getPinByCid,
   getPins,
   getPinsByType,
+  getPinsByNpub,
+  getPinsGroupedByNpub,
+  getStatsByNpub,
+  countByNpub,
   getStats,
   getTotalCount,
   getRecentPins,

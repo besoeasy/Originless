@@ -16,6 +16,9 @@ const {
 const {
   getPins,
   getPinsByType,
+  getPinsGroupedByNpub,
+  getStatsByNpub,
+  countByNpub,
   getStats,
   getTotalCount,
   getRecentPins,
@@ -258,33 +261,66 @@ const pinsHandler = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const offset = parseInt(req.query.offset) || 0;
 
-    // Only 'self' type is supported now
-    const pins = getPins(limit, offset);
+    // Get pins grouped by NPUB
+    const groupedPins = getPinsGroupedByNpub(limit, offset);
+    
+    // Build response with stats for each NPUB
+    const npubData = {};
+    Object.keys(groupedPins).forEach(npub => {
+      const pins = groupedPins[npub];
+      const stats = getStatsByNpub(npub);
+      const totalCount = countByNpub(npub);
+      
+      // Calculate totals
+      const totalSize = stats.reduce((sum, stat) => sum + (stat.total_size || 0), 0);
+      const pinnedCount = stats.find(s => s.status === 'pinned')?.count || 0;
+      const pendingCount = stats.find(s => s.status === 'pending')?.count || 0;
+      const failedCount = stats.find(s => s.status === 'failed')?.count || 0;
+      
+      npubData[npub] = {
+        npub,
+        pins: pins.map(pin => ({
+          id: pin.id,
+          eventId: pin.event_id,
+          cid: pin.cid,
+          size: pin.size,
+          timestamp: pin.timestamp,
+          author: pin.author,
+          type: pin.type,
+          status: pin.status,
+          createdAt: pin.created_at,
+          updatedAt: pin.updated_at,
+          npub: pin.npub,
+        })),
+        stats: {
+          total: totalCount,
+          pinned: pinnedCount,
+          pending: pendingCount,
+          failed: failedCount,
+          totalSize: totalSize,
+        },
+        pagination: {
+          limit,
+          offset,
+          total: totalCount,
+          hasMore: offset + limit < totalCount,
+        },
+      };
+    });
 
     const total = getTotalCount();
-    const stats = getStats();
+    const globalStats = getStats();
 
     res.json({
       success: true,
-      pins: pins.map(pin => ({
-        id: pin.id,
-        eventId: pin.event_id,
-        cid: pin.cid,
-        size: pin.size,
-        timestamp: pin.timestamp,
-        author: pin.author,
-        type: pin.type,
-        status: pin.status,
-        createdAt: pin.created_at,
-        updatedAt: pin.updated_at,
-      })),
+      byNpub: npubData,
       pagination: {
         limit,
         offset,
         total,
         hasMore: offset + limit < total,
       },
-      stats: stats.reduce((acc, stat) => {
+      stats: globalStats.reduce((acc, stat) => {
         const key = `${stat.type}_${stat.status}`;
         acc[key] = {
           count: stat.count,
