@@ -443,7 +443,7 @@
               </label>
               <p class="text-xs text-gray-500">
                 <i class="fas fa-info-circle mr-1"></i>
-                Download content from any URL and upload to IPFS (max 250 MB)
+                Download content from any URL and upload to IPFS (max {{ status.remoteFileLimit }})
               </p>
             </div>
           </div>
@@ -714,6 +714,7 @@
             peerscount: 0,
             storageLimit: "Loading...",
             fileLimit: "Loading...",
+            remoteFileLimit: "Loading...",
           },
         };
       },
@@ -927,6 +928,7 @@
                 peerscount: data.peers.count,
                 storageLimit: data.storageLimit?.configured || "Unknown",
                 fileLimit: data.fileLimit?.formatted || data.fileLimit?.configured || "Unknown",
+                remoteFileLimit: data.remoteFileLimit?.formatted || data.remoteFileLimit?.configured || "Unknown",
               };
             }
           } catch (error) {

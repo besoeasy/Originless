@@ -29,6 +29,10 @@ const {
 
 const unlinkAsync = promisify(fs.unlink);
 
+// Concurrency control for remote uploads
+const MAX_CONCURRENT_DOWNLOADS = 3;
+let activeDownloads = 0;
+
 // Health check endpoint
 const healthHandler = async (req, res) => {
   try {
@@ -65,6 +69,11 @@ const statusHandler = async (req, res) => {
         configured: process.env.FILE_LIMIT || "5GB",
         bytes: FILE_LIMIT,
         formatted: formatBytes(FILE_LIMIT),
+      },
+      remoteFileLimit: {
+        configured: process.env.REMOTE_FILE_LIMIT || "2GB",
+        bytes: PROXY_FILE_LIMIT,
+        formatted: formatBytes(PROXY_FILE_LIMIT),
       },
       appVersion,
     });
@@ -345,6 +354,22 @@ const remoteUploadHandler = async (req, res) => {
   const { UPLOAD_TEMP_DIR } = require("./config");
   let tempFilePath = null;
 
+  // Check concurrency limit
+  if (activeDownloads >= MAX_CONCURRENT_DOWNLOADS) {
+    return res.status(429).json({
+      error: "Too many concurrent downloads",
+      status: "error",
+      message: `Maximum ${MAX_CONCURRENT_DOWNLOADS} concurrent downloads in progress. Please try again later.`,
+      activeDownloads: activeDownloads,
+      maxConcurrent: MAX_CONCURRENT_DOWNLOADS,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Increment active downloads counter
+  activeDownloads++;
+  console.log(`[REMOTE-UPLOAD] Active downloads: ${activeDownloads}/${MAX_CONCURRENT_DOWNLOADS}`);
+
   try {
     // Extract URL from request body
     const { url: targetUrl } = req.body;
@@ -379,6 +404,7 @@ const remoteUploadHandler = async (req, res) => {
     // Download the file with streaming and size limit
     const downloadStart = Date.now();
     let downloadedSize = 0;
+    let lastDataTime = Date.now();
 
     const response = await axios({
       method: "GET",
@@ -395,19 +421,64 @@ const remoteUploadHandler = async (req, res) => {
     // Create write stream
     const writeStream = fs.createWriteStream(tempFilePath);
 
+    // Timeout safeguards
+    let idleTimeoutId = null;
+    let overallTimeoutId = null;
+    let isAborted = false;
+
+    const cleanup = () => {
+      if (idleTimeoutId) clearTimeout(idleTimeoutId);
+      if (overallTimeoutId) clearTimeout(overallTimeoutId);
+    };
+
+    const abortDownload = (reason) => {
+      if (isAborted) return;
+      isAborted = true;
+
+      console.error(`[REMOTE-UPLOAD] Aborting download: ${reason}`);
+      cleanup();
+      response.data.destroy();
+      writeStream.destroy();
+
+      // Clean up temp file
+      if (fs.existsSync(tempFilePath)) {
+        fs.unlinkSync(tempFilePath);
+      }
+    };
+
+    // Overall download timeout (30 minutes)
+    overallTimeoutId = setTimeout(() => {
+      const error = new Error("Download timeout: exceeded 30 minute maximum");
+      error.code = "DOWNLOAD_TIMEOUT";
+      abortDownload("overall timeout (30 minutes)");
+    }, 30 * 60 * 1000);
+
+    // Function to reset idle timeout
+    const resetIdleTimeout = () => {
+      if (idleTimeoutId) clearTimeout(idleTimeoutId);
+
+      // Idle timeout (1 minute of no data)
+      idleTimeoutId = setTimeout(() => {
+        const error = new Error("Download stalled: no data received for 60 seconds");
+        error.code = "DOWNLOAD_STALLED";
+        abortDownload("idle timeout (60 seconds)");
+      }, 60 * 1000);
+    };
+
+    // Start idle timeout
+    resetIdleTimeout();
+
     // Monitor download size
     response.data.on("data", (chunk) => {
+      if (isAborted) return;
+
       downloadedSize += chunk.length;
+      lastDataTime = Date.now();
+      resetIdleTimeout(); // Reset idle timer on each data chunk
 
       // Check size limit
       if (downloadedSize > PROXY_FILE_LIMIT) {
-        response.data.destroy();
-        writeStream.destroy();
-
-        // Clean up temp file
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
+        abortDownload(`size limit exceeded (${formatBytes(PROXY_FILE_LIMIT)})`);
 
         const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
         error.code = "FILE_TOO_LARGE";
@@ -420,9 +491,18 @@ const remoteUploadHandler = async (req, res) => {
 
     // Wait for download to complete
     await new Promise((resolve, reject) => {
-      writeStream.on("finish", resolve);
-      writeStream.on("error", reject);
-      response.data.on("error", reject);
+      writeStream.on("finish", () => {
+        cleanup();
+        resolve();
+      });
+      writeStream.on("error", (err) => {
+        cleanup();
+        reject(err);
+      });
+      response.data.on("error", (err) => {
+        cleanup();
+        reject(err);
+      });
     });
 
     const downloadDuration = Date.now() - downloadStart;
@@ -517,6 +597,24 @@ const remoteUploadHandler = async (req, res) => {
       });
     }
 
+    if (err.code === "DOWNLOAD_TIMEOUT") {
+      return res.status(504).json({
+        error: "Download timeout",
+        status: "error",
+        message: "Download exceeded 30 minute maximum",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (err.code === "DOWNLOAD_STALLED") {
+      return res.status(504).json({
+        error: "Download stalled",
+        status: "error",
+        message: "No data received for 60 seconds",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
       return res.status(502).json({
         error: "Failed to download URL",
@@ -532,6 +630,10 @@ const remoteUploadHandler = async (req, res) => {
       message: err.message,
       timestamp: new Date().toISOString(),
     });
+  } finally {
+    // Always decrement the counter, even on errors
+    activeDownloads--;
+    console.log(`[REMOTE-UPLOAD] Download complete. Active downloads: ${activeDownloads}/${MAX_CONCURRENT_DOWNLOADS}`);
   }
 };
 
