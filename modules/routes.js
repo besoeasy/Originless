@@ -406,7 +406,7 @@ const remoteUploadHandler = async (req, res) => {
     const downloadStart = Date.now();
     let downloadedSize = 0;
 
-    const downloadStream = got.stream(targetUrl, {
+    const downloadStream = got(targetUrl, {
       // Comprehensive timeout settings (replaces manual timeout logic)
       timeout: {
         lookup: 10000,       // DNS lookup timeout: 10s
