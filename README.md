@@ -84,8 +84,8 @@ Open http://localhost:3232 after starting.
 ## Configuration
 
 - `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
-- `FILE_LIMIT` (default: 5GB) – Max size per file upload
-- `REMOTE_FILE_LIMIT` (default: 250MB) – Max size for remote URL uploads
+- `FILE_LIMIT` (default: 1/10 of STORAGE_MAX, e.g., 20GB when STORAGE_MAX is 200GB) – Max size per file upload
+- `REMOTE_FILE_LIMIT` (default: 1/10 of STORAGE_MAX, e.g., 20GB when STORAGE_MAX is 200GB) – Max size for remote URL uploads
 - `NPUB` – Comma-separated list of Nostr pubkeys (npub or hex) to enable Nostr mode. Example: `npub1abc...,npub2def...,npub3ghi...`
 
 Persist your IPFS repo by mounting `/data` (recommended).
