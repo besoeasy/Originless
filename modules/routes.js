@@ -5,7 +5,7 @@ const fs = require("fs");
 const { promisify } = require("util");
 const mime = require("mime-types");
 
-const { IPFS_API, STORAGE_MAX, FILE_LIMIT, formatBytes } = require("./config");
+const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes } = require("./config");
 const { getPinnedSize, checkIPFSHealth, getIPFSStats } = require("./ipfs");
 
 const {
@@ -263,20 +263,20 @@ const pinsHandler = async (req, res) => {
 
     // Get pins grouped by NPUB
     const groupedPins = getPinsGroupedByNpub(limit, offset);
-    
+
     // Build response with stats for each NPUB
     const npubData = {};
     Object.keys(groupedPins).forEach(npub => {
       const pins = groupedPins[npub];
       const stats = getStatsByNpub(npub);
       const totalCount = countByNpub(npub);
-      
+
       // Calculate totals
       const totalSize = stats.reduce((sum, stat) => sum + (stat.total_size || 0), 0);
       const pinnedCount = stats.find(s => s.status === 'pinned')?.count || 0;
       const pendingCount = stats.find(s => s.status === 'pending')?.count || 0;
       const failedCount = stats.find(s => s.status === 'failed')?.count || 0;
-      
+
       npubData[npub] = {
         npub,
         pins: pins.map(pin => ({
@@ -338,10 +338,208 @@ const pinsHandler = async (req, res) => {
   }
 };
 
+// Remote upload handler - downloads URL and uploads to IPFS, returns JSON
+const remoteUploadHandler = async (req, res) => {
+  const crypto = require("crypto");
+  const path = require("path");
+  const { UPLOAD_TEMP_DIR } = require("./config");
+  let tempFilePath = null;
+
+  try {
+    // Extract URL from request body
+    const { url: targetUrl } = req.body;
+
+    if (!targetUrl) {
+      return res.status(400).json({
+        error: "No URL provided",
+        status: "error",
+        message: "Request body must contain 'url' field",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Validate URL format
+    let url;
+    try {
+      url = new URL(targetUrl);
+      if (!["http:", "https:"].includes(url.protocol)) {
+        throw new Error("Only HTTP and HTTPS protocols are supported");
+      }
+    } catch (err) {
+      return res.status(400).json({
+        error: "Invalid URL",
+        status: "error",
+        message: err.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    console.log(`[REMOTE-UPLOAD] Starting download from: ${targetUrl}`);
+
+    // Download the file with streaming and size limit
+    const downloadStart = Date.now();
+    let downloadedSize = 0;
+
+    const response = await axios({
+      method: "GET",
+      url: targetUrl,
+      responseType: "stream",
+      timeout: 60000, // 60 second timeout for connection
+      maxRedirects: 5,
+    });
+
+    // Generate temp file path
+    const randomName = crypto.randomBytes(16).toString("hex");
+    tempFilePath = path.join(UPLOAD_TEMP_DIR, randomName);
+
+    // Create write stream
+    const writeStream = fs.createWriteStream(tempFilePath);
+
+    // Monitor download size
+    response.data.on("data", (chunk) => {
+      downloadedSize += chunk.length;
+
+      // Check size limit
+      if (downloadedSize > PROXY_FILE_LIMIT) {
+        response.data.destroy();
+        writeStream.destroy();
+
+        // Clean up temp file
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
+        error.code = "FILE_TOO_LARGE";
+        throw error;
+      }
+    });
+
+    // Pipe download to file
+    response.data.pipe(writeStream);
+
+    // Wait for download to complete
+    await new Promise((resolve, reject) => {
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+      response.data.on("error", reject);
+    });
+
+    const downloadDuration = Date.now() - downloadStart;
+    console.log(`[REMOTE-UPLOAD] Downloaded ${formatBytes(downloadedSize)} in ${downloadDuration}ms`);
+
+    // Get filename from URL or Content-Disposition header
+    let filename = path.basename(url.pathname) || "download";
+    const contentDisposition = response.headers["content-disposition"];
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, "");
+      }
+    }
+
+    // Detect MIME type
+    const contentType = response.headers["content-type"];
+    const mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
+
+    // Upload to IPFS
+    const formData = new FormData();
+    const fileStream = fs.createReadStream(tempFilePath);
+
+    formData.append("file", fileStream, {
+      filename: filename,
+      contentType: mimeType,
+      knownLength: downloadedSize,
+    });
+
+    const uploadStart = Date.now();
+    console.log(`[REMOTE-UPLOAD] Starting IPFS upload for ${filename}...`);
+
+    const ipfsResponse = await axios.post(`${IPFS_API}/api/v0/add?pin=false`, formData, {
+      headers: { ...formData.getHeaders() },
+      timeout: 3600000, // 1 hour timeout
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    });
+
+    const uploadDuration = Date.now() - uploadStart;
+    const cid = ipfsResponse.data.Hash;
+
+    console.log(`[REMOTE-UPLOAD] Upload complete: CID=${cid}, duration=${uploadDuration}ms`);
+
+    // Clean up temp file
+    await unlinkAsync(tempFilePath).catch((err) => console.warn("[REMOTE-UPLOAD] Failed to delete temp file:", err.message));
+    tempFilePath = null;
+
+    // Return JSON response with detailed information
+    const uploadDetails = {
+      status: "success",
+      cid: cid,
+      url: `https://dweb.link/ipfs/${cid}`,
+      filename: filename,
+      size: downloadedSize,
+      type: mimeType,
+      sourceUrl: targetUrl,
+      timing: {
+        download_ms: downloadDuration,
+        upload_ms: uploadDuration,
+        total_ms: downloadDuration + uploadDuration,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`[REMOTE-UPLOAD] Success:`, uploadDetails);
+
+    res.json(uploadDetails);
+
+  } catch (err) {
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      await unlinkAsync(tempFilePath).catch((cleanupErr) =>
+        console.warn("[REMOTE-UPLOAD] Failed to delete temp file on error:", cleanupErr.message)
+      );
+    }
+
+    console.error("[REMOTE-UPLOAD] Error:", {
+      message: err.message,
+      code: err.code,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Handle specific error types
+    if (err.code === "FILE_TOO_LARGE") {
+      return res.status(413).json({
+        error: "File too large",
+        status: "error",
+        message: err.message,
+        limit: formatBytes(PROXY_FILE_LIMIT),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+      return res.status(502).json({
+        error: "Failed to download URL",
+        status: "error",
+        message: "Could not connect to the remote server",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    res.status(500).json({
+      error: "Remote upload failed",
+      status: "error",
+      message: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
 module.exports = {
   healthHandler,
   statusHandler,
   nostrHandler,
   uploadHandler,
   pinsHandler,
+  remoteUploadHandler,
 };

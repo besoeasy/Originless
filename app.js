@@ -19,6 +19,7 @@ const {
   nostrHandler,
   uploadHandler,
   pinsHandler,
+  remoteUploadHandler,
 } = require("./modules/routes");
 
 const { runNostrJob, pinnerJob } = require("./modules/jobs");
@@ -76,6 +77,8 @@ app.get("/status", statusHandler);
 app.get("/nostr", (req, res) => nostrHandler(req, res, NPUBS));
 app.get("/api/pins", pinsHandler);
 app.post("/upload", upload.single("file"), uploadHandler);
+app.post("/remoteupload", remoteUploadHandler);
+
 
 // Apply error handler
 app.use(errorHandler);

@@ -34,6 +34,7 @@ docker run -d --restart unless-stopped \
   -v file-drop-data:/data \
   -e STORAGE_MAX=200GB \
   -e FILE_LIMIT=5GB \
+  -e REMOTE_FILE_LIMIT=250MB \
   -e NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3... \
   --stop-timeout 15 \
   --name file-drop \
@@ -58,6 +59,7 @@ services:
     environment:
       - STORAGE_MAX=200GB
       - FILE_LIMIT=5GB
+      - REMOTE_FILE_LIMIT=250MB
       - NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3...
 
 volumes:
@@ -69,7 +71,8 @@ Open http://localhost:3232 after starting.
 ## Configuration
 
 - `STORAGE_MAX` (default: 200GB) – IPFS storage cap before GC
-- `FILE_LIMIT` (default: 5GB) – Max size per upload
+- `FILE_LIMIT` (default: 5GB) – Max size per file upload
+- `REMOTE_FILE_LIMIT` (default: 250MB) – Max size for remote URL uploads
 - `NPUB` – Comma-separated list of Nostr pubkeys (npub or hex) to enable Nostr mode. Example: `npub1abc...,npub2def...,npub3ghi...`
 
 Persist your IPFS repo by mounting `/data` (recommended).
@@ -89,7 +92,63 @@ Persist your IPFS repo by mounting `/data` (recommended).
 - Caches media from people you follow for redundancy (ephemeral, garbage collected)
 - Runs automatically every 3 hours; view status in the admin
 
-## Dashboard & API
+## API Endpoints
+
+### File Upload
+Upload a file directly from your local system:
+
+```bash
+curl -X POST -F "file=@yourfile.pdf" http://localhost:3232/upload
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "cid": "QmX...",
+  "url": "https://dweb.link/ipfs/QmX...?filename=yourfile.pdf",
+  "size": 12345,
+  "type": "application/pdf",
+  "filename": "yourfile.pdf"
+}
+```
+
+### Remote URL Upload
+Download and upload content from any URL to IPFS:
+
+```bash
+curl -X POST http://localhost:3232/remoteupload \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/image.png"}'
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "cid": "QmX...",
+  "url": "https://dweb.link/ipfs/QmX...",
+  "filename": "image.png",
+  "size": 12345,
+  "type": "image/png",
+  "sourceUrl": "https://example.com/image.png",
+  "timing": {
+    "download_ms": 1234,
+    "upload_ms": 5678,
+    "total_ms": 6912
+  },
+  "timestamp": "2026-01-07T03:18:00.000Z"
+}
+```
+
+**Features:**
+- Supports any HTTP/HTTPS URL
+- Streams content efficiently (doesn't load entire file into memory)
+- Enforces size limit (default 250 MB, configurable via `REMOTE_FILE_LIMIT`)
+- Automatic MIME type detection
+- Returns detailed timing information
+
+## Dashboard
 
 - Dashboard: /dashboard.html
-- Upload API: `PUT /upload` with form field `file`
+- Web UI: /

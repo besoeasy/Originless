@@ -33,6 +33,7 @@ const IPFS_API = "http://127.0.0.1:5001";
 const PORT = 3232;
 const STORAGE_MAX = process.env.STORAGE_MAX || "200GB";
 const FILE_LIMIT = parseSize(process.env.FILE_LIMIT || "5GB");
+const PROXY_FILE_LIMIT = parseSize(process.env.REMOTE_FILE_LIMIT || "2GB"); // Remote upload file size limit
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/filedrop";
 
@@ -46,6 +47,7 @@ module.exports = {
   PORT,
   STORAGE_MAX,
   FILE_LIMIT,
+  PROXY_FILE_LIMIT,
   HOST,
   UPLOAD_TEMP_DIR,
   NOSTR_CHECK_INTERVAL_MS,
