@@ -1,6 +1,5 @@
 // API route handlers
 const axios = require("axios");
-const got = require("got");
 const FormData = require("form-data");
 const fs = require("fs");
 const { promisify } = require("util");
@@ -402,48 +401,38 @@ const remoteUploadHandler = async (req, res) => {
 
     console.log(`[REMOTE-UPLOAD] Starting download from: ${targetUrl}`);
 
-    // Download the file with got's built-in streaming, timeout, and retry support
+    // Download the file with axios streaming support
     const downloadStart = Date.now();
     let downloadedSize = 0;
 
-    const downloadStream = got(targetUrl, {
-      // Comprehensive timeout settings (replaces manual timeout logic)
-      timeout: {
-        lookup: 10000,       // DNS lookup timeout: 10s
-        connect: 10000,      // TCP connect timeout: 10s
-        secureConnect: 10000, // TLS handshake timeout: 10s
-        socket: 60000,       // Idle socket timeout: 60s (replaces manual idle timeout)
-        response: 60000,     // Time to receive first byte: 60s
-        send: 60000,         // Request send timeout: 60s
-        request: 1800000     // Overall request timeout: 30 minutes
-      },
-
-      // Automatic retry configuration with exponential backoff
-      retry: {
-        limit: 2,
-        methods: ['GET'],
-        statusCodes: [408, 413, 429, 500, 502, 503, 504],
-        errorCodes: [
-          'ETIMEDOUT',
-          'ECONNRESET',
-          'EADDRINUSE',
-          'ECONNREFUSED',
-          'EPIPE',
-          'ENOTFOUND',
-          'ENETUNREACH',
-          'EAI_AGAIN'
-        ],
-        backoffLimit: 3000  // Max backoff of 3 seconds
-      },
-
-      // HTTP settings
-      followRedirect: true,
+    // Make axios request with streaming
+    const response = await axios({
+      method: 'GET',
+      url: targetUrl,
+      responseType: 'stream',
+      timeout: 1800000, // 30 minutes overall timeout
       maxRedirects: 5,
-      decompress: true,
-
-      // Enable download progress events
-      isStream: true
+      validateStatus: (status) => status >= 200 && status < 300,
     });
+
+    const downloadStream = response.data;
+
+    // Get filename from URL or Content-Disposition header
+    let filename = path.basename(url.pathname) || "download";
+    let mimeType = "application/octet-stream";
+
+    // Get headers from response
+    const contentDisposition = response.headers["content-disposition"];
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, "");
+      }
+    }
+
+    // Detect MIME type from Content-Type header
+    const contentType = response.headers["content-type"];
+    mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
 
     // Generate temp file path
     const randomName = crypto.randomBytes(16).toString("hex");
@@ -468,14 +457,6 @@ const remoteUploadHandler = async (req, res) => {
       }
     });
 
-    // Optional: Log download progress
-    downloadStream.on('downloadProgress', progress => {
-      if (progress.total) {
-        const percent = (progress.percent * 100).toFixed(1);
-        console.log(`[REMOTE-UPLOAD] Progress: ${percent}% (${formatBytes(progress.transferred)}/${formatBytes(progress.total)})`);
-      }
-    });
-
     // Pipe download to file
     downloadStream.pipe(writeStream);
 
@@ -494,29 +475,6 @@ const remoteUploadHandler = async (req, res) => {
 
     const downloadDuration = Date.now() - downloadStart;
     console.log(`[REMOTE-UPLOAD] Downloaded ${formatBytes(downloadedSize)} in ${downloadDuration}ms`);
-
-    // Get filename from URL or Content-Disposition header
-    // With got streams, we need to wait for response event to get headers
-    let filename = path.basename(url.pathname) || "download";
-    let mimeType = "application/octet-stream";
-
-    // Try to get headers from the stream's response
-    if (downloadStream.response) {
-      const contentDisposition = downloadStream.response.headers["content-disposition"];
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1].replace(/['"]/g, "");
-        }
-      }
-
-      // Detect MIME type from Content-Type header
-      const contentType = downloadStream.response.headers["content-type"];
-      mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
-    } else {
-      // Fallback: detect MIME type from filename
-      mimeType = mime.lookup(filename) || "application/octet-stream";
-    }
 
     // Upload to IPFS
     const formData = new FormData();
