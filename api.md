@@ -6,7 +6,7 @@ Base URL (local): http://localhost:3232
 
 - Responses are JSON unless otherwise noted.
 - Authentication for pin management uses [Daku](https://www.npmjs.com/package/daku).
-- Send the token in the `Authorization: Bearer <token>` header.
+- Send the token in the `daku: <token>` header.
 
 ## Endpoints
 
@@ -69,7 +69,7 @@ curl -X POST http://localhost:3232/remoteupload \
 
 ## Pin Management (Auth Required)
 
-Authentication is handled via [Daku](https://www.npmjs.com/package/daku). Send your Daku token in the `Authorization: Bearer <token>` header.
+Authentication is handled via [Daku](https://www.npmjs.com/package/daku). Send your Daku token in the `daku: <token>` header.
 
 ### POST /pin/add
 Add one or more CIDs to your pin list.
@@ -78,7 +78,7 @@ Add one or more CIDs to your pin list.
 
 ```bash
 curl -X POST http://localhost:3232/pin/add \
-  -H "Authorization: Bearer <token>" \
+  -H "daku: <token>" \
   -H "Content-Type: application/json" \
   -d '{"cids": ["QmHash1...", "QmHash2..."]}'
 ```
@@ -91,7 +91,7 @@ List your pinned CIDs.
 **Request**
 
 ```bash
-curl -H "Authorization: Bearer <token>" http://localhost:3232/pin/list
+curl -H "daku: <token>" http://localhost:3232/pin/list
 ```
 
 ---
@@ -103,7 +103,7 @@ Remove a CID from your pin list.
 
 ```bash
 curl -X POST http://localhost:3232/pin/remove \
-  -H "Authorization: Bearer <token>" \
+  -H "daku: <token>" \
   -H "Content-Type: application/json" \
   -d '{"cid": "QmHash..."}'
 ```

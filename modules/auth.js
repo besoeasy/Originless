@@ -3,12 +3,11 @@ const { ALLOWED_USERS } = require("./config");
 
 const authMiddleware = async (req, res, next) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({ error: "Missing or invalid authorization header" });
+        const token = req.headers.daku;
+        if (!token) {
+            return res.status(401).json({ error: "Missing daku header" });
         }
 
-        const token = authHeader.split(" ")[1];
         const userId = await verifyAuth(token);
 
         if (!userId) {
