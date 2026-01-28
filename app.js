@@ -26,6 +26,7 @@ const {
 } = require("./modules/routes");
 
 const { pinnerJob } = require("./modules/jobs");
+const { refreshGateways } = require("./modules/gateways");
 
 
 // Ensure temp directory exists
@@ -62,6 +63,11 @@ const server = app.listen(PORT, HOST, () => {
 
 // Start pinner loop
 pinnerJob();
+
+// Warm gateway cache
+refreshGateways().catch((err) => {
+  console.warn(`[GATEWAY] Initial refresh failed: ${err.message}`);
+});
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal) => {

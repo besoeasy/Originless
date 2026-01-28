@@ -4,6 +4,7 @@ const mime = require("mime-types");
 
 const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes, UPLOAD_TEMP_DIR } = require("./config");
 const { checkIPFSHealth, getIPFSStats, pinCid, unpinCid } = require("./ipfs");
+const { getGatewayUrl, refreshGateways } = require("./gateways");
 
 
 const {
@@ -208,7 +209,7 @@ const uploadHandler = async (req, res) => {
     // Simple response
     res.json({
       status: "success",
-      url: `https://dweb.link/ipfs/${responseJson.Hash}?filename=${encodeURIComponent(req.file.originalname)}`,
+      url: await getGatewayUrl(responseJson.Hash, req.file.originalname),
       cid: responseJson.Hash,
       size: uploadDetails.size_bytes,
       type: mimeType,
@@ -332,7 +333,6 @@ const pinsHandler = async (req, res) => {
 const remoteUploadHandler = async (req, res) => {
   const crypto = require("crypto");
   const path = require("path");
-  const { UPLOAD_TEMP_DIR } = require("./config");
   let tempFilePath = null;
 
   // Check concurrency limit
@@ -458,7 +458,7 @@ const remoteUploadHandler = async (req, res) => {
     const uploadDetails = {
       status: "success",
       cid: cid,
-      url: `https://dweb.link/ipfs/${cid}`,
+      url: await getGatewayUrl(cid, filename),
       filename: filename,
       size: downloadedSize,
       type: mimeType,
