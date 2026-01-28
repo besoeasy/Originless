@@ -1,10 +1,27 @@
-// IPFS-related helper functions - SIMPLIFIED
-const axios = require("axios");
-const { spawn } = require("child_process");
+// IPFS-related helper functions (Bun-optimized, fetch-based)
 const { IPFS_API } = require("./config");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 10000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const fetchJson = async (url, options = {}, timeoutMs = 10000) => {
+  const res = await fetchWithTimeout(url, options, timeoutMs);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const error = new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+};
 
 /**
  * Check if a CID is pinned in IPFS
@@ -14,8 +31,8 @@ const os = require("os");
 const isPinned = async (cid) => {
   try {
     const endpoint = `${IPFS_API}/api/v0/pin/ls?arg=${encodeURIComponent(cid)}&type=recursive`;
-    const res = await axios.post(endpoint, null, { timeout: 10000 });
-    return res.data?.Keys && Object.keys(res.data.Keys).length > 0;
+    const data = await fetchJson(endpoint, { method: "POST" }, 10000);
+    return data?.Keys && Object.keys(data.Keys).length > 0;
   } catch (err) {
     // If error (404, timeout, etc), assume not pinned
     return false;
@@ -30,16 +47,13 @@ const isPinned = async (cid) => {
 const unpinCid = async (cid) => {
   try {
     const endpoint = `${IPFS_API}/api/v0/pin/rm?arg=${encodeURIComponent(cid)}&recursive=true`;
-    await axios.post(endpoint, null, { timeout: 10000 });
+    await fetchWithTimeout(endpoint, { method: "POST" }, 10000);
     return true;
   } catch (err) {
     console.warn(`[IPFS-API] Failed to unpin ${cid}: ${err.message}`);
     return false;
   }
 };
-
-let cidarray = [];
-let cidarrayupdateTime = Date.now();
 
 /**
  * Pin a CID in IPFS using API (fire-and-forget, non-blocking)
@@ -65,8 +79,8 @@ const pinCid = async (cid) => {
     // Get peer count before pinning
     let peerCount = 0;
     try {
-      const peersResponse = await axios.post(`${IPFS_API}/api/v0/swarm/peers`, {}, { timeout: 3000 });
-      peerCount = peersResponse.data.Peers?.length || 0;
+      const peersResponse = await fetchJson(`${IPFS_API}/api/v0/swarm/peers`, { method: "POST" }, 3000);
+      peerCount = peersResponse.Peers?.length || 0;
     } catch (err) {
       console.warn(`[IPFS-API] Failed to get peer count: ${err.message}`);
     }
@@ -78,20 +92,24 @@ const pinCid = async (cid) => {
     const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
 
     // Start the pin operation but don't await it (cap body size to avoid buffer growth)
-    axios.post(endpoint, null, {
-      timeout: 3 * 60 * 60 * 1000, // 3 hours
-      responseType: "json",
-      maxContentLength: 1024 * 1024, // 1 MB safety cap
-      maxBodyLength: 1024 * 1024,
-    }).then((pinResponse) => {
-      if (pinResponse.data && pinResponse.data.Pins) {
-        console.log(`[IPFS-API] PIN_COMPLETED cid=${cid}`);
-      } else {
-        console.error(`[IPFS-API] PIN_FAILED cid=${cid} no_pins_in_response`);
-      }
-    }).catch((err) => {
-      console.error(`[IPFS-API] PIN_ERROR cid=${cid} error="${err.message}"`);
-    });
+    fetchWithTimeout(endpoint, { method: "POST" }, 3 * 60 * 60 * 1000)
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.error(`[IPFS-API] PIN_FAILED cid=${cid} status=${res.status} ${text}`);
+          return;
+        }
+
+        const data = await res.json().catch(() => null);
+        if (data && data.Pins) {
+          console.log(`[IPFS-API] PIN_COMPLETED cid=${cid}`);
+        } else {
+          console.error(`[IPFS-API] PIN_FAILED cid=${cid} no_pins_in_response`);
+        }
+      })
+      .catch((err) => {
+        console.error(`[IPFS-API] PIN_ERROR cid=${cid} error="${err.message}"`);
+      });
 
     // Return immediately - pin is now running in background
     return {
@@ -120,13 +138,21 @@ const pinCid = async (cid) => {
  */
 const getCidSize = async (cid) => {
   try {
-    const statResponse = await axios.post(`${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`, {}, { timeout: 15000 });
-    return statResponse.data.CumulativeSize || statResponse.data.Size || 0;
+    const statResponse = await fetchJson(
+      `${IPFS_API}/api/v0/files/stat?arg=/ipfs/${encodeURIComponent(cid)}`,
+      { method: "POST" },
+      15000
+    );
+    return statResponse.CumulativeSize || statResponse.Size || 0;
   } catch (err) {
     // Try block/stat as fallback
     try {
-      const blockResponse = await axios.post(`${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`, {}, { timeout: 15000 });
-      return blockResponse.data.Size || 0;
+      const blockResponse = await fetchJson(
+        `${IPFS_API}/api/v0/block/stat?arg=${encodeURIComponent(cid)}`,
+        { method: "POST" },
+        15000
+      );
+      return blockResponse.Size || 0;
     } catch (blockErr) {
       return 0;
     }
@@ -136,8 +162,8 @@ const getCidSize = async (cid) => {
 // Get total size of pinned content
 const getPinnedSize = async () => {
   try {
-    const pinResponse = await axios.post(`${IPFS_API}/api/v0/pin/ls?type=recursive`, {}, { timeout: 10000 });
-    const pins = pinResponse.data.Keys || {};
+    const pinResponse = await fetchJson(`${IPFS_API}/api/v0/pin/ls?type=recursive`, { method: "POST" }, 10000);
+    const pins = pinResponse.Keys || {};
     const cids = Object.keys(pins);
 
     let totalSize = 0;
@@ -155,8 +181,8 @@ const getPinnedSize = async () => {
 // Check IPFS health
 const checkIPFSHealth = async () => {
   try {
-    const peersResponse = await axios.post(`${IPFS_API}/api/v0/swarm/peers`, { timeout: 5000 });
-    const peerCount = peersResponse.data.Peers?.length || 0;
+    const peersResponse = await fetchJson(`${IPFS_API}/api/v0/swarm/peers`, { method: "POST" }, 5000);
+    const peerCount = peersResponse.Peers?.length || 0;
     return { healthy: peerCount >= 1, peers: peerCount };
   } catch (err) {
     return { healthy: false, error: err.message };
@@ -166,35 +192,35 @@ const checkIPFSHealth = async () => {
 // Get comprehensive IPFS stats
 const getIPFSStats = async () => {
   const [bwResponse, repoResponse, idResponse, peersResponse] = await Promise.all([
-    axios.post(`${IPFS_API}/api/v0/stats/bw?interval=5m`, { timeout: 5000 }),
-    axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 }),
-    axios.post(`${IPFS_API}/api/v0/id`, { timeout: 5000 }),
-    axios.post(`${IPFS_API}/api/v0/swarm/peers`, { timeout: 5000 }),
+    fetchJson(`${IPFS_API}/api/v0/stats/bw?interval=5m`, { method: "POST" }, 5000),
+    fetchJson(`${IPFS_API}/api/v0/repo/stat`, { method: "POST" }, 5000),
+    fetchJson(`${IPFS_API}/api/v0/id`, { method: "POST" }, 5000),
+    fetchJson(`${IPFS_API}/api/v0/swarm/peers`, { method: "POST" }, 5000),
   ]);
 
   return {
     bandwidth: {
-      totalIn: bwResponse.data.TotalIn,
-      totalOut: bwResponse.data.TotalOut,
-      rateIn: bwResponse.data.RateIn,
-      rateOut: bwResponse.data.RateOut,
+      totalIn: bwResponse.TotalIn,
+      totalOut: bwResponse.TotalOut,
+      rateIn: bwResponse.RateIn,
+      rateOut: bwResponse.RateOut,
       interval: "1h",
     },
     repository: {
-      size: repoResponse.data.RepoSize,
-      storageMax: repoResponse.data.StorageMax,
-      numObjects: repoResponse.data.NumObjects,
-      path: repoResponse.data.RepoPath,
-      version: repoResponse.data.Version,
+      size: repoResponse.RepoSize,
+      storageMax: repoResponse.StorageMax,
+      numObjects: repoResponse.NumObjects,
+      path: repoResponse.RepoPath,
+      version: repoResponse.Version,
     },
     node: {
-      id: idResponse.data.ID,
-      publicKey: idResponse.data.PublicKey,
-      agentVersion: idResponse.data.AgentVersion,
-      protocolVersion: idResponse.data.ProtocolVersion,
+      id: idResponse.ID,
+      publicKey: idResponse.PublicKey,
+      agentVersion: idResponse.AgentVersion,
+      protocolVersion: idResponse.ProtocolVersion,
     },
     peers: {
-      count: peersResponse.data.Peers.length,
+      count: peersResponse.Peers.length,
     },
   };
 };

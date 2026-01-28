@@ -7,10 +7,8 @@ const inProgressMap = new Map(); // CID -> { startTime, lastProgress, type }
 let nextId = 1;
 
 // State tracking for jobs
-// State tracking for jobs
 let lastPinnerActivity = null;
 
-// Helper to create pin object
 // Helper to create pin object
 const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
   id,
@@ -390,7 +388,6 @@ module.exports = {
   updatePinSize,
   getPinByCid,
   getPins,
-  getPinsByType,
   getPinsByType,
   getPinsByAuthor,
   deletePin,

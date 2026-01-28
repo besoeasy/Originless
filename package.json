@@ -18,12 +18,10 @@
   },
   "homepage": "https://github.com/besoeasy/Originless#readme",
   "dependencies": {
-    "axios": "^1.8.4",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "daku": "^0.1.0",
     "express": "^4.21.2",
-    "form-data": "^4.0.2",
     "mime-types": "^3.0.2",
     "multer": "^1.4.5-lts.2"
   }

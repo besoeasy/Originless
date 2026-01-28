@@ -1,12 +1,9 @@
-// API route handlers
-const axios = require("axios");
-const FormData = require("form-data");
+// API route handlers (Bun-optimized)
 const fs = require("fs");
-const { promisify } = require("util");
 const mime = require("mime-types");
 
-const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes } = require("./config");
-const { getPinnedSize, checkIPFSHealth, getIPFSStats, pinCid, unpinCid } = require("./ipfs");
+const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes, UPLOAD_TEMP_DIR } = require("./config");
+const { checkIPFSHealth, getIPFSStats, pinCid, unpinCid } = require("./ipfs");
 
 
 const {
@@ -23,7 +20,70 @@ const {
   getPinByCid,
 } = require("./database");
 
-const unlinkAsync = promisify(fs.unlink);
+const unlinkSafe = async (filePath, context) => {
+  if (!filePath) return;
+
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (err) {
+    if (err.code !== "ENOENT") {
+      console.warn(`${context || "Failed to delete temp file"}: ${err.message}`);
+    }
+  }
+};
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 10000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const fetchJson = async (url, options = {}, timeoutMs = 10000) => {
+  const res = await fetchWithTimeout(url, options, timeoutMs);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const error = new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+};
+
+const streamToFileWithLimit = async (readableStream, filePath, sizeLimit) => {
+  if (!readableStream) {
+    throw new Error("Response has no body");
+  }
+
+  const sink = Bun.file(filePath).writer();
+  let downloadedSize = 0;
+
+  try {
+    const reader = readableStream.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      downloadedSize += value.byteLength;
+      if (downloadedSize > sizeLimit) {
+        await reader.cancel();
+        const error = new Error(`File size exceeds limit of ${formatBytes(sizeLimit)}`);
+        error.code = "FILE_TOO_LARGE";
+        throw error;
+      }
+
+      sink.write(value);
+    }
+  } finally {
+    sink.end();
+  }
+
+  return downloadedSize;
+};
 
 // Concurrency control for remote uploads
 const MAX_CONCURRENT_DOWNLOADS = 3;
@@ -107,56 +167,56 @@ const uploadHandler = async (req, res) => {
 
     filePath = req.file.path;
 
-    // Prepare file for IPFS using stream
+    // Prepare file for IPFS using Bun stream
     const formData = new FormData();
-    const fileStream = fs.createReadStream(filePath);
 
     // Detect correct MIME type from file extension
     const mimeType = mime.lookup(req.file.originalname) || req.file.mimetype || "application/octet-stream";
 
-    formData.append("file", fileStream, {
-      filename: req.file.originalname,
-      contentType: mimeType,
-      knownLength: req.file.size,
-    });
+    formData.append("file", Bun.file(filePath), req.file.originalname);
 
     // Upload to IPFS
     const uploadStart = Date.now();
     console.log(`Starting IPFS upload for ${req.file.originalname} ...`);
 
-    const response = await axios.post(`${IPFS_API}/api/v0/add?pin=false`, formData, {
-      headers: { ...formData.getHeaders() },
-      timeout: 3600000, // 1 hour timeout
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    const response = await fetchWithTimeout(`${IPFS_API}/api/v0/add?pin=false`, {
+      method: "POST",
+      body: formData,
+    }, 3600000);
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`IPFS upload failed (${response.status}): ${text || response.statusText}`);
+    }
+
+    const responseJson = await response.json();
 
     // Detailed logging
     const uploadDetails = {
       name: req.file.originalname,
       size_bytes: req.file.size,
       mime_type: mimeType,
-      cid: response.data.Hash,
+      cid: responseJson.Hash,
       upload_duration_ms: Date.now() - uploadStart,
       timestamp: new Date().toISOString(),
     };
     console.log("File uploaded successfully:", uploadDetails);
 
     // Clean up temp file after successful upload
-    await unlinkAsync(filePath).catch((err) => console.warn("Failed to delete temp file:", err.message));
+    await unlinkSafe(filePath, "Failed to delete temp file");
 
     // Simple response
     res.json({
       status: "success",
-      url: `https://dweb.link/ipfs/${response.data.Hash}?filename=${encodeURIComponent(req.file.originalname)}`,
-      cid: response.data.Hash,
+      url: `https://dweb.link/ipfs/${responseJson.Hash}?filename=${encodeURIComponent(req.file.originalname)}`,
+      cid: responseJson.Hash,
       size: uploadDetails.size_bytes,
       type: mimeType,
       filename: req.file.originalname,
     });
   } catch (err) {
     if (filePath) {
-      await unlinkAsync(filePath).catch((cleanupErr) => console.warn("Failed to delete temp file on error:", cleanupErr.message));
+      await unlinkSafe(filePath, "Failed to delete temp file on error");
     }
 
     const multer = require("multer");
@@ -322,28 +382,29 @@ const remoteUploadHandler = async (req, res) => {
 
     console.log(`[REMOTE-UPLOAD] Starting download from: ${targetUrl}`);
 
-    // Download the file with axios streaming support
+    // Download the file with fetch streaming support
     const downloadStart = Date.now();
-    let downloadedSize = 0;
+    const response = await fetchWithTimeout(targetUrl, { method: "GET", redirect: "follow" }, 1800000);
 
-    // Make axios request with streaming
-    const response = await axios({
-      method: 'GET',
-      url: targetUrl,
-      responseType: 'stream',
-      timeout: 1800000, // 30 minutes overall timeout
-      maxRedirects: 5,
-      validateStatus: (status) => status >= 200 && status < 300,
-    });
+    if (!response.ok) {
+      const error = new Error(`Remote server returned ${response.status}: ${response.statusText}`);
+      error.status = response.status;
+      throw error;
+    }
 
-    const downloadStream = response.data;
+    const contentLength = Number(response.headers.get("content-length")) || 0;
+    if (contentLength && contentLength > PROXY_FILE_LIMIT) {
+      const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
+      error.code = "FILE_TOO_LARGE";
+      throw error;
+    }
 
     // Get filename from URL or Content-Disposition header
     let filename = path.basename(url.pathname) || "download";
     let mimeType = "application/octet-stream";
 
     // Get headers from response
-    const contentDisposition = response.headers["content-disposition"];
+    const contentDisposition = response.headers.get("content-disposition");
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
       if (filenameMatch && filenameMatch[1]) {
@@ -352,7 +413,7 @@ const remoteUploadHandler = async (req, res) => {
     }
 
     // Detect MIME type from Content-Type header
-    const contentType = response.headers["content-type"];
+    const contentType = response.headers.get("content-type");
     mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
 
     // Generate temp file path
@@ -360,70 +421,37 @@ const remoteUploadHandler = async (req, res) => {
     tempFilePath = path.join(UPLOAD_TEMP_DIR, randomName);
 
     // Create write stream
-    const writeStream = fs.createWriteStream(tempFilePath);
-
-    // Monitor download size with size limit check
-    downloadStream.on("data", (chunk) => {
-      downloadedSize += chunk.length;
-
-      // Check size limit
-      if (downloadedSize > PROXY_FILE_LIMIT) {
-        console.error(`[REMOTE-UPLOAD] Size limit exceeded: ${formatBytes(downloadedSize)} > ${formatBytes(PROXY_FILE_LIMIT)}`);
-        downloadStream.destroy();
-        writeStream.destroy();
-
-        const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
-        error.code = "FILE_TOO_LARGE";
-        throw error;
-      }
-    });
-
-    // Pipe download to file
-    downloadStream.pipe(writeStream);
-
-    // Wait for download to complete
-    await new Promise((resolve, reject) => {
-      writeStream.on("finish", () => {
-        resolve();
-      });
-      writeStream.on("error", (err) => {
-        reject(err);
-      });
-      downloadStream.on("error", (err) => {
-        reject(err);
-      });
-    });
+    const downloadedSize = await streamToFileWithLimit(response.body, tempFilePath, PROXY_FILE_LIMIT);
 
     const downloadDuration = Date.now() - downloadStart;
     console.log(`[REMOTE-UPLOAD] Downloaded ${formatBytes(downloadedSize)} in ${downloadDuration}ms`);
 
     // Upload to IPFS
     const formData = new FormData();
-    const fileStream = fs.createReadStream(tempFilePath);
-
-    formData.append("file", fileStream, {
-      filename: filename,
-      contentType: mimeType,
-      knownLength: downloadedSize,
-    });
+    formData.append("file", Bun.file(tempFilePath), filename);
 
     const uploadStart = Date.now();
     console.log(`[REMOTE-UPLOAD] Starting IPFS upload for ${filename}...`);
 
-    const ipfsResponse = await axios.post(`${IPFS_API}/api/v0/add?pin=false`, formData, {
-      headers: { ...formData.getHeaders() },
-      timeout: 3600000, // 1 hour timeout
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    const ipfsResponse = await fetchWithTimeout(`${IPFS_API}/api/v0/add?pin=false`, {
+      method: "POST",
+      body: formData,
+    }, 3600000);
+
+    if (!ipfsResponse.ok) {
+      const text = await ipfsResponse.text().catch(() => "");
+      throw new Error(`IPFS upload failed (${ipfsResponse.status}): ${text || ipfsResponse.statusText}`);
+    }
+
+    const ipfsJson = await ipfsResponse.json();
 
     const uploadDuration = Date.now() - uploadStart;
-    const cid = ipfsResponse.data.Hash;
+    const cid = ipfsJson.Hash;
 
     console.log(`[REMOTE-UPLOAD] Upload complete: CID=${cid}, duration=${uploadDuration}ms`);
 
     // Clean up temp file
-    await unlinkAsync(tempFilePath).catch((err) => console.warn("[REMOTE-UPLOAD] Failed to delete temp file:", err.message));
+    await unlinkSafe(tempFilePath, "[REMOTE-UPLOAD] Failed to delete temp file");
     tempFilePath = null;
 
     // Return JSON response with detailed information
@@ -449,11 +477,7 @@ const remoteUploadHandler = async (req, res) => {
 
   } catch (err) {
     // Clean up temp file on error
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      await unlinkAsync(tempFilePath).catch((cleanupErr) =>
-        console.warn("[REMOTE-UPLOAD] Failed to delete temp file on error:", cleanupErr.message)
-      );
-    }
+    await unlinkSafe(tempFilePath, "[REMOTE-UPLOAD] Failed to delete temp file on error");
 
     console.error("[REMOTE-UPLOAD] Error:", {
       message: err.message,
@@ -475,30 +499,29 @@ const remoteUploadHandler = async (req, res) => {
       });
     }
 
-    // Got-specific TimeoutError
-    if (err.name === "TimeoutError") {
-      const timeoutEvent = err.event || "request";
+    // Timeout
+    if (err.name === "AbortError") {
       return res.status(504).json({
         error: "Download timeout",
         status: "error",
-        message: `Timeout during ${timeoutEvent} phase`,
-        details: err.message,
+        message: "Timeout during download",
+        details: err.message || "Request timeout",
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Got-specific HTTPError (non-2xx status codes)
-    if (err.name === "HTTPError") {
-      return res.status(err.response?.statusCode || 502).json({
+    // HTTP error
+    if (err.status) {
+      return res.status(err.status).json({
         error: "HTTP error",
         status: "error",
-        message: `Remote server returned ${err.response?.statusCode || "error"}: ${err.message}`,
+        message: err.message,
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Got-specific RequestError (network errors)
-    if (err.name === "RequestError" || err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+    // Network errors
+    if (err.name === "TypeError" || err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
       return res.status(502).json({
         error: "Failed to download URL",
         status: "error",
