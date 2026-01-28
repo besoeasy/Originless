@@ -1,11 +1,10 @@
 {
   "name": "originless",
-  "version": "0.0.0",
-  "description": "Originless",
+  "version": "0.0.1",
   "main": "app.js",
   "scripts": {
     "test": "docker run --name ipfs-host --rm --network host docker.io/ipfs/kubo:latest",
-    "start": "bun app.js"
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
@@ -18,10 +17,13 @@
   },
   "homepage": "https://github.com/besoeasy/Originless#readme",
   "dependencies": {
+    "axios": "^1.13.4",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "daku": "^0.1.0",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "form-data": "^4.0.1",
     "mime-types": "^3.0.2",
     "multer": "^1.4.5-lts.2"
   }

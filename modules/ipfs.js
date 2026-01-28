@@ -1,26 +1,47 @@
-// IPFS-related helper functions (Bun-optimized, fetch-based)
+// IPFS-related helper functions (Node.js, axios-based)
+const axios = require("axios");
 const { IPFS_API } = require("./config");
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 10000) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+const axiosRequest = async (config, timeoutMs = 10000) => {
+  const res = await axios({
+    timeout: timeoutMs,
+    validateStatus: () => true,
+    ...config,
+  });
 
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
+  if (res.status < 200 || res.status >= 300) {
+    let text = "";
+    if (typeof res.data === "string") {
+      text = res.data;
+    } else if (Buffer.isBuffer(res.data)) {
+      text = res.data.toString("utf8");
+    } else if (res.data && typeof res.data === "object") {
+      try {
+        text = JSON.stringify(res.data);
+      } catch {
+        text = "";
+      }
+    }
 
-const fetchJson = async (url, options = {}, timeoutMs = 10000) => {
-  const res = await fetchWithTimeout(url, options, timeoutMs);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
     const error = new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
     error.status = res.status;
     throw error;
   }
-  return res.json();
+
+  return res;
+};
+
+const fetchJson = async (url, options = {}, timeoutMs = 10000) => {
+  const res = await axiosRequest(
+    {
+      url,
+      method: options.method || "GET",
+      data: options.body,
+      headers: options.headers,
+    },
+    timeoutMs
+  );
+  return res.data;
 };
 
 /**
@@ -47,7 +68,7 @@ const isPinned = async (cid) => {
 const unpinCid = async (cid) => {
   try {
     const endpoint = `${IPFS_API}/api/v0/pin/rm?arg=${encodeURIComponent(cid)}&recursive=true`;
-    await fetchWithTimeout(endpoint, { method: "POST" }, 10000);
+    await axiosRequest({ url: endpoint, method: "POST" }, 10000);
     return true;
   } catch (err) {
     console.warn(`[IPFS-API] Failed to unpin ${cid}: ${err.message}`);
@@ -92,15 +113,9 @@ const pinCid = async (cid) => {
     const endpoint = `${IPFS_API}/api/v0/pin/add?arg=${encodeURIComponent(cid)}&recursive=true`;
 
     // Start the pin operation but don't await it (cap body size to avoid buffer growth)
-    fetchWithTimeout(endpoint, { method: "POST" }, 3 * 60 * 60 * 1000)
-      .then(async (res) => {
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          console.error(`[IPFS-API] PIN_FAILED cid=${cid} status=${res.status} ${text}`);
-          return;
-        }
-
-        const data = await res.json().catch(() => null);
+    axiosRequest({ url: endpoint, method: "POST" }, 3 * 60 * 60 * 1000)
+      .then((res) => {
+        const data = res.data;
         if (data && data.Pins) {
           console.log(`[IPFS-API] PIN_COMPLETED cid=${cid}`);
         } else {

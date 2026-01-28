@@ -1,4 +1,5 @@
-// Bun loads .env automatically
+// Load .env for Node.js
+require("dotenv").config();
 
 // Main application entry point
 const express = require("express");

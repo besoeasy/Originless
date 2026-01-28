@@ -1,4 +1,4 @@
-FROM oven/bun:debian
+FROM node:slim
 
 ENV STORAGE_MAX=200GB
 ENV FILE_LIMIT=5GB
@@ -18,18 +18,18 @@ RUN curl -fsSL "https://dist.ipfs.tech/kubo/v0.39.0/kubo_v0.39.0_linux-$(dpkg --
 
 WORKDIR /app
 
-COPY package.json bun.lockb* ./
+COPY package.json package-lock.json* ./
 
-RUN bun install --production
+RUN npm install --omit=dev
 
 COPY . .
 
 # Create temp uploads directory, data directory, and set ownership
-# Using 'bun' user which exists in oven/bun image
-RUN mkdir -p /tmp/originless /data && chown -R bun:bun /app /tmp/originless /data
+# Using 'node' user which exists in node image
+RUN mkdir -p /tmp/originless /data && chown -R node:node /app /tmp/originless /data
 
 # Switch to non-root user
-USER bun
+USER node
 
 EXPOSE 3232 4001/tcp 4001/udp
 
@@ -53,4 +53,4 @@ CMD ["sh", "-c", "\
   until curl -s http://127.0.0.1:5001/api/v0/id > /dev/null; do \
     echo 'Waiting for IPFS daemon...'; sleep 3; \
   done && \
-  exec bun app.js"]
+  exec node app.js"]

@@ -1,6 +1,8 @@
-// API route handlers (Bun-optimized)
+// API route handlers (Node.js, axios-based)
 const fs = require("fs");
 const mime = require("mime-types");
+const axios = require("axios");
+const FormData = require("form-data");
 
 const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes, UPLOAD_TEMP_DIR } = require("./config");
 const { checkIPFSHealth, getIPFSStats, pinCid, unpinCid } = require("./ipfs");
@@ -33,58 +35,84 @@ const unlinkSafe = async (filePath, context) => {
   }
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 10000) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+const axiosRequest = async (config, timeoutMs = 10000) => {
+  const res = await axios({
+    timeout: timeoutMs,
+    validateStatus: () => true,
+    ...config,
+  });
 
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(timeout);
-  }
-};
+  if (res.status < 200 || res.status >= 300) {
+    let text = "";
+    if (typeof res.data === "string") {
+      text = res.data;
+    } else if (Buffer.isBuffer(res.data)) {
+      text = res.data.toString("utf8");
+    } else if (res.data && typeof res.data === "object") {
+      try {
+        text = JSON.stringify(res.data);
+      } catch {
+        text = "";
+      }
+    }
 
-const fetchJson = async (url, options = {}, timeoutMs = 10000) => {
-  const res = await fetchWithTimeout(url, options, timeoutMs);
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
     const error = new Error(`HTTP ${res.status} ${res.statusText}${text ? `: ${text}` : ""}`);
     error.status = res.status;
     throw error;
   }
-  return res.json();
+
+  return res;
 };
 
-const streamToFileWithLimit = async (readableStream, filePath, sizeLimit) => {
-  if (!readableStream) {
-    throw new Error("Response has no body");
+const axiosStream = async (config, timeoutMs = 10000) => {
+  const res = await axios({
+    responseType: "stream",
+    timeout: timeoutMs,
+    validateStatus: () => true,
+    ...config,
+  });
+
+  if (res.status < 200 || res.status >= 300) {
+    const error = new Error(`Remote server returned ${res.status}: ${res.statusText}`);
+    error.status = res.status;
+    if (res.data && res.data.destroy) {
+      res.data.destroy();
+    }
+    throw error;
   }
 
-  const sink = Bun.file(filePath).writer();
+  return res;
+};
+
+const streamToFileWithLimit = (readableStream, filePath, sizeLimit) => new Promise((resolve, reject) => {
+  if (!readableStream) {
+    reject(new Error("Response has no body"));
+    return;
+  }
+
+  const sink = fs.createWriteStream(filePath);
   let downloadedSize = 0;
 
-  try {
-    const reader = readableStream.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  const onError = (err) => {
+    sink.destroy();
+    reject(err);
+  };
 
-      downloadedSize += value.byteLength;
-      if (downloadedSize > sizeLimit) {
-        await reader.cancel();
-        const error = new Error(`File size exceeds limit of ${formatBytes(sizeLimit)}`);
-        error.code = "FILE_TOO_LARGE";
-        throw error;
-      }
-
-      sink.write(value);
+  readableStream.on("data", (chunk) => {
+    downloadedSize += chunk.length;
+    if (downloadedSize > sizeLimit) {
+      const error = new Error(`File size exceeds limit of ${formatBytes(sizeLimit)}`);
+      error.code = "FILE_TOO_LARGE";
+      readableStream.destroy(error);
     }
-  } finally {
-    sink.end();
-  }
+  });
 
-  return downloadedSize;
-};
+  readableStream.on("error", onError);
+  sink.on("error", onError);
+  sink.on("finish", () => resolve(downloadedSize));
+
+  readableStream.pipe(sink);
+});
 
 // Concurrency control for remote uploads
 const MAX_CONCURRENT_DOWNLOADS = 3;
@@ -168,29 +196,31 @@ const uploadHandler = async (req, res) => {
 
     filePath = req.file.path;
 
-    // Prepare file for IPFS using Bun stream
+    // Prepare file for IPFS using Node stream
     const formData = new FormData();
 
     // Detect correct MIME type from file extension
     const mimeType = mime.lookup(req.file.originalname) || req.file.mimetype || "application/octet-stream";
 
-    formData.append("file", Bun.file(filePath), req.file.originalname);
+    formData.append("file", fs.createReadStream(filePath), {
+      filename: req.file.originalname,
+      contentType: mimeType,
+    });
 
     // Upload to IPFS
     const uploadStart = Date.now();
     console.log(`Starting IPFS upload for ${req.file.originalname} ...`);
 
-    const response = await fetchWithTimeout(`${IPFS_API}/api/v0/add?pin=false`, {
+    const response = await axiosRequest({
+      url: `${IPFS_API}/api/v0/add?pin=false`,
       method: "POST",
-      body: formData,
+      data: formData,
+      headers: formData.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     }, 3600000);
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      throw new Error(`IPFS upload failed (${response.status}): ${text || response.statusText}`);
-    }
-
-    const responseJson = await response.json();
+    const responseJson = response.data;
 
     // Detailed logging
     const uploadDetails = {
@@ -384,15 +414,13 @@ const remoteUploadHandler = async (req, res) => {
 
     // Download the file with fetch streaming support
     const downloadStart = Date.now();
-    const response = await fetchWithTimeout(targetUrl, { method: "GET", redirect: "follow" }, 1800000);
+    const response = await axiosStream({
+      url: targetUrl,
+      method: "GET",
+      maxRedirects: 5,
+    }, 1800000);
 
-    if (!response.ok) {
-      const error = new Error(`Remote server returned ${response.status}: ${response.statusText}`);
-      error.status = response.status;
-      throw error;
-    }
-
-    const contentLength = Number(response.headers.get("content-length")) || 0;
+    const contentLength = Number(response.headers["content-length"]) || 0;
     if (contentLength && contentLength > PROXY_FILE_LIMIT) {
       const error = new Error(`File size exceeds limit of ${formatBytes(PROXY_FILE_LIMIT)}`);
       error.code = "FILE_TOO_LARGE";
@@ -404,7 +432,7 @@ const remoteUploadHandler = async (req, res) => {
     let mimeType = "application/octet-stream";
 
     // Get headers from response
-    const contentDisposition = response.headers.get("content-disposition");
+    const contentDisposition = response.headers["content-disposition"];
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
       if (filenameMatch && filenameMatch[1]) {
@@ -413,7 +441,7 @@ const remoteUploadHandler = async (req, res) => {
     }
 
     // Detect MIME type from Content-Type header
-    const contentType = response.headers.get("content-type");
+    const contentType = response.headers["content-type"];
     mimeType = contentType?.split(";")[0] || mime.lookup(filename) || "application/octet-stream";
 
     // Generate temp file path
@@ -421,29 +449,28 @@ const remoteUploadHandler = async (req, res) => {
     tempFilePath = path.join(UPLOAD_TEMP_DIR, randomName);
 
     // Create write stream
-    const downloadedSize = await streamToFileWithLimit(response.body, tempFilePath, PROXY_FILE_LIMIT);
+    const downloadedSize = await streamToFileWithLimit(response.data, tempFilePath, PROXY_FILE_LIMIT);
 
     const downloadDuration = Date.now() - downloadStart;
     console.log(`[REMOTE-UPLOAD] Downloaded ${formatBytes(downloadedSize)} in ${downloadDuration}ms`);
 
     // Upload to IPFS
     const formData = new FormData();
-    formData.append("file", Bun.file(tempFilePath), filename);
+    formData.append("file", fs.createReadStream(tempFilePath), { filename });
 
     const uploadStart = Date.now();
     console.log(`[REMOTE-UPLOAD] Starting IPFS upload for ${filename}...`);
 
-    const ipfsResponse = await fetchWithTimeout(`${IPFS_API}/api/v0/add?pin=false`, {
+    const ipfsResponse = await axiosRequest({
+      url: `${IPFS_API}/api/v0/add?pin=false`,
       method: "POST",
-      body: formData,
+      data: formData,
+      headers: formData.getHeaders(),
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     }, 3600000);
 
-    if (!ipfsResponse.ok) {
-      const text = await ipfsResponse.text().catch(() => "");
-      throw new Error(`IPFS upload failed (${ipfsResponse.status}): ${text || ipfsResponse.statusText}`);
-    }
-
-    const ipfsJson = await ipfsResponse.json();
+    const ipfsJson = ipfsResponse.data;
 
     const uploadDuration = Date.now() - uploadStart;
     const cid = ipfsJson.Hash;
@@ -500,7 +527,7 @@ const remoteUploadHandler = async (req, res) => {
     }
 
     // Timeout
-    if (err.name === "AbortError") {
+    if (err.code === "ECONNABORTED" || err.message?.toLowerCase().includes("timeout")) {
       return res.status(504).json({
         error: "Download timeout",
         status: "error",
