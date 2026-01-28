@@ -1,4 +1,4 @@
-FROM oven/bun
+FROM oven/bun:debian
 
 ENV STORAGE_MAX=200GB
 ENV FILE_LIMIT=5GB
