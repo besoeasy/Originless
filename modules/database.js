@@ -7,15 +7,12 @@ const inProgressMap = new Map(); // CID -> { startTime, lastProgress, type }
 let nextId = 1;
 
 // State tracking for jobs
+// State tracking for jobs
 let lastPinnerActivity = null;
-let lastNostrRun = {
-  at: null,
-  self: null,
-  error: null,
-};
 
 // Helper to create pin object
-const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt, npub = null) => ({
+// Helper to create pin object
+const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
   id,
   event_id: eventId,
   cid,
@@ -26,14 +23,13 @@ const createPinObject = (id, eventId, cid, size, timestamp, author, type, status
   status,
   created_at: createdAt,
   updated_at: updatedAt,
-  npub,
 });
 
 // Record pin (INSERT OR REPLACE)
-const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned', npub = null }) => {
+const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = 'pinned' }) => {
   try {
     const now = Math.floor(Date.now() / 1000);
-    
+
     if (pinsMap.has(cid)) {
       // Update existing
       const existing = pinsMap.get(cid);
@@ -46,10 +42,10 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
       // Insert new
       const id = nextId++;
       const createdAt = Math.floor(Date.now() / 1000);
-      const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now, npub);
+      const pin = createPinObject(id, eventId, cid, size, timestamp, author, type, status, createdAt, now);
       pinsMap.set(cid, pin);
       const sizeMB = (size / 1024 / 1024).toFixed(2);
-      console.log(`[DB] PIN_INSERT cid=${cid} type=${type} status=${status} event_id=${eventId} size_mb=${sizeMB} npub=${npub ? npub.slice(0, 12) + '...' : 'none'}`);
+      console.log(`[DB] PIN_INSERT cid=${cid} type=${type} status=${status} event_id=${eventId} size_mb=${sizeMB}`);
     }
     return true;
   } catch (err) {
@@ -98,83 +94,26 @@ const getPins = (limit = 50, offset = 0) => {
   }
 };
 
-// Get pins by NPUB with pagination
-const getPinsByNpub = (npub, limit = 50, offset = 0) => {
+// Get pins by Author (daku userId) with pagination
+const getPinsByAuthor = (author, limit = 50, offset = 0) => {
   try {
     const pins = Array.from(pinsMap.values())
-      .filter(pin => pin.npub === npub)
+      .filter(pin => pin.author === author)
       .sort((a, b) => b.created_at - a.created_at);
     return pins.slice(offset, offset + limit);
   } catch (err) {
-    console.error(`[DB] Failed to get pins by npub:`, err.message);
+    console.error(`[DB] Failed to get pins by author:`, err.message);
     return [];
   }
 };
 
-// Get pins grouped by NPUB
-const getPinsGroupedByNpub = (limit = 50, offset = 0) => {
+// Delete pin
+const deletePin = (cid) => {
   try {
-    const grouped = {};
-    const allPins = Array.from(pinsMap.values())
-      .sort((a, b) => b.created_at - a.created_at);
-    
-    allPins.forEach(pin => {
-      const npubKey = pin.npub || 'unknown';
-      if (!grouped[npubKey]) {
-        grouped[npubKey] = [];
-      }
-      grouped[npubKey].push(pin);
-    });
-    
-    // Apply pagination to each group
-    Object.keys(grouped).forEach(npubKey => {
-      grouped[npubKey] = grouped[npubKey].slice(offset, offset + limit);
-    });
-    
-    return grouped;
+    return pinsMap.delete(cid);
   } catch (err) {
-    console.error(`[DB] Failed to get pins grouped by npub:`, err.message);
-    return {};
-  }
-};
-
-// Get stats by NPUB
-const getStatsByNpub = (npub) => {
-  try {
-    const pins = Array.from(pinsMap.values()).filter(pin => pin.npub === npub);
-    const stats = {};
-    
-    pins.forEach(pin => {
-      const key = `${pin.type}_${pin.status}`;
-      if (!stats[key]) {
-        stats[key] = { count: 0, total_size: 0 };
-      }
-      stats[key].count++;
-      stats[key].total_size += pin.size || 0;
-    });
-    
-    return Object.entries(stats).map(([key, value]) => {
-      const [type, status] = key.split('_');
-      return {
-        type,
-        status,
-        count: value.count,
-        total_size: value.total_size,
-      };
-    });
-  } catch (err) {
-    console.error(`[DB] Failed to get stats by npub:`, err.message);
-    return [];
-  }
-};
-
-// Count pins by NPUB
-const countByNpub = (npub) => {
-  try {
-    return Array.from(pinsMap.values()).filter(pin => pin.npub === npub).length;
-  } catch (err) {
-    console.error(`[DB] Failed to count by npub:`, err.message);
-    return 0;
+    console.error(`[DB] Failed to delete pin:`, err.message);
+    return false;
   }
 };
 
@@ -195,7 +134,7 @@ const getPinsByType = (type, limit = 50, offset = 0) => {
 const getStats = () => {
   try {
     const stats = {};
-    
+
     for (const pin of pinsMap.values()) {
       const key = `${pin.type}_${pin.status}`;
       if (!stats[key]) {
@@ -204,7 +143,7 @@ const getStats = () => {
       stats[key].count++;
       stats[key].total_size += pin.size;
     }
-    
+
     return Object.entries(stats).map(([key, value]) => ({
       type: key.split('_')[0],
       status: key.split('_')[1],
@@ -240,15 +179,15 @@ const getRecentPins = (limit = 10) => {
 };
 
 // Insert CID if not exists
-const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type, npub = null }) => {
+const insertCidIfNotExists = ({ eventId, cid, timestamp, author, type }) => {
   try {
     if (pinsMap.has(cid)) {
       return false; // Already exists
     }
-    
+
     const id = nextId++;
     const now = Math.floor(Date.now() / 1000);
-    const pin = createPinObject(id, eventId, cid, 0, timestamp, author, type, 'pending', now, now, npub);
+    const pin = createPinObject(id, eventId, cid, 0, timestamp, author, type, 'pending', now, now);
     pinsMap.set(cid, pin);
     return true; // Inserted
   } catch (err) {
@@ -262,7 +201,7 @@ const batchInsertCids = (cids) => {
   try {
     let inserted = 0;
     let duplicates = 0;
-    
+
     for (const cidObj of cids) {
       if (!pinsMap.has(cidObj.cid)) {
         const id = nextId++;
@@ -277,8 +216,7 @@ const batchInsertCids = (cids) => {
           cidObj.type,
           'pending',
           now,
-          now,
-          cidObj.npub || null
+          now
         );
         pinsMap.set(cidObj.cid, pin);
         inserted++;
@@ -286,7 +224,7 @@ const batchInsertCids = (cids) => {
         duplicates++;
       }
     }
-    
+
     console.log(`[DB] BATCH_INSERT total=${cids.length} inserted=${inserted} duplicates=${duplicates}`);
     return inserted;
   } catch (err) {
@@ -300,13 +238,13 @@ const getPendingCidsByType = (type, limit = 1) => {
   try {
     const pins = Array.from(pinsMap.values())
       .filter(pin => pin.type === type && pin.status !== 'pinned' && !inProgressMap.has(pin.cid));
-    
+
     // Shuffle randomly (Fisher-Yates)
     for (let i = pins.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pins[i], pins[j]] = [pins[j], pins[i]];
     }
-    
+
     return pins.slice(0, limit);
   } catch (err) {
     console.error(`[DB] Failed to get pending CIDs:`, err.message);
@@ -337,7 +275,7 @@ const getStoreStats = () => {
     byType: {},
     byStatus: {},
   };
-  
+
   for (const pin of pinsMap.values()) {
     if (!stats.byType[pin.type]) {
       stats.byType[pin.type] = 0;
@@ -348,7 +286,7 @@ const getStoreStats = () => {
     stats.byType[pin.type]++;
     stats.byStatus[pin.status]++;
   }
-  
+
   return stats;
 };
 
@@ -399,7 +337,7 @@ const getInProgressCids = () => {
 const cleanupStaleInProgress = () => {
   const now = Date.now();
   const staleThreshold = 10 * 60 * 1000; // 10 minutes
-  
+
   for (const [cid, info] of inProgressMap.entries()) {
     if (now - info.lastProgress > staleThreshold) {
       console.log(`[DB] Removing stale in-progress entry: ${cid} (no activity for ${Math.floor((now - info.lastProgress) / 1000)}s)`);
@@ -413,7 +351,7 @@ const getRandomCid = () => {
   try {
     const now = Date.now();
     const THREE_HOURS = 3 * 60 * 60 * 1000;
-    
+
     // Clean up expired in-progress items (older than 3 hours)
     for (const [cid, data] of inProgressMap.entries()) {
       if (now - data.startTime > THREE_HOURS) {
@@ -421,15 +359,15 @@ const getRandomCid = () => {
         inProgressMap.delete(cid);
       }
     }
-    
+
     // Get all CIDs that are not in progress
     const availablePins = Array.from(pinsMap.values())
       .filter(pin => !inProgressMap.has(pin.cid));
-    
+
     if (availablePins.length === 0) {
       return null;
     }
-    
+
     // Return a random pin
     const randomIndex = Math.floor(Math.random() * availablePins.length);
     return availablePins[randomIndex];
@@ -445,10 +383,6 @@ const setLastPinnerActivity = (timestamp) => {
   lastPinnerActivity = timestamp;
 };
 
-const getLastNostrRun = () => lastNostrRun;
-const setLastNostrRun = (data) => {
-  lastNostrRun = data;
-};
 
 module.exports = {
   // Core functions (same API as SQLite version)
@@ -457,10 +391,9 @@ module.exports = {
   getPinByCid,
   getPins,
   getPinsByType,
-  getPinsByNpub,
-  getPinsGroupedByNpub,
-  getStatsByNpub,
-  countByNpub,
+  getPinsByType,
+  getPinsByAuthor,
+  deletePin,
   getStats,
   getTotalCount,
   getRecentPins,
@@ -468,7 +401,7 @@ module.exports = {
   batchInsertCids,
   getPendingCidsByType,
   countByTypeAndStatus,
-  
+
   // In-progress tracking
   markInProgress,
   updateProgress,
@@ -476,13 +409,11 @@ module.exports = {
   isInProgress,
   getInProgressCids,
   cleanupStaleInProgress,
-  
+
   // State management
   getLastPinnerActivity,
   setLastPinnerActivity,
-  getLastNostrRun,
-  setLastNostrRun,
-  
+
   // Utility
   getStoreStats,
   getRandomCid,

@@ -6,25 +6,21 @@ const { promisify } = require("util");
 const mime = require("mime-types");
 
 const { IPFS_API, STORAGE_MAX, FILE_LIMIT, PROXY_FILE_LIMIT, formatBytes } = require("./config");
-const { getPinnedSize, checkIPFSHealth, getIPFSStats } = require("./ipfs");
+const { getPinnedSize, checkIPFSHealth, getIPFSStats, pinCid, unpinCid } = require("./ipfs");
 
-const {
-  toNpub,
-  constants: { DEFAULT_RELAYS },
-} = require("./nostr");
 
 const {
   getPins,
   getPinsByType,
-  getPinsGroupedByNpub,
-  getStatsByNpub,
-  countByNpub,
   getStats,
   getTotalCount,
   getRecentPins,
   countByTypeAndStatus,
   getLastPinnerActivity,
-  getLastNostrRun,
+  getPinsByAuthor,
+  recordPin,
+  deletePin,
+  getPinByCid,
 } = require("./database");
 
 const unlinkAsync = promisify(fs.unlink);
@@ -93,81 +89,6 @@ const statusHandler = async (req, res) => {
   }
 };
 
-// Nostr stats endpoint
-const nostrHandler = async (req, res, NPUBS) => {
-  if (!NPUBS || NPUBS.length === 0) {
-    return res.status(200).json({
-      enabled: false,
-      reason: "No NPUBs configured",
-    });
-  }
-
-  try {
-    // Fetch repo stats and pinned size in parallel
-    const [repoResponse, pinnedStats] = await Promise.all([
-      axios.post(`${IPFS_API}/api/v0/repo/stat`, { timeout: 5000 }),
-      getPinnedSize()
-    ]);
-
-    const repo = {
-      size: repoResponse.data.RepoSize,
-      storageMax: repoResponse.data.StorageMax,
-      numObjects: repoResponse.data.NumObjects,
-    };
-
-    const lastNostrRun = getLastNostrRun();
-
-    // Convert all NPUBs to npub format for display
-    const operatorNpubs = NPUBS.map(npub => npub.startsWith("npub") ? npub : toNpub(npub));
-
-    // Get counts from database
-    const selfPinned = countByTypeAndStatus('self', 'pinned');
-    const selfPending = countByTypeAndStatus('self', 'pending');
-    const selfFailed = countByTypeAndStatus('self', 'failed');
-
-    // Build response with multi-NPUB support
-    const response = {
-      enabled: true,
-      operators: operatorNpubs, // Array of NPUBs
-      operatorCount: NPUBS.length,
-      relays: DEFAULT_RELAYS,
-      repo,
-      pins: {
-        self: {
-          pinned: selfPinned,
-          pending: selfPending,
-          failed: selfFailed,
-          total: selfPinned + selfPending + selfFailed,
-        },
-        totalSize: pinnedStats.totalSize,
-        pinnedCount: pinnedStats.count,
-      },
-      activity: {
-        lastDiscovery: lastNostrRun?.at || null,
-        lastPinner: getLastPinnerActivity(),
-      },
-    };
-
-    // Add lastRun data if available
-    if (lastNostrRun?.at) {
-      response.lastRun = {
-        at: lastNostrRun.at,
-        error: lastNostrRun.error,
-        npubs: lastNostrRun.npubs || null,
-        aggregate: lastNostrRun.aggregate || null,
-      };
-    }
-
-    res.status(200).json(response);
-  } catch (err) {
-    console.error("Nostr stats error:", err.message);
-    return res.status(503).json({
-      enabled: true,
-      error: "Failed to retrieve stats",
-      details: err.message,
-    });
-  }
-};
 
 // Upload handler
 const uploadHandler = async (req, res) => {
@@ -299,7 +220,7 @@ const pinsHandler = async (req, res) => {
           status: pin.status,
           createdAt: pin.created_at,
           updatedAt: pin.updated_at,
-          npub: pin.npub,
+          // npub: pin.npub,
         })),
         stats: {
           total: totalCount,
@@ -601,11 +522,87 @@ const remoteUploadHandler = async (req, res) => {
   }
 };
 
+// Add Pin Handler (Auth required)
+const pinAddHandler = async (req, res) => {
+  try {
+    const { cids } = req.body;
+    if (!Array.isArray(cids)) {
+      return res.status(400).json({ error: "cids must be an array" });
+    }
+
+    const userId = req.user.id;
+    const results = [];
+
+    for (const cid of cids) {
+      // pinCid handles pinning logic
+      const result = await pinCid(cid);
+
+      // Record in DB
+      recordPin({
+        cid,
+        author: userId,
+        type: 'user_pin',
+        status: result.alreadyPinned ? 'pinned' : 'pending',
+        timestamp: Date.now(),
+        // other fields implicit in recordPin or handled by it
+      });
+
+      results.push({ cid, status: result.message, pinned: result.success || result.alreadyPinned });
+    }
+
+    res.json({ success: true, results });
+  } catch (err) {
+    console.error("Pin add error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// List Pins Handler (Auth required)
+const pinListHandler = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const offset = parseInt(req.query.offset) || 0;
+    const pins = getPinsByAuthor(req.user.id, limit, offset);
+    res.json({ success: true, pins });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Remove Pin Handler (Auth required)
+const pinRemoveHandler = async (req, res) => {
+  try {
+    const { cid } = req.body;
+    if (!cid) return res.status(400).json({ error: "CID required" });
+
+    // Verify ownership
+    const pin = getPinByCid(cid);
+    if (!pin) {
+      // If not in DB, maybe just try to unpin from IPFS if user claims it?
+      // But for security, we only allow removing tracked pins.
+      return res.status(404).json({ error: "Pin not found" });
+    }
+
+    if (pin.author !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to remove this pin" });
+    }
+
+    await unpinCid(cid);
+    deletePin(cid);
+    res.json({ success: true, cid });
+  } catch (err) {
+    console.error("Pin remove error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   healthHandler,
   statusHandler,
-  nostrHandler,
   uploadHandler,
   pinsHandler,
   remoteUploadHandler,
+  pinAddHandler,
+  pinListHandler,
+  pinRemoveHandler,
 };

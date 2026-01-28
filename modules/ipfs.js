@@ -22,6 +22,22 @@ const isPinned = async (cid) => {
   }
 };
 
+/**
+ * Unpin a CID in IPFS
+ * @param {string} cid - The CID to unpin
+ * @returns {Promise<boolean>} - True if unpinned successfully
+ */
+const unpinCid = async (cid) => {
+  try {
+    const endpoint = `${IPFS_API}/api/v0/pin/rm?arg=${encodeURIComponent(cid)}&recursive=true`;
+    await axios.post(endpoint, null, { timeout: 10000 });
+    return true;
+  } catch (err) {
+    console.warn(`[IPFS-API] Failed to unpin ${cid}: ${err.message}`);
+    return false;
+  }
+};
+
 let cidarray = [];
 let cidarrayupdateTime = Date.now();
 
@@ -190,4 +206,6 @@ module.exports = {
   getPinnedSize,
   checkIPFSHealth,
   getIPFSStats,
+  unpinCid,
 };
+

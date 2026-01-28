@@ -1,105 +1,12 @@
-// Nostr job management
-const { syncNostrPins } = require("./nostr");
-
+// Background job management
 const { pinCid } = require("./ipfs");
 const {
-  batchInsertCids,
   markInProgress,
   clearInProgress,
   updatePinSize,
-  countByTypeAndStatus,
   setLastPinnerActivity,
-  setLastNostrRun,
   getRandomCid,
 } = require("./database");
-
-// Nostr discovery job
-const runNostrJob = async (NPUBS) => {
-  if (!NPUBS || NPUBS.length === 0) {
-    return;
-  }
-
-  if (Math.random() < 0.5) {
-    console.log(`[JOB] NOSTR_DISCOVERY_EXECUTE random_trigger=true npub_count=${NPUBS.length}`);
-  } else {
-    return;
-  }
-
-  try {
-    const allResults = [];
-    const allCids = [];
-    let totalEventsScanned = 0;
-    let totalCidsFound = 0;
-
-    // Process each NPUB
-    for (const npub of NPUBS) {
-      try {
-        // Fetch CIDs without pinning (dryRun = true)
-        const result = await syncNostrPins({ npubOrPubkey: npub, dryRun: true });
-
-        totalEventsScanned += result.eventsScanned;
-        totalCidsFound += result.cidsFound;
-
-        // Tag CIDs with their source NPUB
-        const cidsWithNpub = (result.plannedPins || []).map((cidObj) => ({
-          ...cidObj,
-          type: "self",
-          npub: npub, // Add NPUB identifier
-        }));
-
-        allCids.push(...cidsWithNpub);
-        allResults.push({
-          npub: npub,
-          eventsScanned: result.eventsScanned,
-          cidsFound: result.cidsFound,
-          newCids: cidsWithNpub.length,
-        });
-
-        console.log(`[JOB] NOSTR_DISCOVERY_NPUB npub=${npub.slice(0, 12)}... events=${result.eventsScanned} cids=${result.cidsFound}`);
-      } catch (npubErr) {
-        console.error(`[JOB] NOSTR_DISCOVERY_NPUB_ERROR npub=${npub.slice(0, 12)}... error="${npubErr.message}"`);
-        allResults.push({
-          npub: npub,
-          error: npubErr.message,
-        });
-      }
-    }
-
-    // Batch insert to database (duplicates automatically ignored)
-    const insertedCount = batchInsertCids(allCids);
-
-    // Get current pending count
-    const selfPending = countByTypeAndStatus("self", "pending");
-
-    setLastNostrRun({
-      at: new Date().toISOString(),
-      npubs: allResults,
-      aggregate: {
-        eventsScanned: totalEventsScanned,
-        cidsFound: totalCidsFound,
-        newCids: allCids.length,
-        inserted: insertedCount,
-        duplicates: allCids.length - insertedCount,
-        pendingInDb: selfPending,
-      },
-      error: null,
-    });
-
-    console.log(
-      `[JOB] NOSTR_DISCOVERY_COMPLETE npubs=${NPUBS.length} total_discovered=${allCids.length} inserted=${insertedCount} duplicates=${allCids.length - insertedCount
-      } pending=${selfPending}`
-    );
-    console.log(`[JOB] NOSTR_DISCOVERY_AGGREGATE events=${totalEventsScanned} cids=${totalCidsFound}`);
-  } catch (err) {
-    setLastNostrRun({
-      at: new Date().toISOString(),
-      npubs: null,
-      aggregate: null,
-      error: err.message,
-    });
-    console.error(`[JOB] NOSTR_DISCOVERY_ERROR error="${err.message}"`);
-  }
-};
 
 // Pinner job - continuously picks random CIDs and ensures they're pinned
 const pinnerJob = async () => {
@@ -163,6 +70,5 @@ const pinnerJob = async () => {
 };
 
 module.exports = {
-  runNostrJob,
   pinnerJob,
 };

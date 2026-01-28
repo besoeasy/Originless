@@ -10,7 +10,6 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 
 - Anonymous uploads: no accounts, no tracking, no logs
 - Resilient by design: served from IPFS; your node needn’t be online 24/7
-- Nostr-optimized: you are your own media host (no domain or servers)
 - Self-healing: content repopulates across IPFS when your node comes online
 
 
@@ -46,15 +45,7 @@ For full Docker configuration options and Docker Compose setup, see [docker.md](
 1. Upload – Files stream to your local IPFS node (unpinned)
 2. Propagate – Content spreads via IPFS as peers request it
 3. Repopulate – If garbage collected, your node repopulates content when it comes online
-4. Optional Nostr mode – Automatically fetches your notes, extracts IPFS CIDs, and pins them
 
-## Nostr Mode (Optional)
-
-- Supports multiple NPUBs (comma-separated)
-- Fetches all posts from each configured NPUB (with pagination) and filters out expired notes
-- Extracts IPFS CIDs and pins them locally (permanent)
-- Caches media from people you follow for redundancy (ephemeral, garbage collected)
-- Runs automatically every 3 hours; view status in the admin
 
 ## API Endpoints
 
@@ -104,4 +95,45 @@ curl -X POST http://localhost:3232/remoteupload \
   "timestamp": "2026-01-07T03:18:00.000Z"
 }
 ```
+
+
+### Pin Management (Auth Required)
+
+Authentication is handled via [Daku](https://www.npmjs.com/package/daku). Send your Daku token in the `Authorization: Bearer <token>` header.
+
+#### Add Pins
+```bash
+curl -X POST http://localhost:3232/pin/add \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"cids": ["QmHash1...", "QmHash2..."]}'
+```
+
+#### List Pins
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3232/pin/list
+```
+
+#### Remove Pin
+```bash
+curl -X POST http://localhost:3232/pin/remove \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"cid": "QmHash..."}'
+```
+
+
+## Access Control
+
+You can restrict access to authenticated endpoints (Pin Management) by whitelisting specific Daku public keys.
+
+Set the `ALLOWED_USERS` environment variable with a comma-separated list of allowed public keys:
+
+```bash
+docker run -d ... \
+  -e ALLOWED_USERS="public_key_1,public_key_2" \
+  ...
+```
+
+If `ALLOWED_USERS` is not set, **any** valid Daku user can access the pin management endpoints (though they only see their own pins).
 

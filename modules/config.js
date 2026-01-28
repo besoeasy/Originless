@@ -38,8 +38,9 @@ const PROXY_FILE_LIMIT = process.env.REMOTE_FILE_LIMIT ? parseSize(process.env.R
 const HOST = "0.0.0.0";
 const UPLOAD_TEMP_DIR = "/tmp/originless";
 
-// Nostr timing configuration
-const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // 7 minutes
+
+// Access Control
+const ALLOWED_USERS = process.env.ALLOWED_USERS ? process.env.ALLOWED_USERS.split(',').map(u => u.trim()).filter(u => u) : [];
 
 module.exports = {
   parseSize,
@@ -51,5 +52,5 @@ module.exports = {
   PROXY_FILE_LIMIT,
   HOST,
   UPLOAD_TEMP_DIR,
-  NOSTR_CHECK_INTERVAL_MS,
+  ALLOWED_USERS,
 };
