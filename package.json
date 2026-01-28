@@ -1,27 +1,26 @@
 {
-  "name": "file-drop",
+  "name": "originless",
   "version": "1.4.3",
-  "description": "file drop",
+  "description": "Originless",
   "main": "app.js",
   "scripts": {
-    "test": "podman run --name ipfs-host --rm --network host docker.io/ipfs/kubo:latest",
-    "start": "node app.js"
+    "test": "docker run --name ipfs-host --rm --network host docker.io/ipfs/kubo:latest",
+    "start": "bun app.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/besoeasy/file-drop.git"
+    "url": "git+https://github.com/besoeasy/Originless.git"
   },
   "author": "besoeasy",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/besoeasy/file-drop/issues"
+    "url": "https://github.com/besoeasy/Originless/issues"
   },
-  "homepage": "https://github.com/besoeasy/file-drop#readme",
+  "homepage": "https://github.com/besoeasy/Originless#readme",
   "dependencies": {
     "axios": "^1.8.4",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "form-data": "^4.0.2",
     "mime-types": "^3.0.2",

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FileDrop Dashboard</title>
+  <title>Originless Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
   <style>
@@ -210,7 +210,7 @@
     <!-- Footer -->
     <footer class="bg-black p-4 text-center">
       <div class="flex items-center justify-center gap-4">
-        <a href="https://github.com/besoeasy/file-drop" target="_blank"
+        <a href="https://github.com/besoeasy/Originless" target="_blank"
           class="flex items-center gap-2 text-white hover:text-gray-300 transition-colors duration-300">
           <i class="fab fa-github"></i>
           <span class="font-semibold">GitHub</span>
@@ -402,16 +402,16 @@
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200">
-                    ${pins.length === 0 ? 
-                      '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No pins for this operator</td></tr>' :
-                      pins.map(pin => {
-                        const statusColor = {
-                          'pinned': 'bg-green-100 text-green-800',
-                          'pending': 'bg-yellow-100 text-yellow-800',
-                          'failed': 'bg-red-100 text-red-800'
-                        }[pin.status] || 'bg-gray-100 text-gray-800';
+                    ${pins.length === 0 ?
+              '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No pins for this operator</td></tr>' :
+              pins.map(pin => {
+                const statusColor = {
+                  'pinned': 'bg-green-100 text-green-800',
+                  'pending': 'bg-yellow-100 text-yellow-800',
+                  'failed': 'bg-red-100 text-red-800'
+                }[pin.status] || 'bg-gray-100 text-gray-800';
 
-                        return `
+                return `
                           <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3">
                               <a href="https://primal.net/e/${pin.eventId}" target="_blank" 
@@ -443,8 +443,8 @@
                             </td>
                           </tr>
                         `;
-                      }).join('')
-                    }
+              }).join('')
+            }
                   </tbody>
                 </table>
               </div>

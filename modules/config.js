@@ -36,7 +36,7 @@ const STORAGE_MAX_BYTES = parseSize(STORAGE_MAX);
 const FILE_LIMIT = process.env.FILE_LIMIT ? parseSize(process.env.FILE_LIMIT) : Math.floor(STORAGE_MAX_BYTES / 100);
 const PROXY_FILE_LIMIT = process.env.REMOTE_FILE_LIMIT ? parseSize(process.env.REMOTE_FILE_LIMIT) : Math.floor(STORAGE_MAX_BYTES / 100); // Remote upload file size limit
 const HOST = "0.0.0.0";
-const UPLOAD_TEMP_DIR = "/tmp/filedrop";
+const UPLOAD_TEMP_DIR = "/tmp/originless";
 
 // Nostr timing configuration
 const NOSTR_CHECK_INTERVAL_MS = 7 * 60 * 1000; // 7 minutes

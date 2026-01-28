@@ -1,12 +1,12 @@
-# File Drop
+# Originless
 
 Private, decentralized file sharing for Nostr and the web.
 
-One all-in-one storage backend you can drop into anything: your own apps, screenshot tools, pastebin-style pastes, Nostr clients, Reddit posts, forum embeds—anything that needs durable, anonymous file hosting. One File Drop to rule them all and keep you anonymous.
+One all-in-one storage backend you can drop into anything: your own apps, screenshot tools, pastebin-style pastes, Nostr clients, Reddit posts, forum embeds—anything that needs durable, anonymous file hosting. One Originless to rule them all and keep you anonymous.
 
 <img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
 
-## Why File Drop
+## Why Originless
 
 - Anonymous uploads: no accounts, no tracking, no logs
 - Resilient by design: served from IPFS; your node needn’t be online 24/7
@@ -16,7 +16,7 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 
 ## Supported Platforms
 
-FileDrop is integrated into the following platforms:
+Originless is integrated into the following platforms:
 
 | Platform   | Description                       | Link                              |
 | ---------- | --------------------------------- | --------------------------------- |
@@ -24,7 +24,7 @@ FileDrop is integrated into the following platforms:
 
 ## Quick Start
 
-[![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/file-drop)
+[![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/originless)
 
 **Minimal setup:**
 
@@ -34,7 +34,7 @@ docker run -d --restart unless-stopped \
   -p 4001:4001/tcp \
   -p 4001:4001/udp \
   -e STORAGE_MAX=200GB \
-  ghcr.io/besoeasy/file-drop:main
+  ghcr.io/besoeasy/originless:main
 ```
 
 Open http://localhost:3232 after starting.

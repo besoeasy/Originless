@@ -1,13 +1,16 @@
-FROM docker.io/node:lts-slim
+FROM oven/bun
 
 ENV STORAGE_MAX=200GB
 ENV FILE_LIMIT=5GB
 ENV IPFS_PATH=/data
+ENV NODE_ENV=production
 
+# Install dependencies (curl, tar, etc.)
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y curl tar && \
     rm -rf /var/lib/apt/lists/*
 
+# Install IPFS (Kubo)
 RUN curl -fsSL "https://dist.ipfs.tech/kubo/v0.39.0/kubo_v0.39.0_linux-$(dpkg --print-architecture).tar.gz" | \
     tar -xz -C /tmp && \
     mv /tmp/kubo/ipfs /usr/local/bin/ipfs && \
@@ -15,17 +18,18 @@ RUN curl -fsSL "https://dist.ipfs.tech/kubo/v0.39.0/kubo_v0.39.0_linux-$(dpkg --
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+COPY package.json bun.lockb* ./
 
-RUN npm i
+RUN bun install --production
 
 COPY . .
 
 # Create temp uploads directory, data directory, and set ownership
-RUN mkdir -p /tmp/filedrop /data && chown -R node:node /app /tmp/filedrop /data
+# Using 'bun' user which exists in oven/bun image
+RUN mkdir -p /tmp/originless /data && chown -R bun:bun /app /tmp/originless /data
 
 # Switch to non-root user
-USER node
+USER bun
 
 EXPOSE 3232 4001/tcp 4001/udp
 
@@ -49,4 +53,4 @@ CMD ["sh", "-c", "\
   until curl -s http://127.0.0.1:5001/api/v0/id > /dev/null; do \
     echo 'Waiting for IPFS daemon...'; sleep 3; \
   done && \
-  exec node app.js"]
+  exec bun app.js"]

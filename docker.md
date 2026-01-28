@@ -7,23 +7,23 @@ docker run -d --restart unless-stopped \
   -p 3232:3232 \
   -p 4001:4001/tcp \
   -p 4001:4001/udp \
-  -v file-drop-data:/data \
+  -v originless-data:/data \
   -e STORAGE_MAX=200GB \
   -e FILE_LIMIT=5GB \
   -e REMOTE_FILE_LIMIT=250MB \
   -e NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3... \
   --stop-timeout 15 \
-  --name file-drop \
-  ghcr.io/besoeasy/file-drop:main
+  --name originless \
+  ghcr.io/besoeasy/originless:main
 ```
 
 **Docker Compose:**
 
 ```yaml
 services:
-  file-drop:
-    image: ghcr.io/besoeasy/file-drop:main
-    container_name: file-drop
+  originless:
+    image: ghcr.io/besoeasy/originless:main
+    container_name: originless
     restart: unless-stopped
     stop_grace_period: 15s
     ports:
@@ -31,7 +31,7 @@ services:
       - "4001:4001/tcp"
       - "4001:4001/udp"
     volumes:
-      - file-drop-data:/data
+      - originless-data:/data
     environment:
       - STORAGE_MAX=200GB
       - FILE_LIMIT=5GB
@@ -39,7 +39,7 @@ services:
       - NPUB=npub1yourkey1...,npub2yourkey2...,npub3yourkey3...
 
 volumes:
-  file-drop-data:
+  originless-data:
 ```
 
 Open http://localhost:3232 after starting.
