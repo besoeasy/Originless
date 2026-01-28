@@ -34,6 +34,7 @@
       from {
         opacity: 0;
         transform: translateX(-30px);
+          gatewayBase: "https://dweb.link/ipfs/",
       }
 
       to {
@@ -596,17 +597,8 @@
                           @click="$event.target.select()" />
                       </div>
                       <div>
-                        <label class="text-xs text-gray-600 font-medium block mb-1">IPFS.io Gateway</label>
-                        <input type="text"
-                          :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://ipfs.io/ipfs/')" readonly
-                          class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
-                          @click="$event.target.select()" />
-                      </div>
-                      <div>
-                        <label class="text-xs text-gray-600 font-medium block mb-1">Dweb.link Gateway</label>
-                        <input type="text"
-                          :value="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
-                          readonly
+                        <label class="text-xs text-gray-600 font-medium block mb-1">Gateway URL</label>
+                        <input type="text" :value="getGatewayUrlForResult(result)" readonly
                           class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black"
                           @click="$event.target.select()" />
                       </div>
@@ -617,11 +609,11 @@
                             class="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded font-medium text-sm hover:bg-gray-800 transition-colors duration-300">
                             Check Network Propagation
                           </a>
-                          <a :href="getIpfsUrlWithFilename(result.cid, result.fileName, 'https://dweb.link/ipfs/')"
+                          <a :href="getGatewayUrlForResult(result)"
                             target="_blank"
                             class="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded font-medium text-sm hover:bg-gray-700 transition-colors duration-300">
                             <i class="fas fa-external-link-alt"></i>
-                            Open in Dweb.link
+                            Open in Gateway
                           </a>
                         </div>
                       </div>
@@ -631,13 +623,13 @@
                   <div v-if="activeTab === 'embed' && result.fileType" class="space-y-4">
                     <div>
                       <label class="text-xs text-gray-600 font-medium block mb-1">HTML</label>
-                      <textarea :value="getHtmlEmbed(result.cid, result.fileType)" readonly rows="3"
+                      <textarea :value="getHtmlEmbed(result.cid, result.fileType, result.fileName)" readonly rows="3"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
                         @click="$event.target.select()"></textarea>
                     </div>
                     <div>
                       <label class="text-xs text-gray-600 font-medium block mb-1">BBCode</label>
-                      <textarea :value="getBBCodeEmbed(result.cid, result.fileType)" readonly rows="2"
+                      <textarea :value="getBBCodeEmbed(result.cid, result.fileType, result.fileName)" readonly rows="2"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded bg-gray-50 font-mono text-black cursor-pointer hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black resize-none"
                         @click="$event.target.select()"></textarea>
                     </div>
@@ -790,8 +782,15 @@
           if (mimeType.startsWith("image/")) return "image";
           return null;
         },
-        getHtmlEmbed(cid, fileType) {
-          const url = `https://ipfs.io/ipfs/${cid}`;
+        getGatewayUrlForCid(cid, filename) {
+          return this.getIpfsUrlWithFilename(cid, filename, this.gatewayBase);
+        },
+        getGatewayUrlForResult(result) {
+          if (!result) return "";
+          return result.url || this.getGatewayUrlForCid(result.cid, result.fileName);
+        },
+        getHtmlEmbed(cid, fileType, filename) {
+          const url = this.getGatewayUrlForCid(cid, filename);
           switch (fileType) {
             case "audio":
               return `<audio controls>\n  <source src="${url}" type="audio/mpeg">\n  Your browser does not support the audio element.\n</audio>`;
@@ -803,8 +802,8 @@
               return `<a href="${url}">Download File</a>`;
           }
         },
-        getBBCodeEmbed(cid, fileType) {
-          const url = `https://ipfs.io/ipfs/${cid}`;
+        getBBCodeEmbed(cid, fileType, filename) {
+          const url = this.getGatewayUrlForCid(cid, filename);
           switch (fileType) {
             case "audio":
               return `[audio]${url}[/audio]`;

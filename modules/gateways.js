@@ -4,10 +4,11 @@ const path = require("path");
 const GATEWAY_TEST_CID = "QmV2ZAJVPafPNhKjorD2v9ZnfENYDC5Be5gTKiymaCMmeN";
 const GATEWAYS_PATH = path.join(__dirname, "../gateways.json");
 const TEST_TIMEOUT_MS = 6000;
-const REFRESH_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const REFRESH_TTL_MS = 60 * 1000; // 1 minute
+const FALLBACK_GATEWAY = "https://dweb.link";
 
 let cachedGateways = null;
-let workingGateways = [];
+let selectedGateway = "";
 let lastTestAt = 0;
 let refreshPromise = null;
 
@@ -37,7 +38,7 @@ const loadGateways = () => {
       .filter((entry) => entry && entry.startsWith("http"));
   } catch (err) {
     console.warn(`[GATEWAY] Failed to read gateways.json: ${err.message}`);
-    cachedGateways = ["https://dweb.link"]; // fallback
+    cachedGateways = [FALLBACK_GATEWAY]; // fallback
   }
 
   return cachedGateways;
@@ -58,43 +59,49 @@ const testGateway = async (baseUrl) => {
   }
 };
 
+const shuffle = (list) => {
+  const copy = list.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
 const refreshGateways = async () => {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const gateways = loadGateways();
+    const gateways = shuffle(loadGateways());
+    let selected = "";
 
-    const results = await Promise.allSettled(
-      gateways.map(async (gateway) => ({
-        gateway,
-        ok: await testGateway(gateway),
-      }))
-    );
-
-    workingGateways = results
-      .filter((result) => result.status === "fulfilled" && result.value.ok)
-      .map((result) => result.value.gateway);
-
-    lastTestAt = Date.now();
-
-    if (workingGateways.length === 0) {
-      console.warn("[GATEWAY] No working gateways detected, falling back to configured list");
-      workingGateways = gateways.slice();
+    for (const gateway of gateways) {
+      const ok = await testGateway(gateway);
+      if (ok) {
+        selected = gateway;
+        break;
+      }
     }
 
+    if (!selected) {
+      console.warn("[GATEWAY] All gateways failed. Falling back to dweb.link");
+      selected = FALLBACK_GATEWAY;
+    }
+
+    selectedGateway = selected;
+    lastTestAt = Date.now();
     refreshPromise = null;
-    return workingGateways;
+
+    return selectedGateway;
   })();
 
   return refreshPromise;
 };
 
-const getRandomGateway = () => {
-  const gateways = workingGateways.length ? workingGateways : loadGateways();
-  if (!gateways.length) return "https://dweb.link";
-
-  const idx = Math.floor(Math.random() * gateways.length);
-  return gateways[idx];
+const getSelectedGateway = () => {
+  if (selectedGateway) return selectedGateway;
+  const gateways = loadGateways();
+  return gateways[0] || FALLBACK_GATEWAY;
 };
 
 const getGatewayUrl = async (cid, filename) => {
@@ -102,7 +109,7 @@ const getGatewayUrl = async (cid, filename) => {
     await refreshGateways();
   }
 
-  const base = getRandomGateway().replace(/\/$/, "");
+  const base = getSelectedGateway().replace(/\/$/, "");
   let url = `${base}/ipfs/${cid}`;
 
   if (filename) {
@@ -115,4 +122,5 @@ const getGatewayUrl = async (cid, filename) => {
 module.exports = {
   refreshGateways,
   getGatewayUrl,
+  getSelectedGateway,
 };

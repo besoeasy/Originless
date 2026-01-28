@@ -64,10 +64,15 @@ const server = app.listen(PORT, HOST, () => {
 // Start pinner loop
 pinnerJob();
 
-// Warm gateway cache
-refreshGateways().catch((err) => {
-  console.warn(`[GATEWAY] Initial refresh failed: ${err.message}`);
-});
+// Warm gateway cache and probe every minute
+const scheduleGatewayRefresh = () => {
+  refreshGateways().catch((err) => {
+    console.warn(`[GATEWAY] Refresh failed: ${err.message}`);
+  });
+};
+
+scheduleGatewayRefresh();
+setInterval(scheduleGatewayRefresh, 60 * 1000);
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal) => {
