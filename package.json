@@ -1,6 +1,6 @@
 {
   "name": "originless",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "Originless",
   "main": "app.js",
   "scripts": {
