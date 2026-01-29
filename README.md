@@ -17,9 +17,10 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 
 Originless is integrated into the following platforms:
 
-| Platform   | Description                       | Link                              |
-| ---------- | --------------------------------- | --------------------------------- |
-| **0xchat** | Private, decentralized Nostr chat | [0xchat.com](https://0xchat.com/) |
+| Platform    | Description                                              | Link                                            |
+| ----------- | -------------------------------------------------------- | ----------------------------------------------- |
+| **0xchat**  | Private, decentralized Nostr chat                        | [0xchat.com](https://0xchat.com/)               |
+| **ZeroNote** | Anonymous encrypted notes sharing                        | [zeronote.js.org](https://zeronote.js.org/)     |
 
 ## Quick Start
 
