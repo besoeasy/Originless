@@ -22,10 +22,6 @@ Originless is integrated into the following platforms:
 | **0xchat**  | Private, decentralized Nostr chat                        | [0xchat.com](https://0xchat.com/)               |
 | **ZeroNote** | Anonymous encrypted notes sharing                        | [zeronote.js.org](https://zeronote.js.org/)     |
 
-## Quick Start
-
-[![Install on Umbrel](https://img.shields.io/badge/Umbrel-Install%20Now-5351FB?style=for-the-badge&logo=umbrel&logoColor=white)](https://apps.umbrel.com/app/originless)
-
 **Minimal setup:**
 
 ```bash
