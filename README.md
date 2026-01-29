@@ -6,21 +6,26 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 
 <img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
 
+## Example Web Apps
+
+We have built a few example web apps using Originless. You can explore them here:
+
+https://dweb.link/ipfs/QmTiXA22rjzx2g1yzDJmXu21AL5zM5dz7W9UquWSpL2ss2
+
 ## Why Originless
 
 - Anonymous uploads: no accounts, no tracking, no logs
 - Resilient by design: served from IPFS; your node needn’t be online 24/7
 - Self-healing: content repopulates across IPFS when your node comes online
 
-
 ## Supported Platforms
 
 Originless is integrated into the following platforms:
 
-| Platform    | Description                                              | Link                                            |
-| ----------- | -------------------------------------------------------- | ----------------------------------------------- |
-| **0xchat**  | Private, decentralized Nostr chat                        | [0xchat.com](https://0xchat.com/)               |
-| **ZeroNote** | Anonymous encrypted notes sharing                        | [zeronote.js.org](https://zeronote.js.org/)     |
+| Platform     | Description                       | Link                                        |
+| ------------ | --------------------------------- | ------------------------------------------- |
+| **0xchat**   | Private, decentralized Nostr chat | [0xchat.com](https://0xchat.com/)           |
+| **ZeroNote** | Anonymous encrypted notes sharing | [zeronote.js.org](https://zeronote.js.org/) |
 
 **Minimal setup:**
 
@@ -41,8 +46,6 @@ Open http://localhost:3232 after starting.
 2. Propagate – Content spreads via IPFS as peers request it
 3. Repopulate – If garbage collected, your node repopulates content when it comes online
 
-
 ## API Documentation
 
 See the full API docs in [api.md](api.md).
-
