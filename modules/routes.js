@@ -18,7 +18,6 @@ const {
   getTotalCount,
   getRecentPins,
   countByTypeAndStatus,
-  getLastPinnerActivity,
   getPinsByAuthor,
   recordPin,
   deletePin,

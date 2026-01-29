@@ -3,11 +3,7 @@
 
 // In-memory store
 const pinsMap = new Map(); // CID -> pin object
-const inProgressMap = new Map(); // CID -> { startTime, lastProgress, type }
 let nextId = 1;
-
-// State tracking for jobs
-let lastPinnerActivity = null;
 
 // Helper to create pin object
 const createPinObject = (id, eventId, cid, size, timestamp, author, type, status, createdAt, updatedAt) => ({
@@ -48,24 +44,6 @@ const recordPin = ({ eventId, cid, size = 0, timestamp, author, type, status = '
     return true;
   } catch (err) {
     console.error(`[DB] PIN_RECORD_ERROR cid=${cid} error="${err.message}"`);
-    return false;
-  }
-};
-
-// Update pin size and status
-const updatePinSize = (cid, size, status = 'pinned') => {
-  try {
-    if (pinsMap.has(cid)) {
-      const pin = pinsMap.get(cid);
-      pin.size = size;
-      pin.status = status;
-      pin.updated_at = Math.floor(Date.now() / 1000);
-      return true;
-    } else {
-      return false;
-    }
-  } catch (err) {
-    console.error(`[DB] PIN_SIZE_UPDATE_ERROR cid=${cid} error="${err.message}"`);
     return false;
   }
 };
@@ -231,25 +209,6 @@ const batchInsertCids = (cids) => {
   }
 };
 
-// Get pending CIDs by type
-const getPendingCidsByType = (type, limit = 1) => {
-  try {
-    const pins = Array.from(pinsMap.values())
-      .filter(pin => pin.type === type && pin.status !== 'pinned' && !inProgressMap.has(pin.cid));
-
-    // Shuffle randomly (Fisher-Yates)
-    for (let i = pins.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pins[i], pins[j]] = [pins[j], pins[i]];
-    }
-
-    return pins.slice(0, limit);
-  } catch (err) {
-    console.error(`[DB] Failed to get pending CIDs:`, err.message);
-    return [];
-  }
-};
-
 // Count by type and status
 const countByTypeAndStatus = (type, status) => {
   try {
@@ -298,94 +257,10 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Track in-progress operations
-const markInProgress = (cid, type) => {
-  inProgressMap.set(cid, {
-    startTime: Date.now(),
-    lastProgress: Date.now(),
-    type,
-  });
-};
-
-const updateProgress = (cid, bytes) => {
-  const progress = inProgressMap.get(cid);
-  if (progress) {
-    progress.lastProgress = Date.now();
-    progress.bytes = bytes;
-  }
-};
-
-const clearInProgress = (cid) => {
-  inProgressMap.delete(cid);
-};
-
-const isInProgress = (cid) => {
-  return inProgressMap.has(cid);
-};
-
-const getInProgressCids = () => {
-  return Array.from(inProgressMap.entries()).map(([cid, info]) => ({
-    cid,
-    ...info,
-    elapsed: Date.now() - info.startTime,
-  }));
-};
-
-// Clean up stale in-progress entries (no activity for 10 minutes)
-const cleanupStaleInProgress = () => {
-  const now = Date.now();
-  const staleThreshold = 10 * 60 * 1000; // 10 minutes
-
-  for (const [cid, info] of inProgressMap.entries()) {
-    if (now - info.lastProgress > staleThreshold) {
-      console.log(`[DB] Removing stale in-progress entry: ${cid} (no activity for ${Math.floor((now - info.lastProgress) / 1000)}s)`);
-      inProgressMap.delete(cid);
-    }
-  }
-};
-
-// Get a random CID for pinner job
-const getRandomCid = () => {
-  try {
-    const now = Date.now();
-    const THREE_HOURS = 3 * 60 * 60 * 1000;
-
-    // Clean up expired in-progress items (older than 3 hours)
-    for (const [cid, data] of inProgressMap.entries()) {
-      if (now - data.startTime > THREE_HOURS) {
-        console.log(`[DB] IN_PROGRESS_EXPIRED cid=${cid} age_hours=${((now - data.startTime) / 1000 / 60 / 60).toFixed(1)}`);
-        inProgressMap.delete(cid);
-      }
-    }
-
-    // Get all CIDs that are not in progress
-    const availablePins = Array.from(pinsMap.values())
-      .filter(pin => !inProgressMap.has(pin.cid));
-
-    if (availablePins.length === 0) {
-      return null;
-    }
-
-    // Return a random pin
-    const randomIndex = Math.floor(Math.random() * availablePins.length);
-    return availablePins[randomIndex];
-  } catch (err) {
-    console.error(`[DB] Failed to get random CID:`, err.message);
-    return null;
-  }
-};
-
-// State management functions
-const getLastPinnerActivity = () => lastPinnerActivity;
-const setLastPinnerActivity = (timestamp) => {
-  lastPinnerActivity = timestamp;
-};
-
 
 module.exports = {
   // Core functions (same API as SQLite version)
   recordPin,
-  updatePinSize,
   getPinByCid,
   getPins,
   getPinsByType,
@@ -396,22 +271,6 @@ module.exports = {
   getRecentPins,
   insertCidIfNotExists,
   batchInsertCids,
-  getPendingCidsByType,
   countByTypeAndStatus,
-
-  // In-progress tracking
-  markInProgress,
-  updateProgress,
-  clearInProgress,
-  isInProgress,
-  getInProgressCids,
-  cleanupStaleInProgress,
-
-  // State management
-  getLastPinnerActivity,
-  setLastPinnerActivity,
-
-  // Utility
   getStoreStats,
-  getRandomCid,
 };

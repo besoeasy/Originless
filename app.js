@@ -27,7 +27,6 @@ const {
   pinRemoveHandler,
 } = require("./modules/routes");
 
-const { pinnerJob } = require("./modules/jobs");
 const { refreshGateways } = require("./modules/gateways");
 
 
@@ -63,9 +62,6 @@ app.use(errorHandler);
 const server = app.listen(PORT, HOST, () => {
   console.log(`[STARTUP] SERVER_LISTENING host=${HOST} port=${PORT} url=http://${HOST}:${PORT}`);
 });
-
-// Start pinner loop
-pinnerJob();
 
 // Warm gateway cache and probe every minute
 const scheduleGatewayRefresh = () => {
