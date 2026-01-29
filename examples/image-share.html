@@ -35,8 +35,27 @@
           <img :src="previewUrl" alt="Preview" class="rounded-xl border border-slate-800 max-h-64 object-contain" />
         </div>
 
+        <div class="mt-5">
+          <label class="inline-flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" v-model="encryptEnabled" class="rounded border-slate-700 bg-slate-950" />
+            Encrypt before upload
+          </label>
+        </div>
+
+        <div v-if="encryptEnabled" class="mt-4">
+          <label class="block text-sm text-slate-300 mb-2">Passphrase</label>
+          <div class="flex gap-2">
+            <input v-model="passphrase" type="text"
+              class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              placeholder="Create or paste a passphrase" />
+            <button @click="generatePassphrase"
+              class="px-4 py-3 rounded-xl bg-slate-200 text-slate-900 font-semibold hover:bg-white transition">Generate</button>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Passphrase is required to decrypt. It is never uploaded.</p>
+        </div>
+
         <div class="mt-5 flex flex-wrap gap-3">
-          <button @click="uploadImage" :disabled="busy || !file"
+          <button @click="uploadImage" :disabled="busy || !file || (encryptEnabled && !passphrase)"
             class="px-5 py-3 rounded-xl bg-emerald-400 text-slate-900 font-semibold hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition">
             {{ busy ? 'Uploading...' : 'Upload Image' }}
           </button>
@@ -62,6 +81,7 @@
               <button @click="copyShareLink"
                 class="px-4 py-2 rounded-lg bg-slate-200 text-slate-900 font-semibold hover:bg-white transition">Copy</button>
             </div>
+            <p v-if="encryptEnabled" class="text-xs text-slate-500 mt-2">Share the link securely (includes passphrase).</p>
           </div>
         </div>
 
@@ -74,10 +94,17 @@
         <h2 class="text-2xl font-semibold mb-4">View an image</h2>
         <p class="text-sm text-slate-400 mb-4">Paste a share link, gateway URL, or CID.</p>
 
-        <label class="block text-sm text-slate-300 mb-2">Image URL or CID</label>
+        <label class="block text-sm text-slate-300 mb-2">Image URL, CID, or encrypted payload</label>
         <input v-model="viewSource" type="text"
           class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
           placeholder="https://.../ipfs/<cid> or CID" />
+
+        <div class="mt-4">
+          <label class="block text-sm text-slate-300 mb-2">Passphrase (for encrypted images)</label>
+          <input v-model="viewPassphrase" type="text"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            placeholder="Paste passphrase" />
+        </div>
 
         <div class="mt-5 flex flex-wrap gap-3">
           <button @click="loadImage" :disabled="busy || !viewSource"
@@ -122,6 +149,9 @@
           shareLink: "",
           viewSource: "",
           viewUrl: "",
+          viewPassphrase: "",
+          passphrase: "",
+          encryptEnabled: false,
           error: "",
           viewError: "",
           busy: false,
@@ -138,8 +168,16 @@
           this.shareLink = "";
           this.viewSource = "";
           this.viewUrl = "";
+          this.viewPassphrase = "";
+          this.passphrase = "";
+          this.encryptEnabled = false;
           this.error = "";
           this.viewError = "";
+        },
+        generatePassphrase() {
+          const bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          this.passphrase = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
         },
         handleFile(event) {
           const selected = event.target.files[0];
@@ -160,13 +198,27 @@
 
           try {
             this.busy = true;
-            const formData = new FormData();
-            formData.append("file", this.file);
 
-            const response = await fetch(`${Originless_Server}/upload`, {
-              method: "POST",
-              body: formData,
-            });
+            let response;
+            if (this.encryptEnabled) {
+              const payload = await this.encryptImageFile(this.file, this.passphrase);
+              const file = new Blob([JSON.stringify(payload)], { type: "application/json" });
+              const formData = new FormData();
+              formData.append("file", file, "encrypted-image.json");
+
+              response = await fetch(`${Originless_Server}/upload`, {
+                method: "POST",
+                body: formData,
+              });
+            } else {
+              const formData = new FormData();
+              formData.append("file", this.file);
+
+              response = await fetch(`${Originless_Server}/upload`, {
+                method: "POST",
+                body: formData,
+              });
+            }
 
             if (!response.ok) {
               const text = await response.text();
@@ -178,19 +230,23 @@
               cid: result.cid,
               url: result.url,
             };
-            this.shareLink = this.buildShareLink(result.url);
+            this.shareLink = this.buildShareLink(result.url, this.encryptEnabled ? this.passphrase : "");
             this.viewSource = result.url;
             this.viewUrl = result.url;
+            this.viewPassphrase = this.encryptEnabled ? this.passphrase : "";
           } catch (err) {
             this.error = err.message || "Failed to upload image";
           } finally {
             this.busy = false;
           }
         },
-        buildShareLink(url) {
+        buildShareLink(url, passphrase) {
           const params = new URLSearchParams();
           if (url) {
             params.set("u", url);
+          }
+          if (passphrase) {
+            params.set("k", passphrase);
           }
           return `${location.origin}${location.pathname}#${params.toString()}`;
         },
@@ -198,29 +254,142 @@
           if (!location.hash) return;
           const params = new URLSearchParams(location.hash.slice(1));
           const url = params.get("u");
+          const key = params.get("k");
           if (url) {
             this.viewSource = url;
             this.viewUrl = url;
           }
+          if (key) {
+            this.viewPassphrase = key;
+          }
         },
-        loadImage() {
+        async loadImage() {
           this.viewError = "";
           this.viewUrl = "";
 
           const source = this.viewSource.trim();
           if (!source) return;
 
+          try {
+            const payload = await this.resolvePayload(source);
+            if (payload.plainUrl) {
+              this.viewUrl = payload.url;
+              return;
+            }
+
+            if (!this.viewPassphrase) {
+              throw new Error("Passphrase required for encrypted images");
+            }
+
+            const blobUrl = await this.decryptImagePayload(payload, this.viewPassphrase);
+            this.viewUrl = blobUrl;
+          } catch (err) {
+            this.viewError = err.message || "Unable to load image";
+          }
+        },
+        async resolvePayload(source) {
           if (/^https?:\/\//i.test(source)) {
-            this.viewUrl = source;
-            return;
+            const response = await fetch(source);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch payload (${response.status})`);
+            }
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+              return await response.json();
+            }
+            return { plainUrl: true, url: source };
           }
 
           if (/^[a-z0-9]{46,}$/i.test(source)) {
-            this.viewUrl = `${gatewayBase}${source}`;
-            return;
+            const url = `${gatewayBase}${source}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch payload (${response.status})`);
+            }
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+              return await response.json();
+            }
+            return { plainUrl: true, url };
           }
 
-          this.viewError = "Unrecognized URL or CID";
+          try {
+            return JSON.parse(source);
+          } catch (err) {
+            throw new Error("Unrecognized URL, CID, or payload");
+          }
+        },
+        async encryptImageFile(file, passphrase) {
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          const key = await this.deriveKey(passphrase, salt);
+          const buffer = await file.arrayBuffer();
+          const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, buffer);
+
+          return {
+            v: 1,
+            type: file.type || "application/octet-stream",
+            name: file.name || "image",
+            size: file.size,
+            alg: "AES-GCM",
+            kdf: "PBKDF2-SHA256",
+            iter: 150000,
+            salt: this.toBase64(salt),
+            iv: this.toBase64(iv),
+            ct: this.toBase64(new Uint8Array(ciphertext)),
+            createdAt: new Date().toISOString(),
+          };
+        },
+        async decryptImagePayload(payload, passphrase) {
+          if (!payload || !payload.ct) {
+            throw new Error("Invalid encrypted payload");
+          }
+          const salt = this.fromBase64(payload.salt);
+          const iv = this.fromBase64(payload.iv);
+          const key = await this.deriveKey(passphrase, salt, payload.iter || 150000);
+          const ciphertext = this.fromBase64(payload.ct);
+
+          try {
+            const plaintextBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+            const blob = new Blob([plaintextBuffer], { type: payload.type || "application/octet-stream" });
+            return URL.createObjectURL(blob);
+          } catch (err) {
+            throw new Error("Unable to decrypt image. Check the passphrase.");
+          }
+        },
+        async deriveKey(passphrase, salt, iter = 150000) {
+          const baseKey = await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(passphrase),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+          );
+
+          return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["encrypt", "decrypt"]
+          );
+        },
+        toBase64(bytes) {
+          let binary = "";
+          const chunkSize = 0x8000;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode.apply(null, chunk);
+          }
+          return btoa(binary);
+        },
+        fromBase64(base64) {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes;
         },
         async copyShareLink() {
           if (!this.shareLink) return;
