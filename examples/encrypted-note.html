@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Originless Encrypted Notes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div id="app" class="max-w-5xl mx-auto px-6 py-10">
+    <header class="mb-10">
+      <p class="text-sm uppercase tracking-[0.3em] text-slate-400">Originless</p>
+      <h1 class="text-4xl font-bold mt-3">Encrypted Note Share</h1>
+      <p class="text-slate-300 mt-3 max-w-2xl">
+        Encrypt a note in your browser, store the ciphertext on Originless, and share a single link that can decrypt the
+        note in any modern browser.
+      </p>
+      <div class="mt-6 bg-slate-900/70 border border-slate-800 rounded-xl p-4">
+        <p class="text-xs text-slate-400">Originless Server</p>
+        <p class="text-sm font-mono break-all">{{ originlessServer }}</p>
+      </div>
+    </header>
+
+    <div class="grid gap-8 lg:grid-cols-2">
+      <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h2 class="text-2xl font-semibold mb-4">Create an encrypted note</h2>
+        <label class="block text-sm text-slate-300 mb-2">Note</label>
+        <textarea v-model="note" rows="10"
+          class="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+          placeholder="Write your note here..."></textarea>
+
+        <div class="mt-5">
+          <label class="block text-sm text-slate-300 mb-2">Passphrase</label>
+          <div class="flex gap-2">
+            <input v-model="passphrase" type="text"
+              class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+              placeholder="Create or paste a passphrase" />
+            <button @click="generatePassphrase"
+              class="px-4 py-3 rounded-xl bg-slate-200 text-slate-900 font-semibold hover:bg-white transition">Generate</button>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">The passphrase is never uploaded. Keep it with the share link.</p>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button @click="encryptAndUpload" :disabled="busy || !note || !passphrase"
+            class="px-5 py-3 rounded-xl bg-emerald-400 text-slate-900 font-semibold hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            {{ busy ? 'Encrypting...' : 'Encrypt & Upload' }}
+          </button>
+          <button @click="encryptLocal" :disabled="busy || !note || !passphrase"
+            class="px-5 py-3 rounded-xl border border-slate-700 text-slate-200 font-semibold hover:border-slate-400 transition">
+            Encrypt only (no upload)
+          </button>
+          <button @click="resetAll" class="px-5 py-3 rounded-xl text-slate-400 hover:text-slate-100 transition">
+            Reset
+          </button>
+        </div>
+
+        <div v-if="encryptResult" class="mt-6 space-y-4">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Encrypted payload</p>
+            <textarea readonly rows="4" :value="encryptResult.payload"
+              class="w-full bg-transparent text-xs font-mono text-slate-200 mt-2 focus:outline-none"></textarea>
+          </div>
+
+          <div v-if="encryptResult.cid" class="bg-emerald-950/40 border border-emerald-700 rounded-xl p-4">
+            <p class="text-xs text-emerald-200">Uploaded CID</p>
+            <p class="font-mono text-sm break-all mt-1">{{ encryptResult.cid }}</p>
+            <p class="text-xs text-emerald-200 mt-2">Gateway URL</p>
+            <a :href="encryptResult.url" target="_blank"
+              class="text-xs text-emerald-300 break-all hover:underline">{{ encryptResult.url }}</a>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Share link (includes passphrase)</p>
+            <div class="flex gap-2 mt-2">
+              <input type="text" readonly :value="shareLink"
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200" />
+              <button @click="copyShareLink"
+                class="px-4 py-2 rounded-lg bg-slate-200 text-slate-900 font-semibold hover:bg-white transition">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="error" class="mt-6 text-sm text-red-300 bg-red-900/30 border border-red-800 rounded-xl p-3">
+          {{ error }}
+        </div>
+      </section>
+
+      <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h2 class="text-2xl font-semibold mb-4">View & decrypt</h2>
+        <p class="text-sm text-slate-400 mb-4">Paste a share link or load from the hash in the address bar.</p>
+
+        <label class="block text-sm text-slate-300 mb-2">Encrypted note URL or CID</label>
+        <input v-model="viewSource" type="text"
+          class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+          placeholder="https://.../ipfs/<cid> or CID" />
+
+        <div class="mt-4">
+          <label class="block text-sm text-slate-300 mb-2">Passphrase</label>
+          <input v-model="viewPassphrase" type="text"
+            class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            placeholder="Paste passphrase" />
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button @click="loadAndDecrypt" :disabled="busy || !viewSource || !viewPassphrase"
+            class="px-5 py-3 rounded-xl bg-sky-400 text-slate-900 font-semibold hover:bg-sky-300 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            {{ busy ? 'Decrypting...' : 'Load & Decrypt' }}
+          </button>
+          <button @click="pasteFromHash" class="px-5 py-3 rounded-xl border border-slate-700 text-slate-200 font-semibold hover:border-slate-400 transition">
+            Load from link hash
+          </button>
+        </div>
+
+        <div v-if="decryptedNote" class="mt-6">
+          <p class="text-xs text-slate-400 mb-2">Decrypted note</p>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 whitespace-pre-wrap">
+            {{ decryptedNote }}
+          </div>
+        </div>
+
+        <div v-if="decryptError" class="mt-6 text-sm text-red-300 bg-red-900/30 border border-red-800 rounded-xl p-3">
+          {{ decryptError }}
+        </div>
+      </section>
+    </div>
+
+    <footer class="mt-12 text-xs text-slate-500">
+      Uses AES-GCM with PBKDF2 in your browser. Anyone with the link can decrypt the note, so share carefully.
+    </footer>
+  </div>
+
+  <script>
+    const Originless_Server = "https://filedrop.besoeasy.com";
+    const gatewayBase = "https://dweb.link/ipfs/";
+
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          originlessServer: Originless_Server,
+          note: "",
+          passphrase: "",
+          viewSource: "",
+          viewPassphrase: "",
+          encryptResult: null,
+          decryptedNote: "",
+          error: "",
+          decryptError: "",
+          shareLink: "",
+          busy: false,
+        };
+      },
+      mounted() {
+        this.pasteFromHash();
+      },
+      methods: {
+        resetAll() {
+          this.note = "";
+          this.passphrase = "";
+          this.viewSource = "";
+          this.viewPassphrase = "";
+          this.encryptResult = null;
+          this.decryptedNote = "";
+          this.error = "";
+          this.decryptError = "";
+          this.shareLink = "";
+        },
+        generatePassphrase() {
+          const bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          this.passphrase = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+        },
+        async encryptAndUpload() {
+          this.error = "";
+          this.decryptError = "";
+          this.decryptedNote = "";
+          this.encryptResult = null;
+          this.shareLink = "";
+
+          try {
+            this.busy = true;
+            const payload = await this.encryptNote(this.note, this.passphrase);
+            const file = new Blob([JSON.stringify(payload)], { type: "application/json" });
+            const formData = new FormData();
+            formData.append("file", file, "encrypted-note.json");
+
+            const response = await fetch(`${Originless_Server}/upload`, {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || `Upload failed (${response.status})`);
+            }
+
+            const result = await response.json();
+            this.encryptResult = {
+              payload: JSON.stringify(payload),
+              cid: result.cid,
+              url: result.url,
+            };
+
+            this.shareLink = this.buildShareLink(result.url, this.passphrase);
+            this.viewSource = result.url;
+            this.viewPassphrase = this.passphrase;
+          } catch (err) {
+            this.error = err.message || "Failed to encrypt and upload";
+          } finally {
+            this.busy = false;
+          }
+        },
+        async encryptLocal() {
+          this.error = "";
+          this.decryptError = "";
+          this.decryptedNote = "";
+          this.encryptResult = null;
+          this.shareLink = "";
+
+          try {
+            this.busy = true;
+            const payload = await this.encryptNote(this.note, this.passphrase);
+            this.encryptResult = { payload: JSON.stringify(payload), cid: "", url: "" };
+            this.shareLink = this.buildShareLink("", this.passphrase, payload);
+          } catch (err) {
+            this.error = err.message || "Failed to encrypt note";
+          } finally {
+            this.busy = false;
+          }
+        },
+        buildShareLink(url, passphrase, payload) {
+          const params = new URLSearchParams();
+          if (url) {
+            params.set("u", url);
+          }
+          if (payload) {
+            params.set("p", btoa(JSON.stringify(payload)));
+          }
+          params.set("k", passphrase);
+          return `${location.origin}${location.pathname}#${params.toString()}`;
+        },
+        async pasteFromHash() {
+          if (!location.hash) return;
+          const params = new URLSearchParams(location.hash.slice(1));
+          const url = params.get("u");
+          const payload = params.get("p");
+          const key = params.get("k");
+
+          if (url) {
+            this.viewSource = url;
+          }
+          if (payload) {
+            this.viewSource = payload;
+          }
+          if (key) {
+            this.viewPassphrase = key;
+          }
+
+          if ((url || payload) && key) {
+            await this.loadAndDecrypt();
+          }
+        },
+        async loadAndDecrypt() {
+          this.decryptError = "";
+          this.decryptedNote = "";
+          this.error = "";
+
+          try {
+            this.busy = true;
+            const payload = await this.resolvePayload(this.viewSource);
+            this.decryptedNote = await this.decryptNote(payload, this.viewPassphrase);
+          } catch (err) {
+            this.decryptError = err.message || "Failed to decrypt note";
+          } finally {
+            this.busy = false;
+          }
+        },
+        async resolvePayload(source) {
+          if (!source) throw new Error("Missing payload source");
+
+          if (source.startsWith("ey")) {
+            try {
+              const decoded = JSON.parse(atob(source));
+              return decoded;
+            } catch (err) {
+              // continue
+            }
+          }
+
+          if (/^https?:\/\//i.test(source)) {
+            const response = await fetch(source);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch payload (${response.status})`);
+            }
+            return await response.json();
+          }
+
+          if (/^[a-z0-9]{46,}$/i.test(source)) {
+            const url = `${gatewayBase}${source}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch payload (${response.status})`);
+            }
+            return await response.json();
+          }
+
+          try {
+            return JSON.parse(source);
+          } catch (err) {
+            throw new Error("Unrecognized payload format");
+          }
+        },
+        async encryptNote(note, passphrase) {
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          const key = await this.deriveKey(passphrase, salt);
+          const encoded = new TextEncoder().encode(note);
+          const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+
+          return {
+            v: 1,
+            alg: "AES-GCM",
+            kdf: "PBKDF2-SHA256",
+            iter: 150000,
+            salt: this.toBase64(salt),
+            iv: this.toBase64(iv),
+            ct: this.toBase64(new Uint8Array(ciphertext)),
+            createdAt: new Date().toISOString(),
+          };
+        },
+        async decryptNote(payload, passphrase) {
+          if (!payload || !payload.ct) {
+            throw new Error("Invalid payload");
+          }
+          const salt = this.fromBase64(payload.salt);
+          const iv = this.fromBase64(payload.iv);
+          const key = await this.deriveKey(passphrase, salt, payload.iter || 150000);
+          const ciphertext = this.fromBase64(payload.ct);
+
+          try {
+            const plaintextBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+            return new TextDecoder().decode(plaintextBuffer);
+          } catch (err) {
+            throw new Error("Unable to decrypt. Check the passphrase.");
+          }
+        },
+        async deriveKey(passphrase, salt, iter = 150000) {
+          const baseKey = await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(passphrase),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+          );
+
+          return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["encrypt", "decrypt"]
+          );
+        },
+        toBase64(bytes) {
+          return btoa(String.fromCharCode(...bytes));
+        },
+        fromBase64(base64) {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes;
+        },
+        async copyShareLink() {
+          if (!this.shareLink) return;
+          await navigator.clipboard.writeText(this.shareLink);
+        },
+      },
+    }).mount("#app");
+  </script>
+</body>
+
+</html>

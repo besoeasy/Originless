@@ -35,8 +35,6 @@ docker run -d --restart unless-stopped \
 
 Open http://localhost:3232 after starting.
 
-For full Docker configuration options and Docker Compose setup, see [docker.md](docker.md).
-
 ## How It Works
 
 1. Upload – Files stream to your local IPFS node (unpinned)

@@ -122,4 +122,4 @@ docker run -d ... \
   ...
 ```
 
-If `ALLOWED_USERS` is not set, **any** valid Daku user can access the pin management endpoints (though they only see their own pins).
+If `ALLOWED_USERS` is not set, pin management endpoints are **disabled**.

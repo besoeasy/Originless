@@ -10,6 +10,7 @@ const {
   PORT,
   HOST,
   UPLOAD_TEMP_DIR,
+  ALLOWED_USERS,
 } = require("./modules/config");
 
 const { authMiddleware } = require("./modules/auth");
@@ -49,10 +50,14 @@ app.post("/upload", upload.single("file"), uploadHandler);
 app.post("/uploadzip", upload.single("file"), uploadZipHandler);
 app.post("/remoteupload", remoteUploadHandler);
 
-// Authenticated Pin Routes
-app.post("/pin/add", authMiddleware, pinAddHandler);
-app.get("/pin/list", authMiddleware, pinListHandler);
-app.post("/pin/remove", authMiddleware, pinRemoveHandler);
+// Authenticated Pin Routes (only when ALLOWED_USERS is configured)
+if (ALLOWED_USERS.length > 0) {
+  app.post("/pin/add", authMiddleware, pinAddHandler);
+  app.get("/pin/list", authMiddleware, pinListHandler);
+  app.post("/pin/remove", authMiddleware, pinRemoveHandler);
+} else {
+  console.log("[PIN] Pin management routes disabled (ALLOWED_USERS not set)");
+}
 
 
 // Apply error handler
