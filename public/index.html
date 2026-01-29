@@ -383,8 +383,11 @@
                   <span
                     class="drop-text text-lg font-semibold text-gray-700 group-hover:text-black transition-colors duration-300">
                     {{ fileLabel }} </span>
-                  <p class="text-sm text-gray-500 mt-2">Drag and drop your file here, click to browse, or paste anywhere
-                    on the page</p>
+                  <p class="text-sm text-gray-500 mt-2">{{
+                    uploadMode === 'zip'
+                      ? 'Drag and drop a .zip archive here, click to browse, or paste anywhere on the page'
+                      : 'Drag and drop your file here, click to browse, or paste anywhere on the page'
+                  }}</p>
                 </div>
               </div>
 
@@ -396,13 +399,14 @@
                 </div>
               </div>
             </label>
-            <input type="file" id="fileInput" class="hidden" @change="updateFileLabel" />
+            <input type="file" id="fileInput" class="hidden" :accept="uploadMode === 'zip' ? '.zip' : ''"
+              @change="updateFileLabel" />
           </div>
 
           <!-- Upload Mode Toggle -->
           <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <div class="flex items-center justify-center gap-4">
-              <button @click="uploadMode = 'file'" :class="[
+              <button @click="setUploadMode('file')" :class="[
                   'px-4 py-2 rounded-lg font-semibold transition-all duration-300',
                   uploadMode === 'file' 
                     ? 'bg-black text-white' 
@@ -411,7 +415,16 @@
                 <i class="fas fa-file-upload mr-2"></i>
                 File Upload
               </button>
-              <button @click="uploadMode = 'url'" :class="[
+              <button @click="setUploadMode('zip')" :class="[
+                  'px-4 py-2 rounded-lg font-semibold transition-all duration-300',
+                  uploadMode === 'zip' 
+                    ? 'bg-black text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-100'
+                ]">
+                <i class="fas fa-folder-open mr-2"></i>
+                ZIP Folder
+              </button>
+              <button @click="setUploadMode('url')" :class="[
                   'px-4 py-2 rounded-lg font-semibold transition-all duration-300',
                   uploadMode === 'url' 
                     ? 'bg-black text-white' 
@@ -420,6 +433,19 @@
                 <i class="fas fa-link mr-2"></i>
                 URL Upload
               </button>
+            </div>
+          </div>
+
+          <!-- ZIP Upload Section -->
+          <div v-if="uploadMode === 'zip'" class="bg-gray-50 rounded-xl p-6 border border-gray-200 animate-fade-in">
+            <div class="space-y-3">
+              <p class="text-sm text-gray-700 font-semibold">
+                <i class="fas fa-archive mr-2"></i>Upload a .zip to create a folder on IPFS
+              </p>
+              <p class="text-xs text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                The archive will be extracted and uploaded as a directory (max {{ status.fileLimit }})
+              </p>
             </div>
           </div>
 
@@ -442,12 +468,24 @@
           </div>
 
 
-          <button @click="uploadFile" :disabled="uploading || (!file && !remoteUrl)"
+          <button @click="uploadFile" :disabled="uploading || (uploadMode === 'url' ? !remoteUrl : !file)"
             class="w-full bg-black text-white py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed">
             <div class="flex items-center justify-center gap-2">
               <i class="fas fa-upload" :class="{ 'animate-pulse': uploading }"></i>
-              <span v-if="!uploading">{{ uploadMode === 'url' ? 'Upload from URL' : 'Upload File' }}</span>
-              <span v-else>{{ uploadMode === 'url' ? 'Downloading & Uploading...' : 'Uploading...' }}</span>
+              <span v-if="!uploading">{{
+                uploadMode === 'url'
+                  ? 'Upload from URL'
+                  : uploadMode === 'zip'
+                    ? 'Upload ZIP'
+                    : 'Upload File'
+              }}</span>
+              <span v-else>{{
+                uploadMode === 'url'
+                  ? 'Downloading & Uploading...'
+                  : uploadMode === 'zip'
+                    ? 'Uploading ZIP...'
+                    : 'Uploading...'
+              }}</span>
             </div>
           </button>
 
@@ -462,20 +500,33 @@
                 :class="{ 'rotate-180': showCli }"></i>
             </button>
 
-            <div v-if="showCli" class="mt-4 space-y-3 animate-fade-in">
+            <div v-if="showCli" class="mt-4 space-y-4 animate-fade-in">
               <p class="text-sm text-gray-600">Use curl to upload files from your terminal:</p>
 
               <div class="bg-black rounded-lg p-4">
                 <div class="flex items-start justify-between gap-2 mb-2">
                   <code
                     class="text-green-400 text-xs flex-1 font-mono break-all">curl -X POST -F "file=@yourfile.pdf" {{ currentUrl }}/upload</code>
-                  <button @click="copyCurlCommand"
+                  <button @click="copyCurlCommand('file')"
                     class="flex-shrink-0 text-gray-400 hover:text-white transition-colors">
                     <i :class="copied ? 'fas fa-check' : 'fas fa-copy'"></i>
                   </button>
                 </div>
                 <p class="text-gray-400 text-xs">Replace <span class="text-yellow-400">yourfile.pdf</span> with your
                   file path</p>
+              </div>
+
+              <div class="bg-black rounded-lg p-4">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <code
+                    class="text-green-400 text-xs flex-1 font-mono break-all">curl -X POST -F "file=@archive.zip" {{ currentUrl }}/uploadzip</code>
+                  <button @click="copyCurlCommand('zip')"
+                    class="flex-shrink-0 text-gray-400 hover:text-white transition-colors">
+                    <i :class="copied ? 'fas fa-check' : 'fas fa-copy'"></i>
+                  </button>
+                </div>
+                <p class="text-gray-400 text-xs">Replace <span class="text-yellow-400">archive.zip</span> with your zip
+                  path</p>
               </div>
             </div>
           </div>
@@ -543,6 +594,10 @@
                       <div class="bg-gray-50 rounded p-3">
                         <p class="text-gray-500 text-xs font-medium uppercase">File Size</p>
                         <p class="text-black font-semibold">{{ result.size }}</p>
+                      </div>
+                      <div class="bg-gray-50 rounded p-3" v-if="result.files">
+                        <p class="text-gray-500 text-xs font-medium uppercase">Files in Folder</p>
+                        <p class="text-black font-semibold">{{ result.files }}</p>
                       </div>
                       <div class="bg-gray-50 rounded p-3">
                         <p class="text-gray-500 text-xs font-medium uppercase">MIME Type</p>
@@ -688,7 +743,7 @@
           copied: false,
           currentUrl: window.location.origin,
           nostrEnabled: false,
-          uploadMode: "file", // 'file' or 'url'
+          uploadMode: "file", // 'file' | 'zip' | 'url'
           remoteUrl: "",
           status: {
             nodeId: "Loading...",
@@ -712,15 +767,39 @@
           const i = Math.floor(Math.log(bytes) / Math.log(1024));
           return (bytes / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
         },
+        setUploadMode(mode) {
+          this.uploadMode = mode;
+          this.remoteUrl = "";
+          this.file = null;
+          this.fileLabel = mode === "zip" ? "Drop or Choose Zip" : "Drop or Choose File";
+        },
+        isZipFile(file) {
+          return Boolean(file && file.name && file.name.toLowerCase().endsWith(".zip"));
+        },
+        applySelectedFile(file) {
+          if (!file) {
+            this.file = null;
+            this.fileLabel = this.uploadMode === "zip" ? "Drop or Choose Zip" : "Drop or Choose File";
+            return;
+          }
+
+          if (this.uploadMode === "zip" && !this.isZipFile(file)) {
+            this.file = null;
+            this.fileLabel = "Drop or Choose Zip";
+            this.result = { success: false, message: "Please select a .zip archive" };
+            return;
+          }
+
+          this.file = file;
+          this.fileLabel = file.name || (this.uploadMode === "zip" ? "Zip Archive" : "Selected File");
+        },
         updateFileLabel(event) {
           const fileInput = event.target;
-          this.file = fileInput.files[0];
-          this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
+          this.applySelectedFile(fileInput.files[0]);
         },
         handleDrop(event) {
           this.isDragOver = false;
-          this.file = event.dataTransfer.files[0];
-          this.fileLabel = this.file ? this.file.name : "Drop or Choose File";
+          this.applySelectedFile(event.dataTransfer.files[0]);
         },
         handlePaste(event) {
           console.log("Paste event triggered", event);
@@ -744,8 +823,7 @@
               console.log("File pasted:", file);
 
               if (file) {
-                this.file = file;
-                this.fileLabel = file.name || "Pasted File";
+                this.applySelectedFile(file);
 
                 // Show visual feedback for paste
                 this.isPasted = true;
@@ -753,7 +831,9 @@
                   this.isPasted = false;
                 }, 1000);
 
-                console.log("File set successfully:", this.file.name);
+                if (this.file) {
+                  console.log("File set successfully:", this.file.name);
+                }
                 break;
               }
             }
@@ -821,7 +901,7 @@
         },
         async uploadFile() {
           // Validate based on upload mode
-          if (this.uploadMode === 'file' && !this.file) {
+          if ((this.uploadMode === 'file' || this.uploadMode === 'zip') && !this.file) {
             this.result = { success: false, message: "Please select a file" };
             return;
           }
@@ -838,12 +918,13 @@
           try {
             let response;
 
-            if (this.uploadMode === 'file') {
+            if (this.uploadMode === 'file' || this.uploadMode === 'zip') {
               // File upload mode
               const formData = new FormData();
               formData.append("file", this.file);
 
-              response = await axios.post("/upload", formData, {
+              const uploadEndpoint = this.uploadMode === 'zip' ? "/uploadzip" : "/upload";
+              response = await axios.post(uploadEndpoint, formData, {
                 onUploadProgress: (progressEvent) => {
                   this.uploadProgress = (progressEvent.loaded / progressEvent.total) * 100;
                 }
@@ -864,12 +945,11 @@
               success: true,
               message: "Upload Successful",
               cid: response.data.cid,
-              size: this.uploadMode === 'url'
-                ? this.formatBytes(response.data.size)
-                : this.formatBytes(response.data.size),
-              fileType: this.getFileType(response.data.type),
+              size: this.formatBytes(response.data.size),
+              files: response.data.files,
+              fileType: this.getFileType(this.uploadMode === 'zip' ? "application/zip" : response.data.type),
               fileName: response.data.filename,
-              mimeType: response.data.type,
+              mimeType: this.uploadMode === 'zip' ? "application/zip" : response.data.type,
               url: response.data.url,
             };
 
@@ -878,7 +958,7 @@
               this.remoteUrl = "";
             } else {
               this.file = null;
-              this.fileLabel = "Drop or Choose File";
+              this.fileLabel = this.uploadMode === "zip" ? "Drop or Choose Zip" : "Drop or Choose File";
             }
           } catch (error) {
             this.uploadProgress = 0;
@@ -891,8 +971,10 @@
             this.uploading = false;
           }
         },
-        copyCurlCommand() {
-          const command = `curl -X POST -F "file=@yourfile.pdf" ${this.currentUrl}/upload`;
+        copyCurlCommand(type = "file") {
+          const route = type === "zip" ? "/uploadzip" : "/upload";
+          const filename = type === "zip" ? "archive.zip" : "yourfile.pdf";
+          const command = `curl -X POST -F "file=@${filename}" ${this.currentUrl}${route}`;
           navigator.clipboard
             .writeText(command)
             .then(() => {

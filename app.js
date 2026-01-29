@@ -19,6 +19,7 @@ const {
   healthHandler,
   statusHandler,
   uploadHandler,
+  uploadZipHandler,
   pinsHandler,
   remoteUploadHandler,
   pinAddHandler,
@@ -46,6 +47,7 @@ app.get("/health", healthHandler);
 app.get("/status", statusHandler);
 app.get("/api/pins", pinsHandler);
 app.post("/upload", upload.single("file"), uploadHandler);
+app.post("/uploadzip", upload.single("file"), uploadZipHandler);
 app.post("/remoteupload", remoteUploadHandler);
 
 // Authenticated Pin Routes
