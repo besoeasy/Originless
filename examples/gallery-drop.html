@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Originless Gallery Drop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div id="app" class="max-w-6xl mx-auto px-6 py-10">
+    <header class="mb-10">
+      <p class="text-sm uppercase tracking-[0.3em] text-slate-400">Originless</p>
+      <h1 class="text-4xl font-bold mt-3">Gallery Drop</h1>
+      <p class="text-slate-300 mt-3 max-w-2xl">
+        Upload multiple images, then generate a simple gallery page on Originless.
+      </p>
+      <div class="mt-6 bg-slate-900/70 border border-slate-800 rounded-xl p-4">
+        <p class="text-xs text-slate-400">Originless Server</p>
+        <p class="text-sm font-mono break-all">{{ originlessServer }}</p>
+      </div>
+    </header>
+
+    <div class="grid gap-8 lg:grid-cols-2">
+      <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h2 class="text-2xl font-semibold mb-4">Upload images</h2>
+        <input type="file" multiple accept="image/*" @change="handleFiles"
+          class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500" />
+
+        <div v-if="files.length" class="mt-4 text-sm text-slate-400">
+          {{ files.length }} image(s) selected
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-3">
+          <button @click="uploadImages" :disabled="busy || !files.length"
+            class="px-5 py-3 rounded-xl bg-emerald-400 text-slate-900 font-semibold hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            {{ busy ? 'Uploading...' : 'Upload Images' }}
+          </button>
+          <button @click="createGallery" :disabled="busy || !uploadedImages.length"
+            class="px-5 py-3 rounded-xl bg-sky-400 text-slate-900 font-semibold hover:bg-sky-300 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            {{ busy ? 'Generating...' : 'Generate Gallery Page' }}
+          </button>
+          <button @click="resetAll" class="px-5 py-3 rounded-xl text-slate-400 hover:text-slate-100 transition">
+            Reset
+          </button>
+        </div>
+
+        <div v-if="busy" class="mt-4 text-sm text-slate-400">{{ statusMessage }}</div>
+
+        <div v-if="uploadedImages.length" class="mt-6">
+          <p class="text-xs text-slate-400 mb-2">Uploaded images</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div v-for="image in uploadedImages" :key="image.cid" class="bg-slate-950 border border-slate-800 rounded-xl p-2">
+              <img :src="image.url" alt="Uploaded" class="rounded-lg max-h-32 object-contain" />
+              <p class="text-[10px] text-slate-500 break-all mt-2">{{ image.url }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="galleryResult" class="mt-6 space-y-4">
+          <div class="bg-emerald-950/40 border border-emerald-700 rounded-xl p-4">
+            <p class="text-xs text-emerald-200">Gallery CID</p>
+            <p class="font-mono text-sm break-all mt-1">{{ galleryResult.cid }}</p>
+            <p class="text-xs text-emerald-200 mt-2">Gallery URL</p>
+            <a :href="galleryResult.url" target="_blank"
+              class="text-xs text-emerald-300 break-all hover:underline">{{ galleryResult.url }}</a>
+          </div>
+
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <p class="text-xs text-slate-400">Share link</p>
+            <div class="flex gap-2 mt-2">
+              <input type="text" readonly :value="shareLink"
+                class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200" />
+              <button @click="copyShareLink"
+                class="px-4 py-2 rounded-lg bg-slate-200 text-slate-900 font-semibold hover:bg-white transition">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="error" class="mt-6 text-sm text-red-300 bg-red-900/30 border border-red-800 rounded-xl p-3">
+          {{ error }}
+        </div>
+      </section>
+
+      <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl">
+        <h2 class="text-2xl font-semibold mb-4">Gallery preview</h2>
+        <p class="text-sm text-slate-400 mb-4">Preview the gallery HTML locally.</p>
+        <div v-if="galleryHtml" class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-300">
+          <pre class="whitespace-pre-wrap">{{ galleryHtml }}</pre>
+        </div>
+        <div v-else class="text-sm text-slate-500">Generate a gallery to see the HTML template.</div>
+      </section>
+    </div>
+
+    <footer class="mt-12 text-xs text-slate-500">
+      The gallery page is a single HTML file hosted on Originless and loads images from IPFS gateways.
+    </footer>
+  </div>
+
+  <script>
+    const Originless_Server = "https://filedrop.besoeasy.com";
+
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          originlessServer: Originless_Server,
+          files: [],
+          uploadedImages: [],
+          galleryHtml: "",
+          galleryResult: null,
+          shareLink: "",
+          error: "",
+          busy: false,
+          statusMessage: "",
+        };
+      },
+      methods: {
+        resetAll() {
+          this.files = [];
+          this.uploadedImages = [];
+          this.galleryHtml = "";
+          this.galleryResult = null;
+          this.shareLink = "";
+          this.error = "";
+          this.statusMessage = "";
+        },
+        handleFiles(event) {
+          this.files = Array.from(event.target.files || []);
+        },
+        async uploadImages() {
+          this.error = "";
+          this.uploadedImages = [];
+          this.galleryResult = null;
+          this.shareLink = "";
+
+          if (!this.files.length) return;
+
+          try {
+            this.busy = true;
+            for (let i = 0; i < this.files.length; i += 1) {
+              const file = this.files[i];
+              this.statusMessage = `Uploading ${file.name} (${i + 1}/${this.files.length})...`;
+              const formData = new FormData();
+              formData.append("file", file);
+
+              const response = await fetch(`${Originless_Server}/upload`, {
+                method: "POST",
+                body: formData,
+              });
+
+              if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || `Upload failed (${response.status})`);
+              }
+
+              const data = await response.json();
+              this.uploadedImages.push({ cid: data.cid, url: data.url, name: file.name });
+            }
+          } catch (err) {
+            this.error = err.message || "Failed to upload images";
+          } finally {
+            this.busy = false;
+            this.statusMessage = "";
+          }
+        },
+        async createGallery() {
+          this.error = "";
+          this.galleryResult = null;
+          this.shareLink = "";
+
+          if (!this.uploadedImages.length) return;
+
+          try {
+            this.busy = true;
+            this.galleryHtml = this.buildGalleryHtml();
+            const file = new Blob([this.galleryHtml], { type: "text/html" });
+            const formData = new FormData();
+            formData.append("file", file, "gallery.html");
+
+            const response = await fetch(`${Originless_Server}/upload`, {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || `Upload failed (${response.status})`);
+            }
+
+            const data = await response.json();
+            this.galleryResult = { cid: data.cid, url: data.url };
+            this.shareLink = this.buildShareLink(data.url);
+          } catch (err) {
+            this.error = err.message || "Failed to create gallery";
+          } finally {
+            this.busy = false;
+          }
+        },
+        buildGalleryHtml() {
+          const cards = this.uploadedImages
+            .map((image) => `\n          <figure class="card">\n            <img src="${image.url}" alt="${image.name}" />\n            <figcaption>${image.name}</figcaption>\n          </figure>`)
+            .join("\n");
+
+          return `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<title>Originless Gallery</title>\n<style>\nbody{font-family:Arial,sans-serif;margin:0;padding:40px;background:#0f172a;color:#e2e8f0;}\nheader{max-width:900px;margin:0 auto 32px;}\n.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;max-width:900px;margin:0 auto;}\n.card{background:#111827;border-radius:16px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,0.3);}\nimg{width:100%;height:200px;object-fit:cover;border-radius:12px;}\nfigcaption{font-size:12px;color:#94a3b8;margin-top:8px;word-break:break-word;}\na{color:#38bdf8;}\n</style>\n</head>\n<body>\n<header>\n<h1>Originless Gallery</h1>\n<p>Shared gallery hosted on Originless.</p>\n</header>\n<div class=\"grid\">${cards}\n</div>\n</body>\n</html>`;
+        },
+        buildShareLink(url) {
+          const params = new URLSearchParams();
+          if (url) {
+            params.set("u", url);
+          }
+          return `${location.origin}${location.pathname}#${params.toString()}`;
+        },
+        async copyShareLink() {
+          if (!this.shareLink) return;
+          await navigator.clipboard.writeText(this.shareLink);
+        },
+      },
+    }).mount("#app");
+  </script>
+</body>
+
+</html>
