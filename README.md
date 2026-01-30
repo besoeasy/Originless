@@ -13,6 +13,8 @@ We have built a few example web apps using Originless. You can explore them here
 
 https://dweb.link/ipfs/QmTiXA22rjzx2g1yzDJmXu21AL5zM5dz7W9UquWSpL2ss2
 
+## Screenshot
+
 <img width="1479" height="1151" src="https://github.com/user-attachments/assets/6ed4908c-37aa-4973-a9c0-edb7c0fe479f" />
 
 ## Why Originless
