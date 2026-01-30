@@ -275,28 +275,76 @@
       }
     };
 
+    const formatBytes = (bytes) => {
+      if (!bytes) return '0 B';
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+    };
+
+    const formatDate = (timestamp) => {
+      if (!timestamp) return 'N/A';
+      return new Date(timestamp * 1000).toLocaleString();
+    };
+
     const listPins = async () => {
       try {
         const res = await axios.get(getBaseUrl() + "/pin/list", withHeaders());
         setAuthMessage("");
         let pins = res?.data?.pins || res?.data?.cids || res?.data || [];
         
-        // Handle if pins is array of objects with cid property
-        if (Array.isArray(pins) && pins.length > 0 && typeof pins[0] === 'object' && pins[0].cid) {
-          pins = pins.map(p => p.cid);
-        }
-        
         if (!Array.isArray(pins) || pins.length === 0) {
           pinList.innerHTML = "<div class=\"text-gray-400\">No pins found.</div>";
           return;
         }
+        
+        // Check if pins are objects with details
+        const hasDetails = pins.length > 0 && typeof pins[0] === 'object' && pins[0].cid;
+        
         pinList.innerHTML = pins
-          .map((cid) => `
-            <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
-              <span class="font-mono text-xs break-all">${cid}</span>
-              <button class="text-red-500 text-xs" data-remove="${cid}">Remove</button>
+          .map((pin) => {
+            const cid = hasDetails ? pin.cid : pin;
+            const size = hasDetails ? formatBytes(pin.size) : 'N/A';
+            const type = hasDetails ? (pin.type || 'file') : 'N/A';
+            const status = hasDetails ? (pin.status || 'pinned') : 'N/A';
+            const created = hasDetails ? formatDate(pin.created_at) : 'N/A';
+            
+            return `
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="font-mono text-xs break-all text-gray-900">${cid}</div>
+                </div>
+                <button class="text-red-500 hover:text-red-700 text-xs flex-shrink-0" data-remove="${cid}">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+              ${hasDetails ? `
+              <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-100">
+                <div>
+                  <span class="text-gray-500">Size:</span>
+                  <span class="text-gray-900 font-medium ml-1">${size}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Type:</span>
+                  <span class="text-gray-900 font-medium ml-1">${type}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Status:</span>
+                  <span class="text-gray-900 font-medium ml-1">
+                    <span class="inline-block w-2 h-2 rounded-full ${status === 'pinned' ? 'bg-green-500' : 'bg-yellow-500'} mr-1"></span>
+                    ${status}
+                  </span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Created:</span>
+                  <span class="text-gray-900 font-medium ml-1">${created}</span>
+                </div>
+              </div>
+              ` : ''}
             </div>
-          `)
+          `;
+          })
           .join("");
       } catch (err) {
         if (handleAuthError(err)) {
