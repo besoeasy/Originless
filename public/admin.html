@@ -279,7 +279,13 @@
       try {
         const res = await axios.get(getBaseUrl() + "/pin/list", withHeaders());
         setAuthMessage("");
-        const pins = res?.data?.pins || res?.data?.cids || res?.data || [];
+        let pins = res?.data?.pins || res?.data?.cids || res?.data || [];
+        
+        // Handle if pins is array of objects with cid property
+        if (Array.isArray(pins) && pins.length > 0 && typeof pins[0] === 'object' && pins[0].cid) {
+          pins = pins.map(p => p.cid);
+        }
+        
         if (!Array.isArray(pins) || pins.length === 0) {
           pinList.innerHTML = "<div class=\"text-gray-400\">No pins found.</div>";
           return;
