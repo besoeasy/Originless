@@ -6,6 +6,18 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 
 <img width="1536" height="1024" src="https://github.com/user-attachments/assets/5014810c-cc51-4ad4-a1b8-6e4db510c09f" />
 
+## Install
+
+```bash
+docker run -d --restart unless-stopped \
+  -p 3232:3232 \
+  -p 4001:4001/tcp \
+  -p 4001:4001/udp \
+  -e STORAGE_MAX=200GB \
+  ghcr.io/besoeasy/originless:main
+```
+
+Open http://localhost:3232 after starting.
 
 ## Example Web Apps
 
@@ -31,19 +43,6 @@ Originless is integrated into the following platforms:
 | ------------ | --------------------------------- | ------------------------------------------- |
 | **0xchat**   | Private, decentralized Nostr chat | [0xchat.com](https://0xchat.com/)           |
 | **ZeroNote** | Anonymous encrypted notes sharing | [zeronote.js.org](https://zeronote.js.org/) |
-
-**Minimal setup:**
-
-```bash
-docker run -d --restart unless-stopped \
-  -p 3232:3232 \
-  -p 4001:4001/tcp \
-  -p 4001:4001/udp \
-  -e STORAGE_MAX=200GB \
-  ghcr.io/besoeasy/originless:main
-```
-
-Open http://localhost:3232 after starting.
 
 ## How It Works
 
