@@ -4,6 +4,7 @@ require("dotenv").config();
 // Main application entry point
 const express = require("express");
 const fs = require("fs");
+const { generateKeyPair } = require("daku");
 
 // Import modules
 const {
@@ -41,6 +42,16 @@ const app = express();
 
 // Setup middleware
 setupMiddleware(app);
+
+// Auto-generate a Daku keypair when no ALLOWED_USERS provided
+if (ALLOWED_USERS.length === 0) {
+  const keys = generateKeyPair();
+  ALLOWED_USERS.push(keys.publicKey);
+  console.log("[PIN] ALLOWED_USERS not set. Generated a Daku keypair for you:");
+  console.log(`[PIN] publicKey=${keys.publicKey}`);
+  console.log(`[PIN] privateKey=${keys.privateKey}`);
+  console.log("[PIN] Pin management routes enabled for this public key.");
+}
 
 // API Routes
 app.get("/health", healthHandler);

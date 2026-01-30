@@ -130,4 +130,4 @@ docker run -d ... \
   ...
 ```
 
-If `ALLOWED_USERS` is not set, pin management endpoints are **disabled**.
+If `ALLOWED_USERS` is not set, Originless generates a Daku key pair at startup, logs it to the console, and enables pin management for that public key.
