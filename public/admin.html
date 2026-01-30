@@ -83,6 +83,7 @@
           <label class="text-sm font-medium text-gray-600 mt-4 block">Daku Token</label>
           <input id="dakuToken" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="password"
             placeholder="daku_..." />
+          <div id="authMessage" class="text-xs text-gray-500 mt-2"></div>
 
           <div class="flex items-center gap-2 mt-4">
             <button id="saveToken"
@@ -153,6 +154,7 @@
 
     const addResult = document.getElementById("addResult");
     const removeResult = document.getElementById("removeResult");
+    const authMessage = document.getElementById("authMessage");
 
     const getBaseUrl = () => baseUrlInput.value.trim() || "http://localhost:3232";
     const getToken = () => tokenInput.value.trim();
@@ -165,6 +167,20 @@
     const setResult = (el, message, isError = false) => {
       el.textContent = message;
       el.className = isError ? "text-sm text-red-500" : "text-sm text-gray-600";
+    };
+
+    const setAuthMessage = (message, isError = false) => {
+      authMessage.textContent = message;
+      authMessage.className = isError ? "text-xs text-red-500 mt-2" : "text-xs text-gray-500 mt-2";
+    };
+
+    const handleAuthError = (err) => {
+      const errorText = err?.response?.data?.error;
+      if (errorText === "Invalid token" || errorText === "Missing daku header") {
+        setAuthMessage(errorText, true);
+        return true;
+      }
+      return false;
     };
 
     const withHeaders = () => ({
@@ -193,7 +209,12 @@
       try {
         await axios.get(getBaseUrl() + "/pin/list", withHeaders());
         setStatus("Reachable", false);
+        setAuthMessage("");
       } catch (err) {
+        if (handleAuthError(err)) {
+          setStatus("Unauthorized", true);
+          return;
+        }
         setStatus("Unavailable", true);
       }
     };
@@ -206,9 +227,14 @@
       try {
         await axios.post(getBaseUrl() + "/pin/add", { cids }, withHeaders());
         setResult(addResult, "Pinned successfully.");
+        setAuthMessage("");
         addCidsInput.value = "";
         await listPins();
       } catch (err) {
+        if (handleAuthError(err)) {
+          setResult(addResult, "Authentication failed.", true);
+          return;
+        }
         setResult(addResult, err?.response?.data?.error || "Failed to add pins.", true);
       }
     };
@@ -216,6 +242,7 @@
     const listPins = async () => {
       try {
         const res = await axios.get(getBaseUrl() + "/pin/list", withHeaders());
+        setAuthMessage("");
         const pins = res?.data?.pins || res?.data?.cids || res?.data || [];
         if (!Array.isArray(pins) || pins.length === 0) {
           pinList.innerHTML = "<div class=\"text-gray-400\">No pins found.</div>";
@@ -230,6 +257,10 @@
           `)
           .join("");
       } catch (err) {
+        if (handleAuthError(err)) {
+          pinList.innerHTML = "<div class=\"text-red-500\">Authentication failed.</div>";
+          return;
+        }
         pinList.innerHTML = "<div class=\"text-red-500\">Failed to load pins.</div>";
       }
     };
@@ -242,9 +273,14 @@
       try {
         await axios.post(getBaseUrl() + "/pin/remove", { cid }, withHeaders());
         setResult(removeResult, "Removed successfully.");
+        setAuthMessage("");
         removeCidInput.value = "";
         await listPins();
       } catch (err) {
+        if (handleAuthError(err)) {
+          setResult(removeResult, "Authentication failed.", true);
+          return;
+        }
         setResult(removeResult, err?.response?.data?.error || "Failed to remove pin.", true);
       }
     };
@@ -257,6 +293,7 @@
     document.getElementById("clearToken").addEventListener("click", () => {
       clearToken();
       setResult(addResult, "Token cleared.");
+      setAuthMessage("");
     });
 
     document.getElementById("checkStatus").addEventListener("click", checkStatus);
