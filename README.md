@@ -9,10 +9,11 @@ One all-in-one storage backend you can drop into anything: your own apps, screen
 ## Install
 
 ```bash
-docker run -d --restart unless-stopped \
+docker run -d --restart unless-stopped --name originless \
   -p 3232:3232 \
   -p 4001:4001/tcp \
   -p 4001:4001/udp \
+  -v originless-data:/data \
   -e STORAGE_MAX=200GB \
   ghcr.io/besoeasy/originless:main
 ```

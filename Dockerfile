@@ -7,14 +7,14 @@ ENV NODE_ENV=production
 
 # Install dependencies (curl, tar, etc.)
 RUN apt-get update && \
-    apt-get install -y curl tar && \
-    rm -rf /var/lib/apt/lists/*
+  apt-get install -y curl tar && \
+  rm -rf /var/lib/apt/lists/*
 
 # Install IPFS (Kubo)
 RUN curl -fsSL "https://dist.ipfs.tech/kubo/v0.39.0/kubo_v0.39.0_linux-$(dpkg --print-architecture).tar.gz" | \
-    tar -xz -C /tmp && \
-    mv /tmp/kubo/ipfs /usr/local/bin/ipfs && \
-    rm -rf /tmp/kubo
+  tar -xz -C /tmp && \
+  mv /tmp/kubo/ipfs /usr/local/bin/ipfs && \
+  rm -rf /tmp/kubo
 
 WORKDIR /app
 
@@ -51,6 +51,6 @@ CMD ["sh", "-c", "\
   ipfs config --json Provide.DHT.Interval '\"24h\"' && \
   ipfs daemon --enable-gc --routing=dhtclient & \
   until curl -s http://127.0.0.1:5001/api/v0/id > /dev/null; do \
-    echo 'Waiting for IPFS daemon...'; sleep 3; \
+  echo 'Waiting for IPFS daemon...'; sleep 3; \
   done && \
   exec node app.js"]
