@@ -80,10 +80,10 @@
           <input id="baseUrl" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="text"
             placeholder="http://localhost:3232" />
 
-          <label class="text-sm font-medium text-gray-600 mt-4 block">Daku Token</label>
-          <input id="dakuToken" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="password"
-            placeholder="daku_..." />
-          <div id="authMessage" class="text-xs text-gray-500 mt-2"></div>
+          <label class="text-sm font-medium text-gray-600 mt-4 block">Private Key</label>
+          <input id="privateKey" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="password"
+            placeholder="Paste from console logs..." />
+          <div id="authMessage" class="text-xs text-gray-500 mt-2">Token will be generated automatically from private key.</div>
 
           <div class="flex items-center gap-2 mt-4">
             <button id="saveToken"
@@ -144,9 +144,11 @@
     </footer>
   </div>
 
-  <script>
+  <script type="module">
+    import * as daku from 'https://esm.sh/daku@0.1.0';
+    
     const baseUrlInput = document.getElementById("baseUrl");
-    const tokenInput = document.getElementById("dakuToken");
+    const privateKeyInput = document.getElementById("privateKey");
     const addCidsInput = document.getElementById("addCids");
     const removeCidInput = document.getElementById("removeCid");
     const pinList = document.getElementById("pinList");
@@ -156,8 +158,10 @@
     const removeResult = document.getElementById("removeResult");
     const authMessage = document.getElementById("authMessage");
 
+    let currentToken = "";
+
     const getBaseUrl = () => baseUrlInput.value.trim() || "http://localhost:3232";
-    const getToken = () => tokenInput.value.trim();
+    const getToken = () => currentToken;
 
     const setStatus = (message, isError = false) => {
       apiStatus.textContent = message;
@@ -190,19 +194,51 @@
       }
     });
 
+    const generateTokenFromPrivateKey = async () => {
+      const privateKey = privateKeyInput.value.trim();
+      if (!privateKey) {
+        currentToken = "";
+        setAuthMessage("Enter a private key to generate token.", false);
+        return;
+      }
+      try {
+        // Check if daku is available in window
+        const createAuth = daku?.createAuth;
+        if (!createAuth) {
+          throw new Error("Daku library not loaded");
+        }
+        const token = await createAuth(privateKey);
+        currentToken = token;
+        setAuthMessage("✓ Token generated successfully!", false);
+      } catch (err) {
+        currentToken = "";
+        console.error("Token generation error:", err);
+        setAuthMessage("Failed to generate token: " + (err.message || "Check private key"), true);
+      }
+    };
+
+    // Auto-generate token when private key changes
+    privateKeyInput.addEventListener("input", generateTokenFromPrivateKey);
+    privateKeyInput.addEventListener("paste", () => {
+      setTimeout(generateTokenFromPrivateKey, 100);
+    });
+
     const saveToken = () => {
-      localStorage.setItem("originless_admin_token", getToken());
+      localStorage.setItem("originless_admin_privatekey", privateKeyInput.value.trim());
       localStorage.setItem("originless_admin_base", getBaseUrl());
     };
 
     const loadToken = () => {
-      tokenInput.value = localStorage.getItem("originless_admin_token") || "";
+      privateKeyInput.value = localStorage.getItem("originless_admin_privatekey") || "";
       baseUrlInput.value = localStorage.getItem("originless_admin_base") || "http://localhost:3232";
+      generateTokenFromPrivateKey();
     };
 
     const clearToken = () => {
-      localStorage.removeItem("originless_admin_token");
-      tokenInput.value = "";
+      localStorage.removeItem("originless_admin_privatekey");
+      privateKeyInput.value = "";
+      currentToken = "";
+      setAuthMessage("Token will be generated automatically from private key.", false);
     };
 
     const checkStatus = async () => {
