@@ -24,7 +24,7 @@ Open http://localhost:3232 after starting.
 
 We have built a few example web apps using Originless. You can explore them here:
 
-https://dweb.link/ipfs/QmTiXA22rjzx2g1yzDJmXu21AL5zM5dz7W9UquWSpL2ss2
+<a href="https://dweb.link/ipfs/QmTiXA22rjzx2g1yzDJmXu21AL5zM5dz7W9UquWSpL2ss2" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Open Example Web Apps</a>
 
 ## Screenshot
 
