@@ -71,6 +71,14 @@ curl -X POST http://localhost:3232/remoteupload \
 
 Authentication is handled via [Daku](https://www.npmjs.com/package/daku). Send your Daku token in the `daku: <token>` header.
 
+Generate a new Daku key pair locally with Node:
+
+```bash
+node -e "const { generateKeyPair } = require('daku'); const keys = generateKeyPair(); console.log('publicKey:', keys.publicKey); console.log('privateKey:', keys.privateKey);"
+```
+
+Use your Daku tooling to create a token from the private key and send it in the `daku` header for the requests below.
+
 ### POST /pin/add
 Add one or more CIDs to your pin list.
 

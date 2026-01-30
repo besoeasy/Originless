@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Originless Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+    body {
+      font-family: "Inter", sans-serif;
+    }
+
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .hover-lift {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    .status-dot {
+      position: relative;
+    }
+
+    .status-dot::after {
+      content: "";
+      position: absolute;
+      right: -6px;
+      top: -2px;
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 9999px;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-gray-100 p-6">
+  <div class="max-w-6xl mx-auto">
+    <header class="bg-black text-white rounded-2xl p-6 mb-6 shadow-lg">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold">Originless Admin</h1>
+            <span class="text-gray-400 font-mono text-sm">Pin Management</span>
+          </div>
+          <p class="text-gray-300 mt-2">Manage pinned CIDs using Daku-authenticated endpoints.</p>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+          <span class="status-dot">API status:</span>
+          <span id="apiStatus" class="text-gray-300">Not checked</span>
+          <button
+            id="checkStatus"
+            class="ml-2 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition"
+          >
+            Check
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-1 space-y-6">
+        <div class="glassmorphism rounded-2xl p-5 shadow-md hover-lift">
+          <h2 class="text-lg font-semibold text-gray-900 mb-3"><i class="fa-solid fa-key mr-2"></i>Authentication</h2>
+          <label class="text-sm font-medium text-gray-600">Base URL</label>
+          <input id="baseUrl" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="text"
+            placeholder="http://localhost:3232" />
+
+          <label class="text-sm font-medium text-gray-600 mt-4 block">Daku Token</label>
+          <input id="dakuToken" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="password"
+            placeholder="daku_..." />
+
+          <div class="flex items-center gap-2 mt-4">
+            <button id="saveToken"
+              class="flex-1 bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition">Save</button>
+            <button id="clearToken" class="px-4 py-2 rounded-lg border border-gray-200">Clear</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-3">Token stored in localStorage for convenience.</p>
+        </div>
+
+        <div class="glassmorphism rounded-2xl p-5 shadow-md hover-lift">
+          <h2 class="text-lg font-semibold text-gray-900 mb-3"><i class="fa-solid fa-circle-info mr-2"></i>How it works</h2>
+          <ol class="text-sm text-gray-600 space-y-2 list-decimal pl-4">
+            <li>Send the Daku token in the <span class="font-mono">daku</span> header.</li>
+            <li>Use <span class="font-mono">/pin/add</span> to pin CIDs.</li>
+            <li>Use <span class="font-mono">/pin/list</span> to retrieve pins.</li>
+            <li>Use <span class="font-mono">/pin/remove</span> to unpin.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2 space-y-6">
+        <div class="glassmorphism rounded-2xl p-5 shadow-md hover-lift">
+          <h2 class="text-lg font-semibold text-gray-900 mb-3"><i class="fa-solid fa-thumbtack mr-2"></i>Add Pins</h2>
+          <label class="text-sm text-gray-600">CIDs (one per line)</label>
+          <textarea id="addCids" rows="4" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200"
+            placeholder="QmHash1...\nQmHash2..."></textarea>
+          <div class="flex items-center gap-3 mt-4">
+            <button id="addPins" class="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition">Pin</button>
+            <span id="addResult" class="text-sm text-gray-600"></span>
+          </div>
+        </div>
+
+        <div class="glassmorphism rounded-2xl p-5 shadow-md hover-lift">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900"><i class="fa-solid fa-list mr-2"></i>Pin List</h2>
+            <button id="refreshPins" class="px-4 py-2 rounded-lg border border-gray-200">Refresh</button>
+          </div>
+          <div id="pinList" class="mt-4 space-y-2 text-sm text-gray-700">
+            <div class="text-gray-400">No pins loaded yet.</div>
+          </div>
+        </div>
+
+        <div class="glassmorphism rounded-2xl p-5 shadow-md hover-lift">
+          <h2 class="text-lg font-semibold text-gray-900 mb-3"><i class="fa-solid fa-trash mr-2"></i>Remove Pin</h2>
+          <label class="text-sm text-gray-600">CID</label>
+          <input id="removeCid" class="w-full mt-1 px-3 py-2 rounded-lg border border-gray-200" type="text"
+            placeholder="QmHash..." />
+          <div class="flex items-center gap-3 mt-4">
+            <button id="removePin" class="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition">Remove</button>
+            <span id="removeResult" class="text-sm text-gray-600"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="text-xs text-gray-500 mt-8 text-center">
+      Requires ALLOWED_USERS to be configured on the server.
+    </footer>
+  </div>
+
+  <script>
+    const baseUrlInput = document.getElementById("baseUrl");
+    const tokenInput = document.getElementById("dakuToken");
+    const addCidsInput = document.getElementById("addCids");
+    const removeCidInput = document.getElementById("removeCid");
+    const pinList = document.getElementById("pinList");
+    const apiStatus = document.getElementById("apiStatus");
+
+    const addResult = document.getElementById("addResult");
+    const removeResult = document.getElementById("removeResult");
+
+    const getBaseUrl = () => baseUrlInput.value.trim() || "http://localhost:3232";
+    const getToken = () => tokenInput.value.trim();
+
+    const setStatus = (message, isError = false) => {
+      apiStatus.textContent = message;
+      apiStatus.className = isError ? "text-red-400" : "text-gray-300";
+    };
+
+    const setResult = (el, message, isError = false) => {
+      el.textContent = message;
+      el.className = isError ? "text-sm text-red-500" : "text-sm text-gray-600";
+    };
+
+    const withHeaders = () => ({
+      headers: {
+        daku: getToken(),
+        "Content-Type": "application/json"
+      }
+    });
+
+    const saveToken = () => {
+      localStorage.setItem("originless_admin_token", getToken());
+      localStorage.setItem("originless_admin_base", getBaseUrl());
+    };
+
+    const loadToken = () => {
+      tokenInput.value = localStorage.getItem("originless_admin_token") || "";
+      baseUrlInput.value = localStorage.getItem("originless_admin_base") || "http://localhost:3232";
+    };
+
+    const clearToken = () => {
+      localStorage.removeItem("originless_admin_token");
+      tokenInput.value = "";
+    };
+
+    const checkStatus = async () => {
+      try {
+        await axios.get(getBaseUrl() + "/pin/list", withHeaders());
+        setStatus("Reachable", false);
+      } catch (err) {
+        setStatus("Unavailable", true);
+      }
+    };
+
+    const addPins = async () => {
+      const cids = addCidsInput.value.split(/\n+/).map((cid) => cid.trim()).filter(Boolean);
+      if (!cids.length) {
+        return setResult(addResult, "Enter at least one CID.", true);
+      }
+      try {
+        await axios.post(getBaseUrl() + "/pin/add", { cids }, withHeaders());
+        setResult(addResult, "Pinned successfully.");
+        addCidsInput.value = "";
+        await listPins();
+      } catch (err) {
+        setResult(addResult, err?.response?.data?.error || "Failed to add pins.", true);
+      }
+    };
+
+    const listPins = async () => {
+      try {
+        const res = await axios.get(getBaseUrl() + "/pin/list", withHeaders());
+        const pins = res?.data?.pins || res?.data?.cids || res?.data || [];
+        if (!Array.isArray(pins) || pins.length === 0) {
+          pinList.innerHTML = "<div class=\"text-gray-400\">No pins found.</div>";
+          return;
+        }
+        pinList.innerHTML = pins
+          .map((cid) => `
+            <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+              <span class="font-mono text-xs break-all">${cid}</span>
+              <button class="text-red-500 text-xs" data-remove="${cid}">Remove</button>
+            </div>
+          `)
+          .join("");
+      } catch (err) {
+        pinList.innerHTML = "<div class=\"text-red-500\">Failed to load pins.</div>";
+      }
+    };
+
+    const removePin = async (cidValue) => {
+      const cid = cidValue || removeCidInput.value.trim();
+      if (!cid) {
+        return setResult(removeResult, "Enter a CID.", true);
+      }
+      try {
+        await axios.post(getBaseUrl() + "/pin/remove", { cid }, withHeaders());
+        setResult(removeResult, "Removed successfully.");
+        removeCidInput.value = "";
+        await listPins();
+      } catch (err) {
+        setResult(removeResult, err?.response?.data?.error || "Failed to remove pin.", true);
+      }
+    };
+
+    document.getElementById("saveToken").addEventListener("click", () => {
+      saveToken();
+      setResult(addResult, "Token saved.");
+    });
+
+    document.getElementById("clearToken").addEventListener("click", () => {
+      clearToken();
+      setResult(addResult, "Token cleared.");
+    });
+
+    document.getElementById("checkStatus").addEventListener("click", checkStatus);
+    document.getElementById("addPins").addEventListener("click", addPins);
+    document.getElementById("refreshPins").addEventListener("click", listPins);
+    document.getElementById("removePin").addEventListener("click", () => removePin());
+
+    pinList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-remove]");
+      if (!button) return;
+      removePin(button.getAttribute("data-remove"));
+    });
+
+    loadToken();
+  </script>
+</body>
+
+</html>
