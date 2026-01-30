@@ -71,6 +71,34 @@ curl -X POST http://localhost:3232/remoteupload \
 
 Authentication is handled via [Daku](https://www.npmjs.com/package/daku). Send your Daku token in the `daku: <token>` header.
 
+### Why Daku?
+
+Daku provides **decentralized, self-sovereign authentication** without passwords, accounts, or server-side sessions:
+
+- **No accounts required** - Users control their own cryptographic keys
+- **Stateless authentication** - No session storage or cookies needed on the server
+- **Proof of work** - Built-in spam protection through computational proof
+- **Cryptographic verification** - Each request is signed with your private key
+- **Nostr-compatible** - Uses the same secp256k1 keypairs as Nostr
+- **Self-sovereign identity** - You own and control your authentication credentials
+- **Perfect for P2P** - No centralized auth servers or databases required
+
+Each token is cryptographically signed and includes proof-of-work, making it impossible to forge and costly to spam.
+
+### Admin Web UI
+
+For a user-friendly interface, visit `http://localhost:3232/admin.html` in your browser.
+
+The admin panel provides:
+- Automatic token generation from your private key
+- Pin management (add, list, remove)
+- Detailed pin information (size, type, status, creation date)
+- Token storage in localStorage for convenience
+
+Simply paste your private key (from console logs if auto-generated) and the token is automatically generated for API requests.
+
+### Command Line Usage
+
 Generate a new Daku key pair locally with Node:
 
 ```bash
@@ -94,12 +122,32 @@ curl -X POST http://localhost:3232/pin/add \
 ---
 
 ### GET /pin/list
-List your pinned CIDs.
+List your pinned CIDs with detailed information.
 
 **Request**
 
 ```bash
 curl -H "daku: <token>" http://localhost:3232/pin/list
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "pins": [
+    {
+      "id": 1,
+      "cid": "QmHash...",
+      "size": 12345,
+      "type": "file",
+      "status": "pinned",
+      "author": "02abc...",
+      "created_at": 1738276800,
+      "updated_at": 1738276800
+    }
+  ]
+}
 ```
 
 ---
