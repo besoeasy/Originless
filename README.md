@@ -4,13 +4,16 @@ Private, decentralized file sharing for Nostr and the web.
 
 One all-in-one storage backend you can drop into anything: your own apps, screenshot tools, pastebin-style pastes, Nostr clients, Reddit posts, forum embeds—anything that needs durable, anonymous file hosting. One Originless to rule them all and keep you anonymous.
 
-<img width="2241" height="1608" alt="filedrop" src="https://github.com/user-attachments/assets/141cc0cf-9684-421d-8214-b1ed45e1e813" />
+<img width="1536" height="1024" src="https://github.com/user-attachments/assets/5014810c-cc51-4ad4-a1b8-6e4db510c09f" />
+
 
 ## Example Web Apps
 
 We have built a few example web apps using Originless. You can explore them here:
 
 https://dweb.link/ipfs/QmTiXA22rjzx2g1yzDJmXu21AL5zM5dz7W9UquWSpL2ss2
+
+<img width="1479" height="1151" src="https://github.com/user-attachments/assets/6ed4908c-37aa-4973-a9c0-edb7c0fe479f" />
 
 ## Why Originless
 
