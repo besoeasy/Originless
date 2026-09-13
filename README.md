@@ -8,6 +8,7 @@ No accounts. No API keys. One Docker container.
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
 [![API](https://img.shields.io/badge/HTTP%20API-api.md-1f6feb)](api.md)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Available on Umbrel App Store](https://apps.umbrel.com/api/app/originless/badge-light.svg)](https://apps.umbrel.com/app/originless)
 
 </div>
 
