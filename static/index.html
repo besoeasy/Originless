@@ -49,25 +49,32 @@
 
   <div class="app-body">
     <section class="workspace">
-      <button
-        type="button"
-        class="library-progress"
-        @click="nodeSheetOpen = true"
-        :title="status.repoSize"
-        :aria-label="'Storage ' + storagePercentage + ' percent, ' + status.repoSize"
-      >
-        <span class="library-progress-track">
-          <span
-            class="library-progress-fill"
-            :class="storageGaugeClass"
-            :style="{ width: storagePercentage + '%' }"
-          ></span>
-        </span>
-        <span class="library-progress-meta">
-          <span class="mono">{{ storagePercentage }}%</span>
-          <span>{{ status.repoSize }}</span>
-        </span>
-      </button>
+      <div class="stat-grid" aria-label="Node telemetry">
+        <button type="button" class="stat-card" @click="nodeSheetOpen = true">
+          <span class="stat-label">Swarm</span>
+          <span class="stat-value mono">{{ status.peerscount }}</span>
+          <span class="stat-sub">{{ status.bandwidthRateIn }} in · {{ status.bandwidthRateOut }} out</span>
+          <span class="stat-live"><span class="dot"></span>Online</span>
+        </button>
+        <button type="button" class="stat-card" @click="nodeSheetOpen = true" :title="'Storage ' + storagePercentage + '%, ' + status.repoSize">
+          <span class="stat-label">Storage</span>
+          <span class="stat-value mono">{{ storagePercentage }}%</span>
+          <span class="stat-sub">{{ status.repoSize }}</span>
+          <span class="stat-meter" :aria-label="'Storage ' + storagePercentage + ' percent full'">
+            <span :class="storageGaugeClass" :style="{ width: storagePercentage + '%' }"></span>
+          </span>
+        </button>
+        <button type="button" class="stat-card" @click="nodeSheetOpen = true" :title="pinStats.count + ' pins'">
+          <span class="stat-label">Pinned</span>
+          <span class="stat-value mono">{{ pinStats.count }}</span>
+          <span class="stat-sub">{{ pinStats.sizeStr }} · evict at {{ pinStats.threshold }}%</span>
+        </button>
+        <button type="button" class="stat-card" @click="nodeSheetOpen = true">
+          <span class="stat-label">Gateway</span>
+          <span class="stat-value">{{ gatewayEnabled ? 'On' : 'Off' }}</span>
+          <span class="stat-sub">{{ gatewayEnabled ? gatewayHost : 'HTTP gateway disabled' }}</span>
+        </button>
+      </div>
       <div class="workspace-bar">
         <div class="bar-title">
           <h1>Library</h1>
@@ -76,7 +83,7 @@
         <div class="bar-tools">
           <label class="search-box">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input v-model="searchQuery" type="search" placeholder="Filter by name or CID" />
+            <input ref="searchInput" v-model="searchQuery" type="search" placeholder="Filter by name or CID" />
           </label>
           <select v-model="typeFilter" class="select-compact">
             <option value="all">All types</option>

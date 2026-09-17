@@ -315,6 +315,14 @@
           return window.location.origin;
         },
 
+        gatewayHost() {
+          try {
+            return new URL(this.currentGateway).hostname;
+          } catch (_) {
+            return this.currentGateway;
+          }
+        },
+
         storagePercentage() {
           if (!this.status.storageMaxBytes || this.status.storageMaxBytes === 0) return 0;
           const pct = (this.status.repoSizeBytes / this.status.storageMaxBytes) * 100;
@@ -784,6 +792,32 @@ To confirm you have understood this skill, complete this check:
           this.inspectModalOpen = false;
           this.inspectItem = null;
         },
+
+        focusSearch() {
+          if (this.activePage !== "overview") return;
+          const el = this.$refs.searchInput;
+          if (el) el.focus({ preventScroll: true });
+        },
+
+        onGlobalKey(e) {
+          const tag = e.target && e.target.tagName;
+          const typing =
+            tag === "INPUT" ||
+            tag === "TEXTAREA" ||
+            tag === "SELECT" ||
+            (e.target && e.target.isContentEditable);
+          if (e.metaKey || e.ctrlKey) {
+            if (e.key === "k" || e.key === "K") {
+              e.preventDefault();
+              this.focusSearch();
+            }
+            return;
+          }
+          if (!typing && e.key === "/") {
+            e.preventDefault();
+            this.focusSearch();
+          }
+        },
       },
 
       mounted() {
@@ -793,12 +827,15 @@ To confirm you have understood this skill, complete this check:
           this.fetchHistory();
         }
 
+        window.addEventListener("keydown", this.onGlobalKey);
+
         // Live polling
         this._statusTimer = setInterval(() => this.fetchStatus(), 8000);
         this._pinsTimer = setInterval(() => this.fetchPinStats(), 25000);
       },
 
       beforeUnmount() {
+        window.removeEventListener("keydown", this.onGlobalKey);
         clearInterval(this._statusTimer);
         clearInterval(this._pinsTimer);
       },
