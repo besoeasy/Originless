@@ -44,6 +44,10 @@ func NewRouter(ipfsClient *Client, janitorManager *Manager, uiFS fs.FS, examples
 		http.Redirect(w, r, "/", http.StatusMovedPermanently)
 	})
 
+	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/agent.html", http.StatusMovedPermanently)
+	})
+
 	mux.Handle("/", http.FileServer(http.FS(uiFS)))
 
 	// CORS and Gzip Set headers before the handler runs. ReverseProxy then

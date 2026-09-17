@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Prompt — Originless</title>
+  <meta name="theme-color" content="#0b0b0c" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+<div id="app" class="app-shell">
+
+  <header class="app-topbar">
+    <div class="topbar-start">
+      <a class="brand" href="/">
+        <img src="/logo.svg" alt="" />
+        Originless
+      </a>
+      <nav class="app-nav">
+        <a href="/">Library</a>
+        <a href="/agent" class="is-current">Agent</a>
+        <a href="/examples/">Tools</a>
+      </nav>
+    </div>
+    <div class="topbar-end">
+      <button type="button" class="peer-btn" @click="nodeSheetOpen = true">
+        <span class="dot"></span>
+        {{ status.peerscount }} peers
+      </button>
+      <label class="select-plain">
+        <span>Gateway</span>
+        <select v-model="currentGateway" @change="onGatewayChange">
+          <option v-for="gw in gateways" :key="gw.url" :value="gw.url">{{ gw.label }}</option>
+        </select>
+      </label>
+      <a class="icon-btn github-btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener" title="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+      </a>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <section class="workspace">
+      <section class="agent-prompt agent-page" aria-label="Agent Prompt">
+        <div class="agent-prompt-bar">
+          <div class="bar-title">
+            <h2>Agent Prompt</h2>
+            <span class="count">Skill</span>
+          </div>
+          <div class="bar-tools">
+            <div class="seg" role="tablist">
+              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'plain' }" @click="promptFormat = 'plain'">Prompt</button>
+              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'markdown' }" @click="promptFormat = 'markdown'">Markdown</button>
+              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'curl' }" @click="promptFormat = 'curl'">cURL</button>
+              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'python' }" @click="promptFormat = 'python'">Python</button>
+            </div>
+            <button class="btn btn-solid" type="button" @click="copyText(generatedAgentPrompt, 'Agent prompt copied')">
+              Copy
+            </button>
+          </div>
+        </div>
+        <p class="agent-prompt-hint">Paste this into Cursor, Claude, Copilot, or any agent so it pins files, folders, and sites to this node — no API keys.</p>
+        <pre class="agent-prompt-body">{{ generatedAgentPrompt }}</pre>
+      </section>
+    </section>
+  </div>
+
+  <div v-if="nodeSheetOpen" class="overlay" @click.self="nodeSheetOpen = false">
+    <div class="drawer">
+      <div class="inspector-head">
+        Node
+        <button class="icon-btn" type="button" @click="nodeSheetOpen = false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-k">Swarm</div>
+          <div class="metric-v">{{ status.peerscount }}</div>
+          <div class="metric-s">{{ status.bandwidthRateIn }} in · {{ status.bandwidthRateOut }} out</div>
+        </div>
+        <div class="metric">
+          <div class="metric-k">Storage</div>
+          <div class="metric-v">{{ storagePercentage }}%</div>
+          <div class="metric-s">{{ status.repoSize }}</div>
+          <span class="meter" style="width:100%;margin-top:8px"><span :class="storageGaugeClass" :style="{ width: storagePercentage + '%' }"></span></span>
+        </div>
+        <div class="metric">
+          <div class="metric-k">Pins</div>
+          <div class="metric-v">{{ pinStats.sizeStr }}</div>
+          <div class="metric-s">{{ pinStats.count }} pins · evict at {{ pinStats.threshold }}%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-k">Gateway</div>
+          <div class="metric-v">{{ gatewayEnabled ? 'On' : 'Off' }}</div>
+          <div class="metric-s">{{ gatewayEnabled ? '/ipfs/{cid} on this node' : 'HTTP gateway disabled' }}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-k">Daemon v{{ status.appver }}</div>
+          <div class="metric-v mono" style="font-size:16px" :title="status.fullNodeId">{{ status.nodeId }}</div>
+          <div class="metric-s">{{ status.version }} · {{ status.timestamp }} · {{ status.repoObjects }} objects</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack">
+    <div v-for="toast in toasts" :key="toast.id" class="toast" :class="{ 'is-error': toast.type === 'error' }">{{ toast.message }}</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="/js/app.js"></script>
+<script>
+  Originless.createOriginlessApp({ page: "agent" }).mount("#app");
+</script>
+</body>
+</html>

@@ -26,6 +26,7 @@
       </a>
       <nav class="app-nav">
         <a href="/" class="is-current">Library</a>
+        <a href="/agent">Agent</a>
         <a href="/examples/">Tools</a>
       </nav>
     </div>
@@ -48,27 +49,6 @@
 
   <div class="app-body">
     <section class="workspace">
-      <section class="agent-prompt" aria-label="Agent Prompt">
-        <div class="agent-prompt-bar">
-          <div class="bar-title">
-            <h2>Agent Prompt</h2>
-            <span class="count">Skill</span>
-          </div>
-          <div class="bar-tools">
-            <div class="seg" role="tablist">
-              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'plain' }" @click="promptFormat = 'plain'">Prompt</button>
-              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'markdown' }" @click="promptFormat = 'markdown'">Markdown</button>
-              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'curl' }" @click="promptFormat = 'curl'">cURL</button>
-              <button type="button" role="tab" :class="{ 'is-on': promptFormat === 'python' }" @click="promptFormat = 'python'">Python</button>
-            </div>
-            <button class="btn btn-solid" type="button" @click="copyText(generatedAgentPrompt, 'Agent prompt copied')">
-              Copy
-            </button>
-          </div>
-        </div>
-        <p class="agent-prompt-hint">Paste this into Cursor, Claude, Copilot, or any agent so it pins files, folders, and sites to this node — no API keys.</p>
-        <pre class="agent-prompt-body">{{ generatedAgentPrompt }}</pre>
-      </section>
       <button
         type="button"
         class="library-progress"
