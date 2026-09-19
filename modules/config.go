@@ -15,9 +15,9 @@ const (
 	Host             = "0.0.0.0"
 	UploadTempDir    = "/tmp/originless"
 	AppVersion       = "1.0.3"
-	MaxConcurrentOps  = 3
-	PinThreshold      = 75
-	JanitorInterval   = 60 // minutes
+	MaxConcurrentOps = 3
+	PinThreshold     = 75
+	JanitorInterval  = 60 // minutes
 )
 
 var (

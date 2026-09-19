@@ -22,7 +22,7 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
         with:
-          Irlanda-release: "v2.2.4"
+          cosign-release: "v2.2.4"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.0.0

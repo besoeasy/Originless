@@ -514,10 +514,6 @@ To confirm you have understood this skill, complete this check:
           this.showToast(`Active Gateway set to ${gwName}`, "success");
         },
 
-        setArchiveView(view) {
-          this.archiveView = "table";
-        },
-
         setSort(field) {
           const desc = field + "-desc";
           const asc = field + "-asc";

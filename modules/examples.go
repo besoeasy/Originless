@@ -23,11 +23,12 @@ type ExampleTool struct {
 }
 
 var (
-	titleRegex     = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
-	metaDescRegex  = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']description["']`)
-	metaCatRegex   = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']category["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']category["']`)
-	metaEndpRegex  = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']endpoint["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']endpoint["']`)
-	metaOrderRegex = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']order["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']order["']`)
+	titleRegex       = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
+	metaDescRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']description["']`)
+	metaCatRegex     = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']category["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']category["']`)
+	metaEndpRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']endpoint["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']endpoint["']`)
+	metaOrderRegex   = regexp.MustCompile(`(?i)<meta\s+[^>]*name=["']order["'][^>]*content=["']([^"']*)["']|(?i)<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']order["']`)
+	titleSuffixRegex = regexp.MustCompile(`\s*[-—–|]\s*(Originless\s*Examples?|Originless).*$`)
 )
 
 // ScanExamples reads all .html files (except index.html) from the given filesystem and extracts their metadata.
@@ -81,7 +82,7 @@ func parseExampleMetadata(filename string, content string) ExampleTool {
 	if match := titleRegex.FindStringSubmatch(content); len(match) > 1 {
 		title := strings.TrimSpace(match[1])
 		// Strip common branding suffixes
-		title = regexp.MustCompile(`\s*[-—–|]\s*(Originless\s*Examples?|Originless).*$`).ReplaceAllString(title, "")
+		title = titleSuffixRegex.ReplaceAllString(title, "")
 		tool.Title = strings.TrimSpace(title)
 	}
 	if tool.Title == "" {

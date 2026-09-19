@@ -19,13 +19,9 @@ func NewRouter(ipfsClient *Client, janitorManager *Manager, uiFS fs.FS, examples
 	mux.HandleFunc("GET /pins", handler.PinStats)
 	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, ipfsClient))
 
-	// Path-gateway: serve pinned files directly from this node. Disabled when
-	// ENABLE_GATEWAY=false so operators who do not want to be an HTTP origin
-	// can keep upload-and-pin-only behavior.
-	mux.HandleFunc("/ipfs/", handler.Gateway)
-	mux.HandleFunc("/ipfs", handler.Gateway)
-	mux.HandleFunc("/ipns/", handler.Gateway)
-	mux.HandleFunc("/ipns", handler.Gateway)
+	// Path-gateway requests at /ipfs and /ipns are dispatched by the wrapper
+	// below (isGatewayRequest) so they bypass CORS/Gzip — Kubo emits its own
+	// headers for gateway responses. Everything else goes through the mux.
 
 	// Dynamic examples endpoint & routes
 	mux.HandleFunc("GET /api/examples", handler.ExamplesList)

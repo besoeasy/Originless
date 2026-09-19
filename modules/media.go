@@ -400,7 +400,7 @@ func pngStripMetadata(data []byte) ([]byte, error) {
 		length := int(binary.BigEndian.Uint32(data[i : i+4]))
 		typ := string(data[i+4 : i+8])
 		end := i + 12 + length
-		if length < 0 || end > len(data) {
+		if end > len(data) {
 			return nil, errors.New("invalid png chunk")
 		}
 		if keep[typ] {

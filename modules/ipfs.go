@@ -132,7 +132,7 @@ func (c *Client) GetStats(ctx context.Context) (*Stats, error) {
 	stats.Bandwidth.TotalOut = jsonInt64(bw["TotalOut"])
 	stats.Bandwidth.RateIn = jsonInt64(bw["RateIn"])
 	stats.Bandwidth.RateOut = jsonInt64(bw["RateOut"])
-	stats.Bandwidth.Interval = "1h"
+	stats.Bandwidth.Interval = "5m"
 
 	stats.Repository.Size = jsonInt64(repo["RepoSize"])
 	stats.Repository.StorageMax = jsonInt64(repo["StorageMax"])
