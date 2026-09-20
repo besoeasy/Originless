@@ -34,149 +34,6 @@
 
   <div class="app-body">
     <section class="workspace">
-      <div class="stat-grid" aria-label="Node telemetry">
-        <!-- Swarm Telemetry Card (styled like Traffic) -->
-        <div class="node-swarm-card" aria-label="Swarm Telemetry">
-          <div class="traffic-card-head">
-            <div class="traffic-badge-wrap">
-              <span class="showcase-badge">Swarm</span>
-              <span class="pill pill-ok"><span class="dot" style="background:#3dd68c;box-shadow:0 0 6px #3dd68c;"></span>Online</span>
-            </div>
-            <span class="mono traffic-interval">libp2p Mesh</span>
-          </div>
-
-          <div class="traffic-rates-block">
-            <div class="traffic-rate-item">
-              <span class="traffic-dir-label">PEERS</span>
-              <div class="traffic-rate-val mono text-out">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>{{ status.peerscount }}</span>
-              </div>
-              <span class="traffic-total-sub mono">Peer connections</span>
-            </div>
-
-            <div class="traffic-rate-sep"></div>
-
-            <div class="traffic-rate-item">
-              <span class="traffic-dir-label">ROUTING</span>
-              <div class="traffic-rate-val mono text-in">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="12" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="20" r="2"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="18" y2="12"/><line x1="12" y1="6" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="18"/></svg>
-                <span>Active</span>
-              </div>
-              <span class="traffic-total-sub mono">Kubo DHT Client</span>
-            </div>
-          </div>
-
-          <div class="traffic-wave-wrap">
-            <svg viewBox="0 0 240 32" width="100%" height="26" preserveAspectRatio="none" class="traffic-wave-svg">
-              <defs>
-                <linearGradient id="swarmWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.1" />
-                  <stop offset="50%" stop-color="#3dd68c" stop-opacity="0.8" />
-                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2" />
-                </linearGradient>
-              </defs>
-              <path d="M0 16 Q 30 26, 60 16 T 120 16 T 180 16 T 240 16" fill="none" stroke="url(#swarmWaveGrad)" stroke-width="2" class="swarm-wave-flow" />
-              <path d="M 30 21 L 90 11 L 150 21 L 210 11" fill="none" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3 3" opacity="0.35" />
-              <circle cx="60" cy="16" r="2.5" fill="#3dd68c" class="swarm-dot-pulse" />
-              <circle cx="120" cy="16" r="3.5" fill="#3dd68c" class="traffic-dot-pulse" />
-              <circle cx="180" cy="16" r="2.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 0.8s" />
-            </svg>
-          </div>
-        </div>
-
-        <div class="stat-card" :title="pinStats.count + ' pins'">
-          <div class="stat-card-top">
-            <span class="stat-label">Pinned</span>
-            <span class="mono traffic-interval">Local Repo</span>
-          </div>
-          <span class="stat-value mono">{{ pinStats.count }}</span>
-          <span class="stat-sub">{{ pinStats.sizeStr }} · evict at {{ pinStats.threshold }}%</span>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-card-top">
-            <span class="stat-label">Gateway</span>
-            <span class="pill pill-ok" v-if="gatewayEnabled"><span class="dot"></span>Active</span>
-            <span class="pill pill-mute" v-else>Disabled</span>
-          </div>
-          <span class="stat-value">{{ gatewayEnabled ? 'On' : 'Off' }}</span>
-          <span class="stat-sub">{{ gatewayEnabled ? gatewayHost : 'HTTP gateway disabled' }}</span>
-        </div>
-      </div>
-
-      <!-- Navigation & Gateway Hub Cards -->
-      <section class="home-hub-section" aria-label="Quick Hub">
-        <div class="home-hub-grid">
-          <!-- Card 1: Agent Skill -->
-          <a class="hub-card hub-card-link" href="/agent">
-            <div class="hub-card-head">
-              <div class="hub-card-badge-wrap">
-                <div class="hub-card-icon hub-icon-agent">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="2"/><circle cx="15" cy="9" r="2"/><path d="M8 15h8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
-                </div>
-                <span class="showcase-badge">Agent Skill</span>
-              </div>
-              <span class="hub-card-action">Open Prompt &rarr;</span>
-            </div>
-            <div class="hub-card-body">
-              <h3>Autonomous Agents</h3>
-              <p>Equip Cursor, Claude, or Copilot to pin files, folders, and sites directly onto this node without API keys.</p>
-            </div>
-            <div class="hub-card-foot">
-              <span class="mono">Prompt · Markdown · cURL</span>
-              <span class="pill pill-ok"><span class="dot"></span>Zero-Auth</span>
-            </div>
-          </a>
-
-          <!-- Card 2: Client Tools -->
-          <a class="hub-card hub-card-link" href="/examples/">
-            <div class="hub-card-head">
-              <div class="hub-card-badge-wrap">
-                <div class="hub-card-icon hub-icon-tools">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-                </div>
-                <span class="showcase-badge">7 Micro-Apps</span>
-              </div>
-              <span class="hub-card-action">Explore Tools &rarr;</span>
-            </div>
-            <div class="hub-card-body">
-              <h3>Publishing &amp; Tools</h3>
-              <p>Standalone utilities for single files, metadata stripping, static DApps, pastebin, and Nostr note drafting.</p>
-            </div>
-            <div class="hub-card-foot">
-              <span class="mono">Decoupled Utilities</span>
-              <span class="pill pill-ok"><span class="dot"></span>Client-Side</span>
-            </div>
-          </a>
-
-          <!-- Card 3: Gateway Selector -->
-          <div class="hub-card hub-card-control">
-            <div class="hub-card-head">
-              <div class="hub-card-badge-wrap">
-                <div class="hub-card-icon hub-icon-gateway">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                </div>
-                <span class="showcase-badge">Gateway Selector</span>
-              </div>
-              <span class="pill pill-ok"><span class="dot"></span>Active</span>
-            </div>
-            <div class="hub-card-body">
-              <h3>Resolution Gateway</h3>
-              <p>Select the gateway node used to resolve CIDs and open browser preview links:</p>
-              <div class="gateway-select-control" style="margin-top: 0.6154rem;">
-                <select v-model="currentGateway" @change="onGatewayChange" class="hub-gateway-select" aria-label="Gateway Selector">
-                  <option v-for="gw in gateways" :key="gw.url" :value="gw.url">{{ gw.label }} ({{ gw.url }})</option>
-                </select>
-              </div>
-            </div>
-            <div class="hub-card-foot">
-              <span class="mono" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 15rem;">{{ currentGateway }}</span>
-              <span class="mono">IPFS HTTP</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- Node Identity & Network Telemetry Row (2/3 and 1/3) -->
       <div class="node-identity-row">
@@ -339,8 +196,83 @@
         </div>
       </div>
 
-      <!-- Storage & Cache Policy Section -->
-      <section class="storage-policy-section" aria-label="Storage and Cache Policy">
+      <!-- Navigation & Gateway Hub Cards -->
+      <section class="home-hub-section" aria-label="Quick Hub">
+        <div class="home-hub-grid">
+          <!-- Card 1: Agent Skill -->
+          <a class="hub-card hub-card-link" href="/agent">
+            <div class="hub-card-head">
+              <div class="hub-card-badge-wrap">
+                <div class="hub-card-icon hub-icon-agent">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="2"/><circle cx="15" cy="9" r="2"/><path d="M8 15h8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+                </div>
+                <span class="showcase-badge">Agent Skill</span>
+              </div>
+              <span class="hub-card-action">Open Prompt &rarr;</span>
+            </div>
+            <div class="hub-card-body">
+              <h3>Autonomous Agents</h3>
+              <p>Equip Cursor, Claude, or Copilot to pin files, folders, and sites directly onto this node without API keys.</p>
+            </div>
+            <div class="hub-card-foot">
+              <span class="mono">Prompt · Markdown · cURL</span>
+              <span class="pill pill-ok"><span class="dot"></span>Zero-Auth</span>
+            </div>
+          </a>
+
+          <!-- Card 2: Client Tools -->
+          <a class="hub-card hub-card-link" href="/examples/">
+            <div class="hub-card-head">
+              <div class="hub-card-badge-wrap">
+                <div class="hub-card-icon hub-icon-tools">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                </div>
+                <span class="showcase-badge">7 Micro-Apps</span>
+              </div>
+              <span class="hub-card-action">Explore Tools &rarr;</span>
+            </div>
+            <div class="hub-card-body">
+              <h3>Publishing &amp; Tools</h3>
+              <p>Standalone utilities for single files, metadata stripping, static DApps, pastebin, and Nostr note drafting.</p>
+            </div>
+            <div class="hub-card-foot">
+              <span class="mono">Decoupled Utilities</span>
+              <span class="pill pill-ok"><span class="dot"></span>Client-Side</span>
+            </div>
+          </a>
+
+          <!-- Card 3: Gateway Selector -->
+          <div class="hub-card hub-card-control">
+            <div class="hub-card-head">
+              <div class="hub-card-badge-wrap">
+                <div class="hub-card-icon hub-icon-gateway">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <span class="showcase-badge">Gateway Selector</span>
+              </div>
+              <span class="pill pill-ok"><span class="dot"></span>Active</span>
+            </div>
+            <div class="hub-card-body">
+              <h3>Resolution Gateway</h3>
+              <p>Select the gateway node used to resolve CIDs and open browser preview links:</p>
+              <div class="gateway-select-control" style="margin-top: 0.6154rem;">
+                <select v-model="currentGateway" @change="onGatewayChange" class="hub-gateway-select" aria-label="Gateway Selector">
+                  <option v-for="gw in gateways" :key="gw.url" :value="gw.url">{{ gw.label }} ({{ gw.url }})</option>
+                </select>
+              </div>
+            </div>
+            <div class="hub-card-foot">
+              <span class="mono" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 15rem;">{{ currentGateway }}</span>
+              <span class="mono">IPFS HTTP</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Storage Policy (2/3) & Swarm Telemetry (1/3) Row -->
+      <div class="storage-swarm-row">
+        <!-- 2/3 Storage & Cache Policy Section -->
+        <section class="storage-policy-section" aria-label="Storage and Cache Policy">
         <div class="storage-policy-head">
           <div class="storage-policy-title">
             <span class="showcase-badge">Storage &amp; Cache Policy</span>
@@ -501,7 +433,99 @@
             </div>
           </div>
         </div>
-      </section>
+        </section>
+
+        <!-- 1/3 Swarm Telemetry Card -->
+        <div class="node-swarm-card" aria-label="Swarm Telemetry">
+          <div class="traffic-card-head">
+            <div class="traffic-badge-wrap">
+              <span class="showcase-badge">Swarm</span>
+              <span class="pill pill-ok"><span class="dot" style="background:#3dd68c;box-shadow:0 0 6px #3dd68c;"></span>Online</span>
+            </div>
+            <span class="mono traffic-interval">libp2p Mesh</span>
+          </div>
+
+          <div class="traffic-rates-block">
+            <div class="traffic-rate-item">
+              <span class="traffic-dir-label">PEERS</span>
+              <div class="traffic-rate-val mono text-out">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>{{ status.peerscount }}</span>
+              </div>
+              <span class="traffic-total-sub mono">Peer connections</span>
+            </div>
+
+            <div class="traffic-rate-sep"></div>
+
+            <div class="traffic-rate-item">
+              <span class="traffic-dir-label">PINNED</span>
+              <div class="traffic-rate-val mono text-in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span>{{ pinStats.count }}</span>
+              </div>
+              <span class="traffic-total-sub mono">{{ pinStats.sizeStr }} stored</span>
+            </div>
+          </div>
+
+          <!-- Interactive Animated SVG Network Topology Visualizer -->
+          <div class="swarm-mesh-visual">
+            <svg viewBox="0 0 280 110" width="100%" height="90" class="swarm-mesh-svg">
+              <defs>
+                <linearGradient id="swarmNetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.2" />
+                  <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.8" />
+                  <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.3" />
+                </linearGradient>
+                <filter id="meshGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <circle cx="140" cy="55" r="45" fill="none" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4 4" />
+              <circle cx="140" cy="55" r="26" fill="none" stroke="rgba(61,214,140,0.08)" />
+
+              <line x1="40" y1="35" x2="95" y2="20" stroke="url(#swarmNetGrad)" stroke-width="1.2" class="swarm-wave-flow" />
+              <line x1="95" y1="20" x2="140" y2="55" stroke="url(#swarmNetGrad)" stroke-width="1.5" />
+              <line x1="140" y1="55" x2="185" y2="25" stroke="url(#swarmNetGrad)" stroke-width="1.5" />
+              <line x1="185" y1="25" x2="240" y2="40" stroke="url(#swarmNetGrad)" stroke-width="1.2" class="swarm-wave-flow" />
+              <line x1="40" y1="35" x2="80" y2="85" stroke="rgba(56,189,248,0.3)" stroke-dasharray="3 3" />
+              <line x1="80" y1="85" x2="140" y2="55" stroke="url(#swarmNetGrad)" stroke-width="1.2" />
+              <line x1="140" y1="55" x2="200" y2="85" stroke="url(#swarmNetGrad)" stroke-width="1.2" />
+              <line x1="200" y1="85" x2="240" y2="40" stroke="rgba(61,214,140,0.3)" stroke-dasharray="3 3" />
+              <line x1="80" y1="85" x2="200" y2="85" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+
+              <circle cx="140" cy="55" r="9" fill="rgba(61,214,140,0.15)" />
+              <circle cx="140" cy="55" r="4.5" fill="#3dd68c" filter="url(#meshGlow)" class="traffic-dot-pulse" />
+
+              <circle cx="40" cy="35" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" />
+              <circle cx="95" cy="20" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 0.5s" />
+              <circle cx="185" cy="25" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 1s" />
+              <circle cx="240" cy="40" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 1.5s" />
+              <circle cx="80" cy="85" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 0.8s" />
+              <circle cx="200" cy="85" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 1.3s" />
+            </svg>
+          </div>
+
+          <!-- Card Footer Meta -->
+          <div class="swarm-card-meta">
+            <div class="meta-item">
+              <span class="meta-label">Transport</span>
+              <span class="meta-value mono">TCP + QUIC</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Discovery</span>
+              <span class="meta-value mono">DHT Client</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Gateway</span>
+              <span class="meta-value mono">{{ gatewayEnabled ? 'Port 3232' : 'Off' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="workspace-bar">
         <div class="bar-title">
