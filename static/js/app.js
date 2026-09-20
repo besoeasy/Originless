@@ -280,7 +280,6 @@
           
           activeTab: "pin", // pin, prompt
           brokenThumbs: {},
-          nodeSheetOpen: false,
           anonymizeMedia: localStorage.getItem("ol_anonymize_media") !== "false",
           
           // Single File Upload

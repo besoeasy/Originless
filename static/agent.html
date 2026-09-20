@@ -24,7 +24,7 @@
       </nav>
     </div>
     <div class="topbar-end">
-      <button type="button" class="peer-btn" @click="nodeSheetOpen = true">
+      <button type="button" class="peer-btn" @click="copyText(status.fullNodeId || status.nodeId, 'Node ID copied')" :title="'Daemon v' + status.appver + ' · ' + (status.fullNodeId || status.nodeId) + ' (click to copy ID)'">
         <span class="dot"></span>
         {{ status.peerscount }} peers
       </button>
@@ -66,44 +66,7 @@
     </section>
   </div>
 
-  <div v-if="nodeSheetOpen" class="overlay" @click.self="nodeSheetOpen = false">
-    <div class="drawer">
-      <div class="inspector-head">
-        Node
-        <button class="icon-btn" type="button" @click="nodeSheetOpen = false">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="metrics">
-        <div class="metric">
-          <div class="metric-k">Swarm</div>
-          <div class="metric-v">{{ status.peerscount }}</div>
-          <div class="metric-s">{{ status.bandwidthRateIn }} in · {{ status.bandwidthRateOut }} out</div>
-        </div>
-        <div class="metric">
-          <div class="metric-k">Storage</div>
-          <div class="metric-v">{{ storagePercentage }}%</div>
-          <div class="metric-s">{{ status.repoSize }}</div>
-          <span class="meter" style="width:100%;margin-top:8px"><span :class="storageGaugeClass" :style="{ width: storagePercentage + '%' }"></span></span>
-        </div>
-        <div class="metric">
-          <div class="metric-k">Pins</div>
-          <div class="metric-v">{{ pinStats.sizeStr }}</div>
-          <div class="metric-s">{{ pinStats.count }} pins · evict at {{ pinStats.threshold }}%</div>
-        </div>
-        <div class="metric">
-          <div class="metric-k">Gateway</div>
-          <div class="metric-v">{{ gatewayEnabled ? 'On' : 'Off' }}</div>
-          <div class="metric-s">{{ gatewayEnabled ? '/ipfs/{cid} on this node' : 'HTTP gateway disabled' }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-k">Daemon v{{ status.appver }}</div>
-          <div class="metric-v mono" style="font-size:16px" :title="status.fullNodeId">{{ status.nodeId }}</div>
-          <div class="metric-s">{{ status.version }} · {{ status.timestamp }} · {{ status.repoObjects }} objects</div>
-        </div>
-      </div>
-    </div>
-  </div>
+
 
   <div class="toast-stack">
     <div v-for="toast in toasts" :key="toast.id" class="toast" :class="{ 'is-error': toast.type === 'error' }">{{ toast.message }}</div>
