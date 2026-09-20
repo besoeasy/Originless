@@ -40,76 +40,119 @@
         <!-- 2/3 Node Identity Section -->
         <section class="node-showcase" aria-label="Node Identity">
           <div class="node-showcase-backdrop" :style="nodeGraphics.glowStyle"></div>
-          <div class="node-showcase-visual">
-            <svg viewBox="0 0 160 160" width="130" height="130" class="node-emblem-svg">
-              <defs>
-                <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" :stop-color="nodeGraphics.color1" />
-                  <stop offset="100%" :stop-color="nodeGraphics.color2" />
-                </linearGradient>
-                <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" :stop-color="nodeGraphics.color1" stop-opacity="0.8" />
-                  <stop offset="100%" :stop-color="nodeGraphics.color2" stop-opacity="0" />
-                </radialGradient>
-                <filter id="emblemGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
+          <div class="node-showcase-accent-line" :style="{ background: 'linear-gradient(90deg, transparent, ' + nodeGraphics.color1 + '70, ' + nodeGraphics.color2 + '40, transparent)' }"></div>
 
-              <!-- Ambient pulse core -->
-              <circle cx="80" cy="80" r="48" fill="url(#coreGlow)" class="node-emblem-pulse" />
+          <div class="node-showcase-visual-col">
+            <div class="node-showcase-visual">
+              <svg viewBox="0 0 160 160" width="134" height="134" class="node-emblem-svg">
+                <defs>
+                  <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" :stop-color="nodeGraphics.color1" />
+                    <stop offset="100%" :stop-color="nodeGraphics.color2" />
+                  </linearGradient>
+                  <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" :stop-color="nodeGraphics.color1" stop-opacity="0.8" />
+                    <stop offset="60%" :stop-color="nodeGraphics.color2" stop-opacity="0.25" />
+                    <stop offset="100%" :stop-color="nodeGraphics.color3" stop-opacity="0" />
+                  </radialGradient>
+                  <filter id="emblemGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
 
-              <!-- Outer Orbit Ring 1 -->
-              <circle cx="80" cy="80" r="70" fill="none" :stroke="nodeGraphics.color1" stroke-width="1" stroke-dasharray="8 6 2 6" opacity="0.4" class="node-orbit-cw" />
+                <!-- Ambient pulse core -->
+                <circle cx="80" cy="80" r="50" fill="url(#coreGlow)" class="node-emblem-pulse" />
 
-              <!-- Outer Orbit Ring 2 -->
-              <circle cx="80" cy="80" r="56" fill="none" :stroke="nodeGraphics.color2" stroke-width="1.2" stroke-dasharray="14 10" opacity="0.3" class="node-orbit-ccw" />
+                <!-- 24 Radial Hash / Cipher Ticks -->
+                <g class="node-hash-ticks">
+                  <line
+                    v-for="(tick, idx) in nodeGraphics.ticks"
+                    :key="'tick-'+idx"
+                    :x1="tick.x1"
+                    :y1="tick.y1"
+                    :x2="tick.x2"
+                    :y2="tick.y2"
+                    :stroke="tick.stroke"
+                    :stroke-width="tick.width"
+                    :opacity="tick.opacity"
+                  />
+                </g>
 
-              <!-- Inner Guide Ring -->
-              <circle cx="80" cy="80" r="38" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="3 4" />
+                <!-- Outer Orbit Guide Ring 1 -->
+                <circle cx="80" cy="80" r="70" fill="none" :stroke="nodeGraphics.color1" stroke-width="1" :stroke-dasharray="nodeGraphics.ringDash1" opacity="0.35" class="node-orbit-cw" />
 
-              <!-- Constellation Lines -->
-              <line
-                v-for="(line, idx) in nodeGraphics.lines"
-                :key="'line-'+idx"
-                :x1="line.x1"
-                :y1="line.y1"
-                :x2="line.x2"
-                :y2="line.y2"
-                :stroke="line.cross ? nodeGraphics.color2 : 'url(#nodeGrad)'"
-                :stroke-width="line.cross ? 0.9 : 1.3"
-                :stroke-dasharray="line.cross ? '3 3' : 'none'"
-                :opacity="line.cross ? 0.4 : 0.7"
-              />
+                <!-- Outer Orbit Guide Ring 2 -->
+                <circle cx="80" cy="80" r="56" fill="none" :stroke="nodeGraphics.color2" stroke-width="1.2" :stroke-dasharray="nodeGraphics.ringDash2" opacity="0.3" class="node-orbit-ccw" />
 
-              <!-- Constellation Vertex Nodes -->
-              <circle
-                v-for="(node, idx) in nodeGraphics.nodes"
-                :key="'node-'+idx"
-                :cx="node.x"
-                :cy="node.y"
-                :r="node.r"
-                :fill="idx % 2 === 0 ? nodeGraphics.color1 : nodeGraphics.color2"
-                filter="url(#emblemGlow)"
-              />
+                <!-- Inner Guide Ring -->
+                <circle cx="80" cy="80" r="38" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="3 4" />
 
-              <!-- Center Cryptographic Core -->
-              <circle cx="80" cy="80" r="12" :fill="nodeGraphics.color1" opacity="0.25" />
-              <circle cx="80" cy="80" r="7" fill="#0d0d10" :stroke="nodeGraphics.color1" stroke-width="1.5" />
-              <circle cx="80" cy="80" r="3" :fill="nodeGraphics.color3" filter="url(#emblemGlow)" />
-            </svg>
+                <!-- Constellation Network Chords -->
+                <g class="node-constellation-chords">
+                  <line
+                    v-for="(line, idx) in nodeGraphics.lines"
+                    :key="'line-'+idx"
+                    :x1="line.x1"
+                    :y1="line.y1"
+                    :x2="line.x2"
+                    :y2="line.y2"
+                    :stroke="line.cross ? nodeGraphics.color2 : 'url(#nodeGrad)'"
+                    :stroke-width="line.cross ? 0.9 : 1.3"
+                    :stroke-dasharray="line.cross ? '3 3' : 'none'"
+                    :opacity="line.cross ? 0.45 : 0.75"
+                  />
+                </g>
+
+                <!-- Constellation Vertex Nodes -->
+                <circle
+                  v-for="(node, idx) in nodeGraphics.nodes"
+                  :key="'node-'+idx"
+                  :cx="node.x"
+                  :cy="node.y"
+                  :r="node.r"
+                  :fill="node.fill"
+                  filter="url(#emblemGlow)"
+                />
+
+                <!-- Deterministic Cryptographic Core Polygon -->
+                <polygon
+                  v-if="nodeGraphics.corePolygon"
+                  :points="nodeGraphics.corePolygon"
+                  fill="none"
+                  :stroke="nodeGraphics.color1"
+                  stroke-width="1.4"
+                  opacity="0.8"
+                />
+                <circle cx="80" cy="80" r="10" :fill="nodeGraphics.color1" opacity="0.2" />
+                <circle cx="80" cy="80" r="6" fill="#0d0d10" :stroke="nodeGraphics.color2" stroke-width="1.5" />
+                <circle cx="80" cy="80" r="2.5" :fill="nodeGraphics.color3" filter="url(#emblemGlow)" />
+              </svg>
+            </div>
+
+            <!-- Visual DNA Barcode Strip -->
+            <div class="node-dna-strip" :title="'Node Visual DNA: #' + nodeGraphics.hashHex">
+              <span
+                v-for="(bar, bIdx) in nodeGraphics.dna"
+                :key="'dna-'+bIdx"
+                class="dna-bar"
+                :style="{ background: bar.color, height: bar.height + 'px' }"
+              ></span>
+            </div>
           </div>
+
           <div class="node-showcase-content">
             <div class="node-showcase-header">
               <span class="showcase-badge">Node Identity</span>
               <span class="pill pill-ok"><span class="dot"></span>Swarm Online</span>
               <span class="showcase-chip mono">ed25519</span>
+              <span class="showcase-chip mono dna-chip" :style="{ borderColor: nodeGraphics.color1 + '40', color: nodeGraphics.color1 }">#{{ nodeGraphics.hashHex }}</span>
               <span class="showcase-chip mono">Daemon v{{ status.appver }}</span>
             </div>
+
             <div class="node-showcase-id-row">
               <div class="node-showcase-id" :title="status.fullNodeId || status.nodeId">
                 <span class="node-id-prefix">peer/</span>
@@ -124,25 +167,37 @@
                 <span>Copy Peer ID</span>
               </button>
             </div>
-            <div class="node-showcase-meta">
-              <div class="meta-item">
-                <span class="meta-label">Kubo</span>
-                <span class="meta-value">{{ status.version }}</span>
+
+            <!-- Structured Telemetry Specs Block -->
+            <div class="node-specs-block">
+              <div class="spec-item">
+                <span class="spec-label">KUBO DAEMON</span>
+                <div class="spec-val mono text-primary">v{{ status.version }}</div>
+                <span class="spec-sub">IPFS Core Engine</span>
               </div>
-              <div class="meta-item">
-                <span class="meta-label">Objects</span>
-                <span class="meta-value">{{ status.repoObjects }} repo objects</span>
+
+              <div class="spec-sep"></div>
+
+              <div class="spec-item">
+                <span class="spec-label">REPO OBJECTS</span>
+                <div class="spec-val mono">{{ status.repoObjects }}</div>
+                <span class="spec-sub">DAG Merkle Blocks</span>
               </div>
-              <div class="meta-item">
-                <span class="meta-label">Multiaddr</span>
+
+              <div class="spec-sep"></div>
+
+              <div class="spec-item spec-multiaddr-item">
+                <span class="spec-label">MULTIADDR</span>
                 <button
-                  class="meta-btn mono"
+                  class="spec-multiaddr-btn mono"
                   type="button"
                   @click="copyText('/p2p/' + (status.fullNodeId || status.nodeId), 'Multiaddr copied')"
                   :title="'/p2p/' + (status.fullNodeId || status.nodeId) + ' (click to copy)'"
                 >
-                  /p2p/{{ status.nodeId }}
+                  <span class="spec-p2p-prefix">/p2p/</span><span class="spec-p2p-val">{{ status.nodeId }}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
+                <span class="spec-sub">libp2p Network Address</span>
               </div>
             </div>
           </div>

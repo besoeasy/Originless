@@ -336,32 +336,85 @@
 
         nodeGraphics() {
           const id = this.status.fullNodeId || this.status.nodeId || "12D3KooWOriginlessNode000000000000000000000000000";
-          let hash = 0;
+          
+          // FNV-1a 32-bit hash
+          let seed = 2166136261 >>> 0;
           for (let i = 0; i < id.length; i++) {
-            hash = Math.imul(31, hash) + id.charCodeAt(i) | 0;
+            seed ^= id.charCodeAt(i);
+            seed = Math.imul(seed, 16777619) >>> 0;
           }
-          hash = Math.abs(hash);
 
-          const hue1 = hash % 360;
-          const hue2 = (hue1 + 50 + ((hash >> 4) % 60)) % 360;
-          const hue3 = (hue2 + 120) % 360;
+          // Mulberry32 deterministic PRNG
+          let prngState = seed;
+          const rand = () => {
+            let t = prngState += 0x6D2B79F5;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
 
-          const color1 = `hsl(${hue1}, 85%, 62%)`;
-          const color2 = `hsl(${hue2}, 80%, 55%)`;
-          const color3 = `hsl(${hue3}, 90%, 65%)`;
+          const baseHue = Math.floor(rand() * 360);
+          const scheme = Math.floor(rand() * 4);
+          let hue2, hue3, hue4;
+          if (scheme === 0) {
+            hue2 = (baseHue + 40) % 360;
+            hue3 = (baseHue + 80) % 360;
+            hue4 = (baseHue + 320) % 360;
+          } else if (scheme === 1) {
+            hue2 = (baseHue + 150) % 360;
+            hue3 = (baseHue + 210) % 360;
+            hue4 = (baseHue + 180) % 360;
+          } else if (scheme === 2) {
+            hue2 = (baseHue + 120) % 360;
+            hue3 = (baseHue + 240) % 360;
+            hue4 = (baseHue + 60) % 360;
+          } else {
+            hue2 = (baseHue + 90) % 360;
+            hue3 = (baseHue + 180) % 360;
+            hue4 = (baseHue + 270) % 360;
+          }
 
-          const cx = 80, cy = 80;
-          const numNodes = 7;
+          const color1 = `hsl(${baseHue}, 88%, 62%)`;
+          const color2 = `hsl(${hue2}, 82%, 58%)`;
+          const color3 = `hsl(${hue3}, 90%, 66%)`;
+          const color4 = `hsl(${hue4}, 75%, 52%)`;
+
+          // 24 perimeter hash / cipher ticks
+          const ticks = [];
+          for (let i = 0; i < 24; i++) {
+            const angle = (i / 24) * 2 * Math.PI;
+            const tickLen = 3 + Math.floor(rand() * 5);
+            const rOuter = 72;
+            const rInner = rOuter - tickLen;
+            const x1 = Math.round((80 + rInner * Math.cos(angle)) * 10) / 10;
+            const y1 = Math.round((80 + rInner * Math.sin(angle)) * 10) / 10;
+            const x2 = Math.round((80 + rOuter * Math.cos(angle)) * 10) / 10;
+            const y2 = Math.round((80 + rOuter * Math.sin(angle)) * 10) / 10;
+            const isMajor = i % 6 === 0;
+            const isMinor = i % 2 === 0;
+            const stroke = isMajor ? color1 : (isMinor ? color2 : "rgba(255,255,255,0.22)");
+            ticks.push({
+              x1, y1, x2, y2,
+              stroke,
+              width: isMajor ? 1.5 : 1,
+              opacity: Math.round((0.35 + rand() * 0.5) * 100) / 100,
+            });
+          }
+
+          // Constellation nodes (7 to 10 vertices)
+          const numNodes = 7 + Math.floor(rand() * 4);
           const nodes = [];
           for (let i = 0; i < numNodes; i++) {
-            const charCode = id.charCodeAt(i % id.length) || 65;
-            const angle = (i / numNodes) * 2 * Math.PI + ((charCode % 30) * Math.PI / 180);
-            const r = 32 + (charCode % 22);
-            const x = Math.round(cx + r * Math.cos(angle));
-            const y = Math.round(cy + r * Math.sin(angle));
-            nodes.push({ x, y, r: 2.5 + (i % 3) });
+            const angle = (i / numNodes) * 2 * Math.PI + (rand() - 0.5) * 0.4;
+            const r = 36 + Math.floor(rand() * 20);
+            const x = Math.round(80 + r * Math.cos(angle));
+            const y = Math.round(80 + r * Math.sin(angle));
+            const dotR = Math.round((2.2 + rand() * 1.8) * 10) / 10;
+            const fill = i % 2 === 0 ? color1 : (i % 3 === 0 ? color3 : color2);
+            nodes.push({ x, y, r: dotR, fill });
           }
 
+          // Interconnecting chords
           const lines = [];
           for (let i = 0; i < nodes.length; i++) {
             const next = nodes[(i + 1) % nodes.length];
@@ -372,16 +425,50 @@
             }
           }
 
+          // Central cryptographic core polygon
+          const coreSides = 3 + Math.floor(rand() * 5); // 3 (triangle), 4 (diamond), 5, 6, 7
+          const coreRotation = rand() * Math.PI;
+          const coreRadius = 13 + Math.floor(rand() * 4);
+          const corePoints = [];
+          for (let i = 0; i < coreSides; i++) {
+            const ang = coreRotation + (i / coreSides) * 2 * Math.PI;
+            const px = Math.round((80 + coreRadius * Math.cos(ang)) * 10) / 10;
+            const py = Math.round((80 + coreRadius * Math.sin(ang)) * 10) / 10;
+            corePoints.push(`${px},${py}`);
+          }
+
+          // 5-bar Visual DNA strip
+          const dna = [];
+          for (let i = 0; i < 5; i++) {
+            const dHue = (baseHue + Math.floor(rand() * 180) - 90 + 360) % 360;
+            const dH = 8 + Math.floor(rand() * 10);
+            dna.push({ color: `hsl(${dHue}, 85%, 60%)`, height: dH });
+          }
+
+          // Deterministic dash arrays for rings
+          const dash1Options = ["8 6 2 6", "10 5 3 5", "12 4 4 4", "6 8"];
+          const dash2Options = ["14 10", "12 8", "16 6", "8 6 2 6"];
+          const ringDash1 = dash1Options[Math.floor(rand() * dash1Options.length)];
+          const ringDash2 = dash2Options[Math.floor(rand() * dash2Options.length)];
+
+          const hashHex = seed.toString(16).padStart(8, "0").toUpperCase();
+
           return {
-            hashHex: hash.toString(16).padStart(8, "0"),
+            hashHex,
             color1,
             color2,
             color3,
+            color4,
             glowStyle: {
-              background: `radial-gradient(circle, ${color1}28 0%, ${color2}15 45%, transparent 70%)`
+              background: `radial-gradient(circle, ${color1}2e 0%, ${color2}15 48%, transparent 70%)`
             },
+            ticks,
             nodes,
             lines,
+            corePolygon: corePoints.join(" "),
+            dna,
+            ringDash1,
+            ringDash2,
           };
         },
 

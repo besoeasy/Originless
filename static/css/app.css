@@ -901,6 +901,17 @@ input:focus-visible {
   pointer-events: none;
 }
 
+.node-showcase-accent-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  pointer-events: none;
+  z-index: 2;
+  transition: background 0.8s ease;
+}
+
 .node-showcase-backdrop {
   position: absolute;
   left: -2rem;
@@ -914,10 +925,18 @@ input:focus-visible {
   transition: background 0.8s ease;
 }
 
-.node-showcase-visual {
+.node-showcase-visual-col {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6154rem;
+}
+
+.node-showcase-visual {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -959,6 +978,28 @@ input:focus-visible {
   50% { opacity: 0.75; transform: scale(1.04); }
 }
 
+/* Visual DNA Barcode Strip */
+.node-dna-strip {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  height: 22px;
+}
+
+.dna-bar {
+  width: 5px;
+  border-radius: 1.5px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.node-dna-strip:hover .dna-bar {
+  transform: scaleY(1.15);
+}
+
 .node-showcase-content {
   position: relative;
   z-index: 1;
@@ -991,6 +1032,11 @@ input:focus-visible {
   border: 1px solid var(--line);
   border-radius: 0.3077rem;
   color: var(--ink-3);
+}
+
+.showcase-chip.dna-chip {
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .node-showcase-id-row {
@@ -1036,49 +1082,95 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-.node-showcase-meta {
+/* Structured Telemetry Specs Block */
+.node-specs-block {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 1.2308rem;
-  font-size: 0.8462rem;
-  color: var(--ink-3);
-  padding-top: 0.1538rem;
+  justify-content: space-between;
+  padding: 0.6923rem 1.0769rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line);
+  border-radius: 0.6154rem;
+  gap: 0.9231rem;
+  margin-top: 0.1538rem;
 }
 
-.meta-item {
+.node-specs-block .spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1538rem;
+  min-width: 0;
+}
+
+.node-specs-block .spec-label {
+  font-size: 0.6923rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--ink-4);
+  text-transform: uppercase;
+}
+
+.node-specs-block .spec-val {
+  font-size: 0.9231rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-specs-block .spec-val.text-primary {
+  color: #38bdf8;
+}
+
+.node-specs-block .spec-sub {
+  font-size: 0.6923rem;
+  color: var(--ink-4);
+  letter-spacing: 0.02em;
+}
+
+.node-specs-block .spec-sep {
+  width: 1px;
+  height: 2.1538rem;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.node-specs-block .spec-multiaddr-item {
+  flex: 1.2;
+}
+
+.spec-multiaddr-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4615rem;
-}
-
-.meta-label {
-  color: var(--ink-4);
-  font-size: 0.7692rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-
-.meta-value {
-  color: var(--ink-2);
-}
-
-.meta-btn {
-  background: none;
+  gap: 0.3846rem;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
-  border-radius: 0.3077rem;
+  border-radius: 0.3846rem;
   color: var(--ink-2);
-  padding: 0.1538rem 0.4615rem;
+  padding: 0.2308rem 0.5385rem;
   font-size: 0.7692rem;
   cursor: pointer;
   transition: all 0.15s var(--ease);
+  max-width: 100%;
 }
 
-.meta-btn:hover {
+.spec-multiaddr-btn:hover {
   color: #fff;
   border-color: var(--line-strong);
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.spec-p2p-prefix {
+  color: var(--ink-4);
+}
+
+.spec-p2p-val {
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (max-width: 768px) {
@@ -1088,7 +1180,7 @@ input:focus-visible {
     gap: 1.0769rem;
     padding: 1.0769rem;
   }
-  .node-showcase-visual {
+  .node-showcase-visual-col {
     align-self: center;
   }
   .node-showcase-id-row {
@@ -1099,6 +1191,13 @@ input:focus-visible {
   .node-copy-btn {
     width: 100%;
     justify-content: center;
+  }
+  .node-specs-block {
+    flex-wrap: wrap;
+    gap: 0.7692rem;
+  }
+  .node-specs-block .spec-sep {
+    display: none;
   }
 }
 
