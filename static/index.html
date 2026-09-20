@@ -39,21 +39,21 @@
       <div class="node-identity-row">
         <!-- 2/3 Node Identity Section -->
         <section class="node-showcase" aria-label="Node Identity">
-          <div class="node-showcase-backdrop" :style="nodeGraphics.glowStyle"></div>
-          <div class="node-showcase-accent-line" :style="{ background: 'linear-gradient(90deg, transparent, ' + nodeGraphics.color1 + '70, ' + nodeGraphics.color2 + '40, transparent)' }"></div>
+          <div class="node-showcase-backdrop" :style="nodeGraphics?.glowStyle"></div>
+          <div class="node-showcase-accent-line" :style="{ background: 'linear-gradient(90deg, transparent, ' + nodeGraphics?.color1 + '70, ' + nodeGraphics?.color2 + '40, transparent)' }"></div>
 
           <div class="node-showcase-visual-col">
             <div class="node-showcase-visual">
               <svg viewBox="0 0 160 160" width="134" height="134" class="node-emblem-svg">
                 <defs>
                   <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" :stop-color="nodeGraphics.color1" />
-                    <stop offset="100%" :stop-color="nodeGraphics.color2" />
+                    <stop offset="0%" :stop-color="nodeGraphics?.color1" />
+                    <stop offset="100%" :stop-color="nodeGraphics?.color2" />
                   </linearGradient>
                   <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" :stop-color="nodeGraphics.color1" stop-opacity="0.8" />
-                    <stop offset="60%" :stop-color="nodeGraphics.color2" stop-opacity="0.25" />
-                    <stop offset="100%" :stop-color="nodeGraphics.color3" stop-opacity="0" />
+                    <stop offset="0%" :stop-color="nodeGraphics?.color1" stop-opacity="0.8" />
+                    <stop offset="60%" :stop-color="nodeGraphics?.color2" stop-opacity="0.25" />
+                    <stop offset="100%" :stop-color="nodeGraphics?.color3" stop-opacity="0" />
                   </radialGradient>
                   <filter id="emblemGlow" x="-20%" y="-20%" width="140%" height="140%">
                     <feGaussianBlur stdDeviation="2.5" result="blur" />
@@ -70,7 +70,7 @@
                 <!-- 24 Radial Hash / Cipher Ticks -->
                 <g class="node-hash-ticks">
                   <line
-                    v-for="(tick, idx) in nodeGraphics.ticks"
+                    v-for="(tick, idx) in nodeGraphics?.ticks"
                     :key="'tick-'+idx"
                     :x1="tick.x1"
                     :y1="tick.y1"
@@ -83,10 +83,10 @@
                 </g>
 
                 <!-- Outer Orbit Guide Ring 1 -->
-                <circle cx="80" cy="80" r="70" fill="none" :stroke="nodeGraphics.color1" stroke-width="1" :stroke-dasharray="nodeGraphics.ringDash1" opacity="0.35" class="node-orbit-cw" />
+                <circle cx="80" cy="80" r="70" fill="none" :stroke="nodeGraphics?.color1" stroke-width="1" :stroke-dasharray="nodeGraphics?.ringDash1" opacity="0.35" class="node-orbit-cw" />
 
                 <!-- Outer Orbit Guide Ring 2 -->
-                <circle cx="80" cy="80" r="56" fill="none" :stroke="nodeGraphics.color2" stroke-width="1.2" :stroke-dasharray="nodeGraphics.ringDash2" opacity="0.3" class="node-orbit-ccw" />
+                <circle cx="80" cy="80" r="56" fill="none" :stroke="nodeGraphics?.color2" stroke-width="1.2" :stroke-dasharray="nodeGraphics?.ringDash2" opacity="0.3" class="node-orbit-ccw" />
 
                 <!-- Inner Guide Ring -->
                 <circle cx="80" cy="80" r="38" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="3 4" />
@@ -94,13 +94,13 @@
                 <!-- Constellation Network Chords -->
                 <g class="node-constellation-chords">
                   <line
-                    v-for="(line, idx) in nodeGraphics.lines"
+                    v-for="(line, idx) in nodeGraphics?.lines"
                     :key="'line-'+idx"
                     :x1="line.x1"
                     :y1="line.y1"
                     :x2="line.x2"
                     :y2="line.y2"
-                    :stroke="line.cross ? nodeGraphics.color2 : 'url(#nodeGrad)'"
+                    :stroke="line.cross ? nodeGraphics?.color2 : 'url(#nodeGrad)'"
                     :stroke-width="line.cross ? 0.9 : 1.3"
                     :stroke-dasharray="line.cross ? '3 3' : 'none'"
                     :opacity="line.cross ? 0.45 : 0.75"
@@ -109,7 +109,7 @@
 
                 <!-- Constellation Vertex Nodes -->
                 <circle
-                  v-for="(node, idx) in nodeGraphics.nodes"
+                  v-for="(node, idx) in nodeGraphics?.nodes"
                   :key="'node-'+idx"
                   :cx="node.x"
                   :cy="node.y"
@@ -120,23 +120,23 @@
 
                 <!-- Deterministic Cryptographic Core Polygon -->
                 <polygon
-                  v-if="nodeGraphics.corePolygon"
-                  :points="nodeGraphics.corePolygon"
+                  v-if="nodeGraphics?.corePolygon"
+                  :points="nodeGraphics?.corePolygon"
                   fill="none"
-                  :stroke="nodeGraphics.color1"
+                  :stroke="nodeGraphics?.color1"
                   stroke-width="1.4"
                   opacity="0.8"
                 />
-                <circle cx="80" cy="80" r="10" :fill="nodeGraphics.color1" opacity="0.2" />
-                <circle cx="80" cy="80" r="6" fill="#0d0d10" :stroke="nodeGraphics.color2" stroke-width="1.5" />
-                <circle cx="80" cy="80" r="2.5" :fill="nodeGraphics.color3" filter="url(#emblemGlow)" />
+                <circle cx="80" cy="80" r="10" :fill="nodeGraphics?.color1" opacity="0.2" />
+                <circle cx="80" cy="80" r="6" fill="#0d0d10" :stroke="nodeGraphics?.color2" stroke-width="1.5" />
+                <circle cx="80" cy="80" r="2.5" :fill="nodeGraphics?.color3" filter="url(#emblemGlow)" />
               </svg>
             </div>
 
             <!-- Visual DNA Barcode Strip -->
-            <div class="node-dna-strip" :title="'Node Visual DNA: #' + nodeGraphics.hashHex">
+            <div class="node-dna-strip" :title="'Node Visual DNA: #' + nodeGraphics?.hashHex">
               <span
-                v-for="(bar, bIdx) in nodeGraphics.dna"
+                v-for="(bar, bIdx) in nodeGraphics?.dna"
                 :key="'dna-'+bIdx"
                 class="dna-bar"
                 :style="{ background: bar.color, height: bar.height + 'px' }"
@@ -149,7 +149,7 @@
               <span class="showcase-badge">Node Identity</span>
               <span class="pill pill-ok"><span class="dot"></span>Swarm Online</span>
               <span class="showcase-chip mono">ed25519</span>
-              <span class="showcase-chip mono dna-chip" :style="{ borderColor: nodeGraphics.color1 + '40', color: nodeGraphics.color1 }">#{{ nodeGraphics.hashHex }}</span>
+              <span class="showcase-chip mono dna-chip" :style="{ borderColor: nodeGraphics?.color1 + '40', color: nodeGraphics?.color1 }">#{{ nodeGraphics?.hashHex }}</span>
               <span class="showcase-chip mono">Daemon v{{ status.appver }}</span>
             </div>
 
@@ -821,8 +821,8 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="/js/app.js"></script>
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script src="/js/app.js?v=20260920"></script>
 <script>
   Originless.createOriginlessApp({ page: "overview" }).mount("#app");
 </script>

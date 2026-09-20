@@ -241,6 +241,44 @@
     return { count: 0, size: 0, sizeStr: "0 B", threshold: 75 };
   }
 
+  function safeGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function safeSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (_) {}
+  }
+
+  // Fallback shown before /status loads, and if the computed ever fails.
+  // The template also uses `nodeGraphics?.x` so a stale cached app.js
+  // (without this computed) can't hard-crash the whole mount.
+  function fallbackNodeGraphics() {
+    const color1 = "hsl(160, 88%, 62%)";
+    const color2 = "hsl(200, 82%, 58%)";
+    const color3 = "hsl(180, 90%, 66%)";
+    return {
+      hashHex: "LOADING",
+      color1,
+      color2,
+      color3,
+      color4: color2,
+      glowStyle: {},
+      ticks: [],
+      nodes: [],
+      lines: [],
+      corePolygon: "",
+      dna: [],
+      ringDash1: "8 6 2 6",
+      ringDash2: "14 10",
+    };
+  }
+
   function createOriginlessApp(options = {}) {
     const { createApp } = Vue;
 
@@ -258,9 +296,9 @@
       },
       data() {
         const local = localGateway();
-        const savedGateway = migrateSavedGateway(localStorage.getItem("ol_gateway_url"));
-        if (savedGateway && savedGateway !== localStorage.getItem("ol_gateway_url")) {
-          localStorage.setItem("ol_gateway_url", savedGateway);
+        const savedGateway = migrateSavedGateway(safeGet("ol_gateway_url"));
+        if (savedGateway && savedGateway !== safeGet("ol_gateway_url")) {
+          safeSet("ol_gateway_url", savedGateway);
         }
         return {
           activePage: options.page || "overview",
@@ -280,7 +318,7 @@
           
           activeTab: "pin", // pin, prompt
           brokenThumbs: {},
-          anonymizeMedia: localStorage.getItem("ol_anonymize_media") !== "false",
+          anonymizeMedia: safeGet("ol_anonymize_media") !== "false",
           
           // Single File Upload
           dragOver: false,
@@ -323,8 +361,9 @@
         },
 
         storagePercentage() {
-          if (!this.status.storageMaxBytes || this.status.storageMaxBytes === 0) return 0;
-          const pct = (this.status.repoSizeBytes / this.status.storageMaxBytes) * 100;
+          const st = (this && this.status) || {};
+          if (!st.storageMaxBytes || st.storageMaxBytes === 0) return 0;
+          const pct = (st.repoSizeBytes / st.storageMaxBytes) * 100;
           return Math.min(100, Math.max(0, Math.round(pct * 10) / 10));
         },
 
@@ -335,7 +374,9 @@
         },
 
         nodeGraphics() {
-          const id = this.status.fullNodeId || this.status.nodeId || "12D3KooWOriginlessNode000000000000000000000000000";
+          try {
+            const st = (this && this.status) || {};
+            const id = st.fullNodeId || st.nodeId || "12D3KooWOriginlessNode000000000000000000000000000";
           
           // FNV-1a 32-bit hash
           let seed = 2166136261 >>> 0;
@@ -470,14 +511,19 @@
             ringDash1,
             ringDash2,
           };
+          } catch (_) {
+            return fallbackNodeGraphics();
+          }
         },
 
         storageBreakdown() {
-          const repoBytes = this.status.repoSizeBytes || 0;
-          const maxBytes = this.status.storageMaxBytes || (100 * 1024 * 1024 * 1024);
-          const pinnedBytes = this.pinStats.size || 0;
+          const st = (this && this.status) || {};
+          const ps = (this && this.pinStats) || {};
+          const repoBytes = st.repoSizeBytes || 0;
+          const maxBytes = st.storageMaxBytes || (100 * 1024 * 1024 * 1024);
+          const pinnedBytes = ps.size || 0;
           const overheadBytes = Math.max(0, repoBytes - pinnedBytes);
-          const thresholdPct = this.pinStats.threshold || 75;
+          const thresholdPct = ps.threshold || 75;
           const thresholdBytes = maxBytes * (thresholdPct / 100);
           const headroomBytes = Math.max(0, thresholdBytes - repoBytes);
 
@@ -717,7 +763,7 @@ To confirm you have understood this skill, complete this check:
         },
 
         onGatewayChange() {
-          localStorage.setItem("ol_gateway_url", this.currentGateway);
+          safeSet("ol_gateway_url", this.currentGateway);
           const gwName = new URL(this.currentGateway).hostname;
           this.showToast(`Active Gateway set to ${gwName}`, "success");
         },
@@ -753,7 +799,7 @@ To confirm you have understood this skill, complete this check:
         },
 
         persistAnonymize() {
-          localStorage.setItem("ol_anonymize_media", this.anonymizeMedia ? "true" : "false");
+          safeSet("ol_anonymize_media", this.anonymizeMedia ? "true" : "false");
         },
 
         isImageFile(file) {
@@ -814,7 +860,7 @@ To confirm you have understood this skill, complete this check:
                 this.gateways = GATEWAYS.slice();
                 if (this.currentGateway === local.url) {
                   this.currentGateway = GATEWAYS[0].url;
-                  localStorage.setItem("ol_gateway_url", this.currentGateway);
+                  safeSet("ol_gateway_url", this.currentGateway);
                 }
               }
             }
