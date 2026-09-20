@@ -557,6 +557,89 @@ input:focus-visible {
   }
 }
 
+.hub-card-gateway {
+  position: relative;
+  padding: 1.2308rem 1.3846rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 0.7692rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.7692rem;
+  overflow: hidden;
+  transition: border-color 0.2s var(--ease);
+}
+
+.hub-card-gateway:hover {
+  border-color: var(--line-strong);
+}
+
+.hub-card-gateway::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 1.2308rem;
+  right: 1.2308rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.45), transparent);
+  pointer-events: none;
+}
+
+.text-gw {
+  color: #a78bfa !important;
+}
+
+.gw-host-text {
+  max-width: 9.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  font-size: 1.0769rem;
+}
+
+.gateway-select-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.gateway-select-icon {
+  position: absolute;
+  left: 0.6923rem;
+  color: var(--ink-4);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.hub-card-gateway .hub-gateway-select {
+  width: 100%;
+  height: 2.1538rem;
+  padding: 0 0.7692rem 0 2rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--line);
+  border-radius: 0.3846rem;
+  color: var(--ink-2);
+  font-size: 0.7692rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.hub-card-gateway .hub-gateway-select:hover {
+  border-color: var(--line-strong);
+  color: #fff;
+}
+
+.hub-card-gateway .hub-gateway-select:focus {
+  border-color: #a78bfa;
+  outline: none;
+  color: #fff;
+}
+
 /* —— Node Identity & Traffic Row (2/3 and 1/3) —— */
 .node-identity-row {
   display: grid;
@@ -709,6 +792,15 @@ input:focus-visible {
 
 .swarm-dot-pulse {
   animation: dotPulse 2.4s ease-in-out infinite;
+}
+
+.gateway-beam-flow {
+  animation: waveDash 13s linear infinite;
+  stroke-dasharray: 8 4;
+}
+
+.gateway-dot-pulse {
+  animation: dotPulse 2.2s ease-in-out infinite;
 }
 
 @keyframes waveDash {
