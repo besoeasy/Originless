@@ -35,19 +35,71 @@
   <div class="app-body">
     <section class="workspace">
       <div class="stat-grid" aria-label="Node telemetry">
-        <div class="stat-card">
-          <span class="stat-label">Swarm</span>
-          <span class="stat-value mono">{{ status.peerscount }}</span>
-          <span class="stat-sub">Peer connections</span>
-          <span class="stat-live"><span class="dot"></span>Online</span>
+        <!-- Swarm Telemetry Card (styled like Traffic) -->
+        <div class="node-swarm-card" aria-label="Swarm Telemetry">
+          <div class="traffic-card-head">
+            <div class="traffic-badge-wrap">
+              <span class="showcase-badge">Swarm</span>
+              <span class="pill pill-ok"><span class="dot" style="background:#3dd68c;box-shadow:0 0 6px #3dd68c;"></span>Online</span>
+            </div>
+            <span class="mono traffic-interval">libp2p Mesh</span>
+          </div>
+
+          <div class="traffic-rates-block">
+            <div class="traffic-rate-item">
+              <span class="traffic-dir-label">PEERS</span>
+              <div class="traffic-rate-val mono text-out">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>{{ status.peerscount }}</span>
+              </div>
+              <span class="traffic-total-sub mono">Peer connections</span>
+            </div>
+
+            <div class="traffic-rate-sep"></div>
+
+            <div class="traffic-rate-item">
+              <span class="traffic-dir-label">ROUTING</span>
+              <div class="traffic-rate-val mono text-in">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="12" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="12" cy="20" r="2"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="18" y2="12"/><line x1="12" y1="6" x2="12" y2="9"/><line x1="12" y1="15" x2="12" y2="18"/></svg>
+                <span>Active</span>
+              </div>
+              <span class="traffic-total-sub mono">Kubo DHT Client</span>
+            </div>
+          </div>
+
+          <div class="traffic-wave-wrap">
+            <svg viewBox="0 0 240 32" width="100%" height="26" preserveAspectRatio="none" class="traffic-wave-svg">
+              <defs>
+                <linearGradient id="swarmWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.1" />
+                  <stop offset="50%" stop-color="#3dd68c" stop-opacity="0.8" />
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2" />
+                </linearGradient>
+              </defs>
+              <path d="M0 16 Q 30 26, 60 16 T 120 16 T 180 16 T 240 16" fill="none" stroke="url(#swarmWaveGrad)" stroke-width="2" class="swarm-wave-flow" />
+              <path d="M 30 21 L 90 11 L 150 21 L 210 11" fill="none" stroke="#38bdf8" stroke-width="1" stroke-dasharray="3 3" opacity="0.35" />
+              <circle cx="60" cy="16" r="2.5" fill="#3dd68c" class="swarm-dot-pulse" />
+              <circle cx="120" cy="16" r="3.5" fill="#3dd68c" class="traffic-dot-pulse" />
+              <circle cx="180" cy="16" r="2.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 0.8s" />
+            </svg>
+          </div>
         </div>
+
         <div class="stat-card" :title="pinStats.count + ' pins'">
-          <span class="stat-label">Pinned</span>
+          <div class="stat-card-top">
+            <span class="stat-label">Pinned</span>
+            <span class="mono traffic-interval">Local Repo</span>
+          </div>
           <span class="stat-value mono">{{ pinStats.count }}</span>
           <span class="stat-sub">{{ pinStats.sizeStr }} · evict at {{ pinStats.threshold }}%</span>
         </div>
+
         <div class="stat-card">
-          <span class="stat-label">Gateway</span>
+          <div class="stat-card-top">
+            <span class="stat-label">Gateway</span>
+            <span class="pill pill-ok" v-if="gatewayEnabled"><span class="dot"></span>Active</span>
+            <span class="pill pill-mute" v-else>Disabled</span>
+          </div>
           <span class="stat-value">{{ gatewayEnabled ? 'On' : 'Off' }}</span>
           <span class="stat-sub">{{ gatewayEnabled ? gatewayHost : 'HTTP gateway disabled' }}</span>
         </div>

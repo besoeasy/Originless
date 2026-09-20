@@ -315,6 +315,7 @@ input:focus-visible {
   z-index: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 0.4615rem;
   text-align: left;
@@ -570,7 +571,8 @@ input:focus-visible {
   height: 100%;
 }
 
-.node-traffic-card {
+.node-traffic-card,
+.node-swarm-card {
   position: relative;
   padding: 1.2308rem 1.3846rem;
   background: var(--bg-raised);
@@ -584,7 +586,8 @@ input:focus-visible {
   transition: border-color 0.2s var(--ease);
 }
 
-.node-traffic-card:hover {
+.node-traffic-card:hover,
+.node-swarm-card:hover {
   border-color: var(--line-strong);
 }
 
@@ -596,6 +599,17 @@ input:focus-visible {
   right: 1.2308rem;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+  pointer-events: none;
+}
+
+.node-swarm-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 1.2308rem;
+  right: 1.2308rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(61, 214, 140, 0.45), transparent);
   pointer-events: none;
 }
 
@@ -686,6 +700,15 @@ input:focus-visible {
 
 .traffic-dot-pulse {
   animation: dotPulse 2s ease-in-out infinite;
+}
+
+.swarm-wave-flow {
+  animation: waveDash 14s linear infinite;
+  stroke-dasharray: 8 4;
+}
+
+.swarm-dot-pulse {
+  animation: dotPulse 2.4s ease-in-out infinite;
 }
 
 @keyframes waveDash {
