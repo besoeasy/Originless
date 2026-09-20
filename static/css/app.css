@@ -645,6 +645,8 @@ input:focus-visible {
     width: 100%;
     justify-content: center;
   }
+}
+
 /* —— Agent Hero Showcase —— */
 .agent-hero-card {
   position: relative;
