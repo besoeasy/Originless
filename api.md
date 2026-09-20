@@ -91,7 +91,7 @@ curl http://localhost:3232/status
   "peers": { "count": 140 },
   "storageLimit": { "configured": "100GB", "current": "1.00 MB" },
   "fileLimit": { "configured": "1.00 GB", "bytes": 1073741824 },
-  "appVersion": "1.0.3",
+  "appVersion": "1.0.4",
   "gateway": { "enabled": true, "serving": true, "path": "/ipfs/", "ipns": "/ipns/" }
 }
 ```
@@ -259,7 +259,7 @@ curl http://localhost:3232/metrics
 
 | Metric | Type | Meaning |
 | :----- | :--- | :------ |
-| `originless_build_info{version=…}` | gauge | Build version (`1.0.3`) |
+| `originless_build_info{version=…}` | gauge | Build version (`1.0.4`) |
 | `originless_http_requests_total{path=…}` | counter | Requests by path |
 | `originless_http_errors_total` | counter | Responses with status ≥ 400 |
 | `originless_uploads_total` | counter | Successful upload operations |
