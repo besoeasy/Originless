@@ -182,6 +182,150 @@
           </div>
         </div>
       </section>
+
+      <!-- Storage & Cache Policy Section -->
+      <section class="storage-policy-section" aria-label="Storage and Cache Policy">
+        <div class="storage-policy-head">
+          <div class="storage-policy-title">
+            <span class="showcase-badge">Storage &amp; Cache Policy</span>
+            <span class="pill" :class="storageBreakdown.isOverThreshold ? 'pill-mute' : 'pill-ok'">
+              <span class="dot"></span>
+              {{ storageBreakdown.statusText }}
+            </span>
+          </div>
+          <div class="storage-policy-limits mono">
+            Quota: {{ status.storageLimit.configured || '100GB' }} · Safe Watermark: {{ pinStats.threshold }}%
+          </div>
+        </div>
+
+        <div class="storage-policy-grid">
+          <!-- Main Capacity Bar with 75% Eviction Threshold Line -->
+          <div class="storage-panel">
+            <div class="panel-header">
+              <span class="panel-title">Repository Capacity</span>
+              <span class="panel-meta mono">
+                {{ status.repoSize }} ({{ storagePercentage }}%)
+              </span>
+            </div>
+            
+            <!-- Segmented Progress Track -->
+            <div class="capacity-track-wrap">
+              <div class="capacity-track">
+                <div
+                  class="capacity-fill fill-pinned"
+                  :style="{ width: storageBreakdown.pinnedPct + '%' }"
+                  :title="'Pinned Data: ' + pinStats.sizeStr"
+                ></div>
+                <div
+                  class="capacity-fill fill-overhead"
+                  :style="{ width: storageBreakdown.overheadPct + '%' }"
+                  :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
+                ></div>
+              </div>
+              <!-- 75% threshold marker -->
+              <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
+                <span class="marker-line"></span>
+                <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
+              </div>
+            </div>
+
+            <!-- Legend for capacity -->
+            <div class="capacity-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-pinned"></span>
+                <span class="legend-name">Pinned:</span>
+                <span class="mono">{{ pinStats.sizeStr }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-overhead"></span>
+                <span class="legend-name">System Blocks:</span>
+                <span class="mono">{{ storageBreakdown.overheadStr }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-headroom"></span>
+                <span class="legend-name">Safe Headroom:</span>
+                <span class="mono">{{ storageBreakdown.headroomStr }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Type Distribution Panel -->
+          <div class="storage-panel">
+            <div class="panel-header">
+              <span class="panel-title">Active Pin Distribution</span>
+              <span class="panel-meta mono">
+                {{ pinStats.count }} pins
+              </span>
+            </div>
+
+            <div v-if="categoryDistribution.length > 0" class="type-track-wrap">
+              <div class="type-track">
+                <div
+                  v-for="cat in categoryDistribution"
+                  :key="cat.category"
+                  class="type-fill"
+                  :style="{ width: cat.pct + '%', backgroundColor: cat.color }"
+                  :title="cat.label + ': ' + cat.sizeStr + ' (' + cat.pct + '%)'"
+                ></div>
+              </div>
+              <div class="type-legend">
+                <div v-for="cat in categoryDistribution" :key="cat.category" class="type-pill">
+                  <span class="type-dot" :style="{ backgroundColor: cat.color }"></span>
+                  <span class="type-name">{{ cat.label }}</span>
+                  <span class="mono type-pct">{{ cat.pct }}%</span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="type-empty">
+              <span>No active pins to distribute.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Eviction & Janitor Policy Rules Row -->
+        <div class="policy-rules-row">
+          <div class="rule-card">
+            <div class="rule-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2-2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </div>
+            <div class="rule-content">
+              <span class="rule-k">Auto-Eviction Policy</span>
+              <span class="rule-v">FIFO / LRU at {{ pinStats.threshold }}%</span>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="rule-content">
+              <span class="rule-k">Retention Window</span>
+              <span class="rule-v">30-Day TTL (hourly cycle)</span>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            </div>
+            <div class="rule-content">
+              <span class="rule-k">Max Single Upload</span>
+              <span class="rule-v">{{ status.fileLimit ? status.fileLimit : '1.00 GB' }} per file</span>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </div>
+            <div class="rule-content">
+              <span class="rule-k">Kubo Datastore GC</span>
+              <span class="rule-v">Auto-GC Active</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div class="workspace-bar">
         <div class="bar-title">
           <h1>Library</h1>

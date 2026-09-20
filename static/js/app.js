@@ -385,6 +385,77 @@
           };
         },
 
+        storageBreakdown() {
+          const repoBytes = this.status.repoSizeBytes || 0;
+          const maxBytes = this.status.storageMaxBytes || (100 * 1024 * 1024 * 1024);
+          const pinnedBytes = this.pinStats.size || 0;
+          const overheadBytes = Math.max(0, repoBytes - pinnedBytes);
+          const thresholdPct = this.pinStats.threshold || 75;
+          const thresholdBytes = maxBytes * (thresholdPct / 100);
+          const headroomBytes = Math.max(0, thresholdBytes - repoBytes);
+
+          // Scaled for visual representation on a 100% bar
+          const pinnedPct = maxBytes > 0 ? (pinnedBytes / maxBytes) * 100 : 0;
+          const overheadPct = maxBytes > 0 ? (overheadBytes / maxBytes) * 100 : 0;
+          const visualPinnedPct = pinnedBytes > 0 ? Math.max(1.8, pinnedPct) : 0;
+          const visualOverheadPct = overheadBytes > 0 ? Math.max(1.2, overheadPct) : 0;
+
+          const isOverThreshold = repoBytes >= thresholdBytes;
+
+          return {
+            pinnedBytes,
+            overheadBytes,
+            headroomBytes,
+            pinnedStr: formatBytes(pinnedBytes),
+            overheadStr: formatBytes(overheadBytes),
+            headroomStr: formatBytes(headroomBytes),
+            pinnedPct: Math.round(visualPinnedPct * 10) / 10,
+            overheadPct: Math.round(visualOverheadPct * 10) / 10,
+            statusText: isOverThreshold ? "Evicting Over Quota" : "Operating in Safe Zone",
+            isOverThreshold,
+          };
+        },
+
+        categoryDistribution() {
+          const colors = {
+            image: "#3dd68c",
+            video: "#38bdf8",
+            audio: "#a78bfa",
+            archive: "#f59e0b",
+            code: "#ec4899",
+            file: "#94a3b8",
+          };
+          const labels = {
+            image: "Images",
+            video: "Videos",
+            audio: "Audio",
+            archive: "Archives",
+            code: "Code",
+            file: "Files",
+          };
+
+          const catTotals = {};
+          let totalPinned = 0;
+
+          for (const item of (this.history || [])) {
+            if (item.unpinned) continue;
+            const cat = itemCategory(item);
+            catTotals[cat] = (catTotals[cat] || 0) + (item.size || 0);
+            totalPinned += (item.size || 0);
+          }
+
+          if (totalPinned === 0) return [];
+
+          return Object.keys(catTotals).map((cat) => ({
+            category: cat,
+            label: labels[cat] || "Other",
+            bytes: catTotals[cat],
+            sizeStr: formatBytes(catTotals[cat]),
+            pct: Math.round((catTotals[cat] / totalPinned) * 100),
+            color: colors[cat] || colors.file,
+          })).sort((a, b) => b.bytes - a.bytes);
+        },
+
         filteredHistory() {
           let list = [...(this.history || [])];
           
