@@ -200,7 +200,7 @@
 
         <div class="storage-policy-grid">
           <!-- Main Capacity Bar with 75% Eviction Threshold Line -->
-          <div class="storage-panel storage-capacity-panel">
+          <div class="storage-panel">
             <div class="panel-header">
               <span class="panel-title">Repository Capacity</span>
               <span class="panel-meta mono">
@@ -208,91 +208,43 @@
               </span>
             </div>
 
-            <div class="storage-capacity-body">
-              <!-- SVG Radial Telemetry Dial -->
-              <div class="storage-gauge-visual" :title="'Datastore: ' + status.repoSize + ' used of ' + (status.storageMax || '100 GB')">
-                <svg viewBox="0 0 96 96" width="76" height="76" class="storage-gauge-svg">
-                  <defs>
-                    <linearGradient id="gaugeArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stop-color="#3dd68c" />
-                      <stop offset="100%" stop-color="#38bdf8" />
-                    </linearGradient>
-                    <filter id="gaugeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feGaussianBlur stdDeviation="2" result="blur" />
-                      <feMerge>
-                        <feMergeNode in="blur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-
-                  <!-- Outer dashed guide ring -->
-                  <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="2 3" />
-
-                  <!-- Background full track -->
-                  <circle cx="48" cy="48" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6" />
-
-                  <!-- Safe operating sector (0 to 75%) -->
-                  <circle cx="48" cy="48" r="34" fill="none" stroke="rgba(61, 214, 140, 0.12)" stroke-width="6"
-                          stroke-dasharray="160.22 213.63" stroke-dashoffset="0" transform="rotate(-90 48 48)" />
-
-                  <!-- 75% Eviction threshold tick marker (at 270 deg from top -> 9 o'clock) -->
-                  <line x1="6" y1="48" x2="18" y2="48" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round" />
-
-                  <!-- Dynamic Fill Arc -->
-                  <circle cx="48" cy="48" r="34" fill="none" stroke="url(#gaugeArcGrad)" stroke-width="6"
-                          stroke-linecap="round"
-                          :stroke-dasharray="213.63"
-                          :stroke-dashoffset="213.63 * (1 - Math.min(100, Math.max(storagePercentage, 2)) / 100)"
-                          transform="rotate(-90 48 48)"
-                          filter="url(#gaugeGlow)" />
-
-                  <!-- Center Text Readout -->
-                  <text x="48" y="45" text-anchor="middle" class="gauge-txt-val">{{ storagePercentage }}%</text>
-                  <text x="48" y="58" text-anchor="middle" class="gauge-txt-lbl">USED</text>
-                </svg>
+            <!-- Segmented Progress Track -->
+            <div class="capacity-track-wrap">
+              <div class="capacity-track">
+                <div
+                  class="capacity-fill fill-pinned"
+                  :style="{ width: storageBreakdown.pinnedPct + '%' }"
+                  :title="'Pinned Data: ' + pinStats.sizeStr"
+                ></div>
+                <div
+                  class="capacity-fill fill-overhead"
+                  :style="{ width: storageBreakdown.overheadPct + '%' }"
+                  :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
+                ></div>
               </div>
+              <!-- 75% threshold marker -->
+              <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
+                <span class="marker-line"></span>
+                <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
+              </div>
+            </div>
 
-              <!-- Segmented Progress Track & Legend -->
-              <div class="storage-capacity-details">
-                <div class="capacity-track-wrap">
-                  <div class="capacity-track">
-                    <div
-                      class="capacity-fill fill-pinned"
-                      :style="{ width: storageBreakdown.pinnedPct + '%' }"
-                      :title="'Pinned Data: ' + pinStats.sizeStr"
-                    ></div>
-                    <div
-                      class="capacity-fill fill-overhead"
-                      :style="{ width: storageBreakdown.overheadPct + '%' }"
-                      :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
-                    ></div>
-                  </div>
-                  <!-- 75% threshold marker -->
-                  <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
-                    <span class="marker-line"></span>
-                    <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
-                  </div>
-                </div>
-
-                <!-- Legend for capacity -->
-                <div class="capacity-legend">
-                  <div class="legend-item">
-                    <span class="legend-dot dot-pinned"></span>
-                    <span class="legend-name">Pinned:</span>
-                    <span class="mono">{{ pinStats.sizeStr }}</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-dot dot-overhead"></span>
-                    <span class="legend-name">Blocks:</span>
-                    <span class="mono">{{ storageBreakdown.overheadStr }}</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-dot dot-headroom"></span>
-                    <span class="legend-name">Headroom:</span>
-                    <span class="mono">{{ storageBreakdown.headroomStr }}</span>
-                  </div>
-                </div>
+            <!-- Legend for capacity -->
+            <div class="capacity-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-pinned"></span>
+                <span class="legend-name">Pinned:</span>
+                <span class="mono">{{ pinStats.sizeStr }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-overhead"></span>
+                <span class="legend-name">System Blocks:</span>
+                <span class="mono">{{ storageBreakdown.overheadStr }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-headroom"></span>
+                <span class="legend-name">Safe Headroom:</span>
+                <span class="mono">{{ storageBreakdown.headroomStr }}</span>
               </div>
             </div>
           </div>

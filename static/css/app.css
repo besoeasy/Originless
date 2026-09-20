@@ -801,47 +801,6 @@ input:focus-visible {
   font-weight: 500;
 }
 
-.storage-capacity-body {
-  display: flex;
-  align-items: center;
-  gap: 1.1538rem;
-}
-
-.storage-gauge-visual {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.storage-gauge-svg {
-  display: block;
-}
-
-.gauge-txt-val {
-  fill: #fff;
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.gauge-txt-lbl {
-  fill: var(--ink-4);
-  font-family: var(--mono);
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-
-.storage-capacity-details {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4615rem;
-}
-
 .capacity-track-wrap {
   position: relative;
   width: 100%;
