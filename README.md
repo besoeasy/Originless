@@ -33,17 +33,7 @@ One port for humans and machines: **`3232`**.
 
 ## Run
 
-```bash
-docker compose up -d --build
-```
-
-Or with Podman:
-
-```bash
-podman compose up -d --build
-```
-
-Or standalone:
+standalone:
 
 ```bash
 podman run -d \
@@ -93,20 +83,6 @@ Same bytes as `ipfs://QmX...`. Good for:
 | Paste / snippet hosting | Tools → snippet uploader |
 
 > For dedicated Nostr media backup and mirroring, see [nostr-backup](https://github.com/besoeasy/nostr-backup).
-
----
-
-## How it fits together
-
-```
-App / Agent / Browser
-        │  POST /upload  ·  GET /ipfs/{cid}
-        ▼
-   Originless (:3232)
-        │  pin + serve
-        ▼
-   IPFS swarm (:4001)
-```
 
 ---
 
