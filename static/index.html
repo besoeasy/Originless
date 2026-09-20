@@ -200,51 +200,99 @@
 
         <div class="storage-policy-grid">
           <!-- Main Capacity Bar with 75% Eviction Threshold Line -->
-          <div class="storage-panel">
+          <div class="storage-panel storage-capacity-panel">
             <div class="panel-header">
               <span class="panel-title">Repository Capacity</span>
               <span class="panel-meta mono">
                 {{ status.repoSize }} ({{ storagePercentage }}%)
               </span>
             </div>
-            
-            <!-- Segmented Progress Track -->
-            <div class="capacity-track-wrap">
-              <div class="capacity-track">
-                <div
-                  class="capacity-fill fill-pinned"
-                  :style="{ width: storageBreakdown.pinnedPct + '%' }"
-                  :title="'Pinned Data: ' + pinStats.sizeStr"
-                ></div>
-                <div
-                  class="capacity-fill fill-overhead"
-                  :style="{ width: storageBreakdown.overheadPct + '%' }"
-                  :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
-                ></div>
-              </div>
-              <!-- 75% threshold marker -->
-              <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
-                <span class="marker-line"></span>
-                <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
-              </div>
-            </div>
 
-            <!-- Legend for capacity -->
-            <div class="capacity-legend">
-              <div class="legend-item">
-                <span class="legend-dot dot-pinned"></span>
-                <span class="legend-name">Pinned:</span>
-                <span class="mono">{{ pinStats.sizeStr }}</span>
+            <div class="storage-capacity-body">
+              <!-- SVG Radial Telemetry Dial -->
+              <div class="storage-gauge-visual" :title="'Datastore: ' + status.repoSize + ' used of ' + (status.storageMax || '100 GB')">
+                <svg viewBox="0 0 96 96" width="76" height="76" class="storage-gauge-svg">
+                  <defs>
+                    <linearGradient id="gaugeArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#3dd68c" />
+                      <stop offset="100%" stop-color="#38bdf8" />
+                    </linearGradient>
+                    <filter id="gaugeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="2" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  <!-- Outer dashed guide ring -->
+                  <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1" stroke-dasharray="2 3" />
+
+                  <!-- Background full track -->
+                  <circle cx="48" cy="48" r="34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="6" />
+
+                  <!-- Safe operating sector (0 to 75%) -->
+                  <circle cx="48" cy="48" r="34" fill="none" stroke="rgba(61, 214, 140, 0.12)" stroke-width="6"
+                          stroke-dasharray="160.22 213.63" stroke-dashoffset="0" transform="rotate(-90 48 48)" />
+
+                  <!-- 75% Eviction threshold tick marker (at 270 deg from top -> 9 o'clock) -->
+                  <line x1="6" y1="48" x2="18" y2="48" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round" />
+
+                  <!-- Dynamic Fill Arc -->
+                  <circle cx="48" cy="48" r="34" fill="none" stroke="url(#gaugeArcGrad)" stroke-width="6"
+                          stroke-linecap="round"
+                          :stroke-dasharray="213.63"
+                          :stroke-dashoffset="213.63 * (1 - Math.min(100, Math.max(storagePercentage, 2)) / 100)"
+                          transform="rotate(-90 48 48)"
+                          filter="url(#gaugeGlow)" />
+
+                  <!-- Center Text Readout -->
+                  <text x="48" y="45" text-anchor="middle" class="gauge-txt-val">{{ storagePercentage }}%</text>
+                  <text x="48" y="58" text-anchor="middle" class="gauge-txt-lbl">USED</text>
+                </svg>
               </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-overhead"></span>
-                <span class="legend-name">System Blocks:</span>
-                <span class="mono">{{ storageBreakdown.overheadStr }}</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-headroom"></span>
-                <span class="legend-name">Safe Headroom:</span>
-                <span class="mono">{{ storageBreakdown.headroomStr }}</span>
+
+              <!-- Segmented Progress Track & Legend -->
+              <div class="storage-capacity-details">
+                <div class="capacity-track-wrap">
+                  <div class="capacity-track">
+                    <div
+                      class="capacity-fill fill-pinned"
+                      :style="{ width: storageBreakdown.pinnedPct + '%' }"
+                      :title="'Pinned Data: ' + pinStats.sizeStr"
+                    ></div>
+                    <div
+                      class="capacity-fill fill-overhead"
+                      :style="{ width: storageBreakdown.overheadPct + '%' }"
+                      :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
+                    ></div>
+                  </div>
+                  <!-- 75% threshold marker -->
+                  <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
+                    <span class="marker-line"></span>
+                    <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
+                  </div>
+                </div>
+
+                <!-- Legend for capacity -->
+                <div class="capacity-legend">
+                  <div class="legend-item">
+                    <span class="legend-dot dot-pinned"></span>
+                    <span class="legend-name">Pinned:</span>
+                    <span class="mono">{{ pinStats.sizeStr }}</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot dot-overhead"></span>
+                    <span class="legend-name">Blocks:</span>
+                    <span class="mono">{{ storageBreakdown.overheadStr }}</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot dot-headroom"></span>
+                    <span class="legend-name">Headroom:</span>
+                    <span class="mono">{{ storageBreakdown.headroomStr }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -285,8 +333,13 @@
         <!-- Eviction & Janitor Policy Rules Row -->
         <div class="policy-rules-row">
           <div class="rule-card">
-            <div class="rule-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2-2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <div class="rule-icon rule-icon-evict">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4" />
+                <path d="M12 4v5l3 2" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M19 12a7 7 0 1 1-2.05-4.95L19 9" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <polyline points="15 9 19 9 19 5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
             </div>
             <div class="rule-content">
               <span class="rule-k">Auto-Eviction Policy</span>
@@ -295,8 +348,13 @@
           </div>
 
           <div class="rule-card">
-            <div class="rule-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <div class="rule-icon rule-icon-ttl">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.3" />
+                <path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" opacity="0.5" />
+                <circle cx="12" cy="12" r="5" stroke="#38bdf8" stroke-width="1.8" />
+                <polyline points="12 9.5 12 12 14 13.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
             </div>
             <div class="rule-content">
               <span class="rule-k">Retention Window</span>
@@ -305,8 +363,13 @@
           </div>
 
           <div class="rule-card">
-            <div class="rule-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            <div class="rule-icon rule-icon-upload">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="4" y="5" width="16" height="14" rx="3" stroke="#3dd68c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.4" />
+                <path d="M12 15V8" stroke="#3dd68c" stroke-width="2" stroke-linecap="round" />
+                <path d="M8.5 10.5L12 7l3.5 3.5" stroke="#3dd68c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="12" cy="17" r="1.5" fill="#3dd68c" />
+              </svg>
             </div>
             <div class="rule-content">
               <span class="rule-k">Max Single Upload</span>
@@ -315,8 +378,14 @@
           </div>
 
           <div class="rule-card">
-            <div class="rule-icon">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <div class="rule-icon rule-icon-gc">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" />
+                <polyline points="3 3 3 8 8 8" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" />
+                <polyline points="21 21 21 16 16 16" stroke="#a78bfa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="12" cy="12" r="2.5" fill="#a78bfa" />
+              </svg>
             </div>
             <div class="rule-content">
               <span class="rule-k">Kubo Datastore GC</span>
@@ -353,8 +422,77 @@
       </div>
 
       <div v-if="filteredHistory.length === 0" class="empty">
+        <div v-if="searchQuery" class="empty-graphic-wrap">
+          <svg viewBox="0 0 120 120" width="96" height="96" class="empty-svg">
+            <defs>
+              <radialGradient id="searchGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="60" cy="60" r="46" fill="url(#searchGlow)" />
+            <path d="M25 72 L60 90 L95 72 L60 54 Z" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 3" />
+            <path d="M36 68 L60 80 L84 68 L60 56 Z" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+            <circle cx="56" cy="50" r="20" fill="#121218" stroke="#f59e0b" stroke-width="2" />
+            <circle cx="56" cy="50" r="14" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" />
+            <line x1="70" y1="64" x2="88" y2="82" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
+            <circle cx="56" cy="50" r="3" fill="#f59e0b" />
+          </svg>
+        </div>
+        <div v-else class="empty-graphic-wrap">
+          <svg viewBox="0 0 140 140" width="110" height="110" class="empty-svg empty-cube-svg">
+            <defs>
+              <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.3" />
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.12" />
+              </linearGradient>
+              <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.18" />
+                <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
+              </linearGradient>
+              <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
+                <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
+              </linearGradient>
+              <radialGradient id="cubeAura" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.22" />
+                <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.08" />
+                <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0" />
+              </radialGradient>
+              <filter id="cubeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <circle cx="70" cy="70" r="58" fill="url(#cubeAura)" />
+            <ellipse cx="70" cy="74" rx="55" ry="24" fill="none" stroke="#3dd68c" stroke-width="1" stroke-dasharray="6 8" opacity="0.3" class="orbit-rotate" />
+            <ellipse cx="70" cy="74" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="3 5" opacity="0.25" />
+            
+            <g class="floating-cube">
+              <polygon points="70,30 102,48 70,66 38,48" fill="url(#cubeTop)" stroke="#3dd68c" stroke-width="1.2" />
+              <polygon points="38,48 70,66 70,102 38,84" fill="url(#cubeLeft)" stroke="#3dd68c" stroke-width="1.2" />
+              <polygon points="70,66 102,48 102,84 70,102" fill="url(#cubeRight)" stroke="#38bdf8" stroke-width="1.2" />
+              
+              <circle cx="70" cy="66" r="4" fill="#3dd68c" filter="url(#cubeGlow)" />
+              <line x1="70" y1="48" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+              <line x1="54" y1="75" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+              <line x1="86" y1="75" x2="70" y2="66" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+
+              <circle cx="34" cy="38" r="2.5" fill="#38bdf8" filter="url(#cubeGlow)" />
+              <circle cx="106" cy="42" r="2" fill="#3dd68c" filter="url(#cubeGlow)" />
+              <circle cx="70" cy="112" r="2" fill="#a78bfa" filter="url(#cubeGlow)" />
+            </g>
+          </svg>
+        </div>
         <strong>{{ searchQuery ? "No matching pins" : "Library is empty" }}</strong>
-        <p>{{ searchQuery ? "Try another name or CID." : "Pin from Tools, or POST /upload and /media." }}</p>
+        <p>{{ searchQuery ? "Try another name or CID." : "Upload files, pin from Tools, or integrate with AI agents." }}</p>
+        <div v-if="!searchQuery" class="empty-actions">
+          <a href="/examples/" class="btn btn-solid">Open Upload Tools</a>
+          <a href="/agent" class="btn">Agent Prompt</a>
+        </div>
       </div>
 
       <div v-else class="workspace-scroll">

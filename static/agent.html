@@ -38,6 +38,68 @@
 
   <div class="app-body">
     <section class="workspace">
+      <!-- Agent Integration Showcase -->
+      <section class="agent-hero-card" aria-label="Agent Integration">
+        <div class="agent-hero-visual">
+          <svg viewBox="0 0 160 140" width="130" height="114" class="agent-hero-svg">
+            <defs>
+              <linearGradient id="agentPulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="50%" stop-color="#a78bfa" />
+                <stop offset="100%" stop-color="#3dd68c" />
+              </linearGradient>
+              <radialGradient id="agentAura" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+                <stop offset="70%" stop-color="#a78bfa" stop-opacity="0.08" />
+                <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0" />
+              </radialGradient>
+              <filter id="agentGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Radial glow backdrop -->
+            <circle cx="80" cy="70" r="55" fill="url(#agentAura)" />
+
+            <!-- Orbital Neural Rings -->
+            <ellipse cx="80" cy="70" rx="65" ry="32" fill="none" stroke="#38bdf8" stroke-width="1" stroke-dasharray="6 6" opacity="0.3" transform="rotate(-15 80 70)" />
+            <ellipse cx="80" cy="70" rx="52" ry="26" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4 8" opacity="0.35" transform="rotate(25 80 70)" />
+
+            <!-- Data Stream Vectors -->
+            <line x1="32" y1="40" x2="80" y2="70" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6" />
+            <line x1="128" y1="40" x2="80" y2="70" stroke="#3dd68c" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6" />
+            <line x1="80" y1="70" x2="80" y2="114" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.6" />
+
+            <!-- Satellite Pin Nodes -->
+            <rect x="22" y="30" width="20" height="20" rx="5" fill="#14141c" stroke="#38bdf8" stroke-width="1.5" />
+            <text x="32" y="44" fill="#38bdf8" font-size="9" font-family="monospace" text-anchor="middle" font-weight="bold">AI</text>
+
+            <rect x="118" y="30" width="20" height="20" rx="5" fill="#14141c" stroke="#3dd68c" stroke-width="1.5" />
+            <text x="128" y="44" fill="#3dd68c" font-size="9" font-family="monospace" text-anchor="middle" font-weight="bold">CID</text>
+
+            <rect x="70" y="104" width="20" height="20" rx="5" fill="#14141c" stroke="#a78bfa" stroke-width="1.5" />
+            <text x="80" y="118" fill="#a78bfa" font-size="9" font-family="monospace" text-anchor="middle" font-weight="bold">DAG</text>
+
+            <!-- Center Autonomous Node Core -->
+            <circle cx="80" cy="70" r="18" fill="#14141c" stroke="url(#agentPulseGrad)" stroke-width="2" />
+            <circle cx="80" cy="70" r="10" fill="url(#agentPulseGrad)" opacity="0.25" />
+            <circle cx="80" cy="70" r="5" fill="#fff" filter="url(#agentGlow)" />
+          </svg>
+        </div>
+        <div class="agent-hero-info">
+          <div class="agent-hero-badge-row">
+            <span class="showcase-badge">Autonomous Node Skill</span>
+            <span class="pill pill-ok"><span class="dot"></span>Zero Auth Required</span>
+          </div>
+          <h3>Turn LLMs into Decentralized Storage Engineers</h3>
+          <p>Equip Cursor, Claude Desktop, Copilot, or LangChain agents to pin files, media, and full static sites directly onto this Originless node over localhost.</p>
+        </div>
+      </section>
+
       <section class="agent-prompt agent-page" aria-label="Agent Prompt">
         <div class="agent-prompt-bar">
           <div class="bar-title">
