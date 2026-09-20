@@ -24,10 +24,6 @@
       </nav>
     </div>
     <div class="topbar-end">
-      <button type="button" class="peer-btn" @click="copyText(status.fullNodeId || status.nodeId, 'Node ID copied')" :title="'Daemon v' + status.appver + ' · ' + (status.fullNodeId || status.nodeId) + ' (click to copy ID)'">
-        <span class="dot"></span>
-        {{ status.peerscount }} peers
-      </button>
       <label class="select-plain">
         <span>Gateway</span>
         <select v-model="currentGateway" @change="onGatewayChange">

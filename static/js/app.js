@@ -334,6 +334,57 @@
           return "";
         },
 
+        nodeGraphics() {
+          const id = this.status.fullNodeId || this.status.nodeId || "12D3KooWOriginlessNode000000000000000000000000000";
+          let hash = 0;
+          for (let i = 0; i < id.length; i++) {
+            hash = Math.imul(31, hash) + id.charCodeAt(i) | 0;
+          }
+          hash = Math.abs(hash);
+
+          const hue1 = hash % 360;
+          const hue2 = (hue1 + 50 + ((hash >> 4) % 60)) % 360;
+          const hue3 = (hue2 + 120) % 360;
+
+          const color1 = `hsl(${hue1}, 85%, 62%)`;
+          const color2 = `hsl(${hue2}, 80%, 55%)`;
+          const color3 = `hsl(${hue3}, 90%, 65%)`;
+
+          const cx = 80, cy = 80;
+          const numNodes = 7;
+          const nodes = [];
+          for (let i = 0; i < numNodes; i++) {
+            const charCode = id.charCodeAt(i % id.length) || 65;
+            const angle = (i / numNodes) * 2 * Math.PI + ((charCode % 30) * Math.PI / 180);
+            const r = 32 + (charCode % 22);
+            const x = Math.round(cx + r * Math.cos(angle));
+            const y = Math.round(cy + r * Math.sin(angle));
+            nodes.push({ x, y, r: 2.5 + (i % 3) });
+          }
+
+          const lines = [];
+          for (let i = 0; i < nodes.length; i++) {
+            const next = nodes[(i + 1) % nodes.length];
+            const cross = nodes[(i + 2) % nodes.length];
+            lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: next.x, y2: next.y, cross: false });
+            if (i % 2 === 0) {
+              lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: cross.x, y2: cross.y, cross: true });
+            }
+          }
+
+          return {
+            hashHex: hash.toString(16).padStart(8, "0"),
+            color1,
+            color2,
+            color3,
+            glowStyle: {
+              background: `radial-gradient(circle, ${color1}28 0%, ${color2}15 45%, transparent 70%)`
+            },
+            nodes,
+            lines,
+          };
+        },
+
         filteredHistory() {
           let list = [...(this.history || [])];
           
