@@ -2,9 +2,13 @@ package modules
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -22,6 +26,14 @@ func NewJanitor(store *Store, limit int64) *Manager {
 	}
 }
 
+// StorageLimit returns the hard quota blobs may not exceed.
+func (m *Manager) StorageLimit() int64 {
+	if m == nil || m.limit <= 0 {
+		return StorageMaxBytes
+	}
+	return m.limit
+}
+
 // Store exposes the underlying DB so record handlers work without signature changes.
 func (m *Manager) Store() *Store {
 	if m == nil {
@@ -37,17 +49,37 @@ func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
+	// Initial purge so restarts promptly clear backlog.
+	if n, err := m.PurgeExpiredRecords(time.Now().Unix()); err != nil {
+		log.Printf("[janitor] initial record purge error: %v", err)
+	} else if n > 0 {
+		log.Printf("[janitor] initial record purge: %d expired removed", n)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			log.Printf("[janitor] stopped")
 			return
 		case <-ticker.C:
+			if n, err := m.PurgeExpiredRecords(time.Now().Unix()); err != nil {
+				log.Printf("[janitor] record purge error: %v", err)
+			} else if n > 0 {
+				log.Printf("[janitor] purged %d expired records", n)
+			}
 			if err := m.CheckBlobThreshold(); err != nil {
 				log.Printf("[janitor] blob threshold check error: %v", err)
 			}
 		}
 	}
+}
+
+// PurgeExpiredRecords deletes expired records + orphan labels.
+func (m *Manager) PurgeExpiredRecords(nowUnix int64) (int64, error) {
+	if m == nil || m.store == nil {
+		return 0, nil
+	}
+	return m.store.DeleteExpiredRecords(nowUnix)
 }
 
 // totalUsage returns tracked blob bytes against the shared STORAGE_MAX quota.
@@ -180,28 +212,51 @@ func (m *Manager) ReconcileBlobs() error {
 	for _, h := range tracked {
 		known[h] = true
 	}
-	var imported int
+	var imported, quarantined int
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		name := e.Name()
-		if filepath.Ext(name) != ".bin" {
+		if !strings.EqualFold(filepath.Ext(name), ".bin") {
 			continue
 		}
 		hash := name[:len(name)-len(".bin")]
-		if _, err := NormalizeBlobHash(hash); err != nil {
+		norm, err := NormalizeBlobHash(hash)
+		if err != nil {
 			continue
 		}
-		if known[hash] {
+		if known[norm] {
 			continue
 		}
 		info, err := e.Info()
 		if err != nil {
 			continue
 		}
-		if _, err := m.store.UpsertBlob(hash, info.Size()); err != nil {
-			log.Printf("[janitor] failed to import blob %s: %v", hash, err)
+		// Verify content hash matches the filename before trusting it:
+		// a tampered or half-written file must not be imported under a
+		// wrong address. Mismatches are quarantined, not deleted.
+		actual, err := hashBlobFile(filepath.Join(BlobDir, name))
+		if err != nil {
+			log.Printf("[janitor] failed to hash untracked blob %s: %v", name, err)
+			continue
+		}
+		if actual != norm {
+			qdir := filepath.Join(BlobDir, "quarantine")
+			if mkErr := os.MkdirAll(qdir, 0o755); mkErr != nil {
+				log.Printf("[janitor] hash mismatch for %s (want %s got %s), quarantine unavailable: %v", name, norm, actual, mkErr)
+				continue
+			}
+			if mvErr := os.Rename(filepath.Join(BlobDir, name), filepath.Join(qdir, name)); mvErr != nil {
+				log.Printf("[janitor] failed to quarantine mismatched blob %s: %v", name, mvErr)
+				continue
+			}
+			log.Printf("[janitor] quarantined hash-mismatch blob %s (content sha256=%s)", name, actual)
+			quarantined++
+			continue
+		}
+		if _, err := m.store.UpsertBlob(norm, info.Size()); err != nil {
+			log.Printf("[janitor] failed to import blob %s: %v", norm, err)
 			continue
 		}
 		imported++
@@ -214,8 +269,22 @@ func (m *Manager) ReconcileBlobs() error {
 			}
 		}
 	}
-	if imported > 0 || missing > 0 {
-		log.Printf("[janitor] blob reconcile: %d imported, %d missing dropped", imported, missing)
+	if imported > 0 || missing > 0 || quarantined > 0 {
+		log.Printf("[janitor] blob reconcile: %d imported, %d missing dropped, %d quarantined", imported, missing, quarantined)
 	}
 	return nil
+}
+
+// hashBlobFile streams a file and returns its lowercase hex sha256.
+func hashBlobFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

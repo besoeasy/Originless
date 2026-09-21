@@ -30,6 +30,22 @@ func NewStore(dbPath string) (*Store, error) {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 
+	// Enforce ON DELETE CASCADE for record_labels and bound blocking time.
+	if _, err := sqlDB.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("enable foreign_keys: %w", err)
+	}
+	if _, err := sqlDB.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("set busy_timeout: %w", err)
+	}
+	// Incremental auto-vacuum so expired-record purges reclaim space
+	// without a blocking full VACUUM on every janitor tick.
+	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("set auto_vacuum: %w", err)
+	}
+
 	if err := migrate(sqlDB); err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
@@ -211,8 +227,6 @@ func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
 	for rows.Next() {
 		var r Record
 		var dataStr, storedAt string
-		var labels []string
-		_ = labels
 		if err := rows.Scan(&r.ID, &r.Owner, &r.Collection, &r.CreatedAt, &r.ExpiresAt, &dataStr, &r.Sig, &r.Size, &storedAt); err != nil {
 			return nil, err
 		}
@@ -223,17 +237,54 @@ func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if out == nil {
+		return []Record{}, nil
+	}
+	// Batched label fetch: one query for the whole page instead of N+1.
+	ids := make([]any, len(out))
+	placeholders := make([]string, len(out))
 	for i := range out {
-		labels, err := s.getLabels(out[i].ID)
-		if err != nil {
+		ids[i] = out[i].ID
+		placeholders[i] = "?"
+	}
+	labelRows, err := s.db.Query(
+		`SELECT record_id, label FROM record_labels WHERE record_id IN (`+joinPlaceholders(placeholders)+`) ORDER BY record_id ASC, label ASC`,
+		ids...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer labelRows.Close()
+	byID := make(map[string][]string, len(out))
+	for labelRows.Next() {
+		var rid, l string
+		if err := labelRows.Scan(&rid, &l); err != nil {
 			return nil, err
 		}
-		out[i].Labels = labels
+		byID[rid] = append(byID[rid], l)
 	}
-	if out == nil {
-		out = []Record{}
+	if err := labelRows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		if ls, ok := byID[out[i].ID]; ok {
+			out[i].Labels = ls
+		} else {
+			out[i].Labels = []string{}
+		}
 	}
 	return out, nil
+}
+
+func joinPlaceholders(ph []string) string {
+	out := ""
+	for i, p := range ph {
+		if i > 0 {
+			out += ","
+		}
+		out += p
+	}
+	return out
 }
 
 func scanRecord(row *sql.Row) (*Record, error) {
@@ -427,6 +478,27 @@ func (s *Store) GetRecordCount() (int64, error) {
 	var count int64
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM records WHERE expires_at > ?`, time.Now().Unix()).Scan(&count)
 	return count, err
+}
+
+// DeleteExpiredRecords removes records with expires_at <= nowUnix.
+// record_labels rows cascade via FK (PRAGMA foreign_keys=ON); a defensive
+// orphan cleanup runs first for DBs created before the pragma was set.
+// Returns the number of records removed.
+func (s *Store) DeleteExpiredRecords(nowUnix int64) (int64, error) {
+	// Defensive: drop orphan labels left by pre-FK databases.
+	if _, err := s.db.Exec(`DELETE FROM record_labels WHERE record_id IN (SELECT record_id FROM record_labels LEFT JOIN records ON records.id = record_labels.record_id WHERE records.id IS NULL)`); err != nil {
+		return 0, err
+	}
+	res, err := s.db.Exec(`DELETE FROM records WHERE expires_at <= ?`, nowUnix)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		// Reclaim freelist pages without a blocking full VACUUM.
+		_, _ = s.db.Exec(`PRAGMA incremental_vacuum`)
+	}
+	return n, nil
 }
 
 // ListBlobs returns newest blobs first.

@@ -36,6 +36,22 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	// Best-effort quota pre-check: reject obviously-over-quota uploads
+	// before staging bytes to disk. Duplicates (same hash) use no extra
+	// space, so the check is re-evaluated post-hash below.
+	quota := StorageMaxBytes
+	if h.janitor != nil {
+		quota = h.janitor.StorageLimit()
+	}
+	if r.ContentLength > 0 {
+		if total, err := st.GetBlobSize(); err == nil && total+r.ContentLength > quota {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
+				"status": "error", "error": "storage quota exceeded",
+				"limit": quota, "used": total,
+			})
+			return
+		}
+	}
 	if err := EnsureBlobDir(BlobDir); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"status": "error", "error": "blob storage unavailable",
@@ -146,6 +162,19 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 	sum := hasher.Sum(nil)
 	hash := hex.EncodeToString(sum)
 	dest := BlobPath(BlobDir, hash)
+
+	// Post-hash quota enforcement (covers chunked uploads with unknown
+	// ContentLength). Deduped bytes use no new space, so existing dests
+	// always pass.
+	if _, err := os.Stat(dest); os.IsNotExist(err) {
+		if total, err := st.GetBlobSize(); err == nil && total+written > quota {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
+				"status": "error", "error": "storage quota exceeded",
+				"limit": quota, "used": total,
+			})
+			return
+		}
+	}
 
 	duplicate := false
 	if _, err := os.Stat(dest); err == nil {
