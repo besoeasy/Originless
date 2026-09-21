@@ -1,17 +1,19 @@
 name: Release
 
-# Version-based release: triggered by git tag push (v*) or manual dispatch.
+# Version-based release: triggered by git tag push or manual dispatch.
+# Version numbers NEVER have a 'v' prefix (e.g. 1.0.5).
 # Publishes GitHub Release, builds & pushes multi-arch container to GHCR
-# (ghcr.io/besoeasy/originless:latest, :vX.Y.Z, and :X.Y.Z).
+# (ghcr.io/besoeasy/originless:latest and :1.0.5).
 
 on:
   push:
     tags:
-      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+*'
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release version tag (e.g. v1.0.5, default: auto-bump patch)"
+        description: "Release version tag (e.g. 1.0.5, default: auto-detected from modules/handler.go)"
         required: false
         default: ""
 
@@ -57,35 +59,33 @@ jobs:
           set -e
           if [ -n "$INPUT_TAG" ]; then
             TAG="$INPUT_TAG"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF_NAME}"
           else
             # Extract version from Go project source (modules/handler.go)
             CODE_VER=$(grep -E '^\s*var Version\s*=\s*' modules/handler.go 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true)
             if [ -n "$CODE_VER" ] && [ "$CODE_VER" != "dev" ]; then
-              TAG="v${CODE_VER#v}"
+              TAG="$CODE_VER"
             else
-              LATEST=$(git tag -l "v*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+              LATEST=$(git tag -l | grep -E "^(v)?[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
               if [ -z "$LATEST" ]; then
-                TAG="v1.0.0"
+                TAG="1.0.0"
               else
                 BASE="${LATEST#v}"
                 MAJOR=$(echo "$BASE" | cut -d. -f1)
                 MINOR=$(echo "$BASE" | cut -d. -f2)
                 PATCH=$(echo "$BASE" | cut -d. -f3)
                 NEXT_PATCH=$((PATCH + 1))
-                TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}"
+                TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
               fi
             fi
           fi
 
-          if [[ "$TAG" != v* ]]; then
-            TAG="v$TAG"
-          fi
-          VERSION="${TAG#v}"
+          # Strip any leading 'v' so version NEVER has a 'v' prefix
+          TAG="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: $TAG (version: $VERSION)"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
@@ -113,7 +113,6 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.tag.outputs.tag }}
-            type=raw,value=${{ steps.tag.outputs.version }}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -146,7 +145,7 @@ jobs:
           if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
             SHA="$(git rev-parse HEAD)"
           fi
-          PREV=$(git tag -l "v*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | grep -v "^${TAG}$" | sort -V | tail -n 1)
+          PREV=$(git tag -l | grep -E "^(v)?[0-9]+\.[0-9]+\.[0-9]+$" | grep -v "^${TAG}$" | grep -v "^v${TAG}$" | sort -V | tail -n 1)
           if [ -n "$PREV" ]; then
             NOTES=$(git log --format='- %h %s' "${PREV}..HEAD")
           else
