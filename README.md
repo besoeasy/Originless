@@ -2,253 +2,248 @@
 
 # Originless
 
-**Zero-auth backend for the open web — signed events, binary blobs, live streams.**
-No accounts. No API keys. One container.
+**Zero-auth backend for the open web — signed events, binary blobs, live P2P sync.**  
+No accounts. No API keys. Zero complex setup. One single container.
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
-[![Agent Prompt](https://img.shields.io/badge/agent prompt-agent.txt-1f6feb)](static/agent.txt)
+[![P2P Mesh](https://img.shields.io/badge/p2p-BitTorrent%20DHT-orange)](https://github.com/besoeasy/originless)
+[![Agent Contract](https://img.shields.io/badge/agent%20contract-agent.txt-1f6feb)](static/agent.txt)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/ISC)
-[![Available on Umbrel App Store](https://apps.umbrel.com/api/app/originless/badge-light.svg)](https://apps.umbrel.com/app/originless)
+[![Available on Umbrel](https://apps.umbrel.com/api/app/originless/badge-light.svg)](https://apps.umbrel.com/app/originless)
 
 </div>
 
 ---
 
-## Run in 10 seconds
+## What Originless Replaces
 
-```bash
-docker run -d --name originless --restart unless-stopped \
-  -p 3232:3232 -v originless-data:/data \
-  ghcr.io/besoeasy/originless:latest
-```
+Instead of running and configuring half a dozen microservices, API keys, and databases, Originless replaces them all with **two simple primitives** (signed JSON events + content-addressed binary blobs) running in a single binary:
 
-Podman works identically — replace `docker` with `podman`.
-
-Open **http://localhost:3232** for the dashboard · Point agents at **[/agent.txt](static/agent.txt)** for the full machine-readable contract.
-
-No storage cap, no upload size cap. Blobs persist until their size-weighted retention window elapses (30 days at 512 MiB → 1 year near 0 bytes), then the janitor evicts them. Data lives in the `/data` volume.
+| App / Service | What Originless Does Instead | Why It's Better |
+| :--- | :--- | :--- |
+| **ntfy / Pusher** | Real-time live pub/sub streams via Server-Sent Events (`GET /events/stream?label=...`). | No WebSockets, no server daemons. Subscribe directly in browser `EventSource` or `curl -N`. |
+| **Sentry** | Fire-and-forget signed telemetry and error logs (`POST /events`) with labels and automatic TTL expiry. | Zero auth tokens to provision or rotate. Filter by error tag or live-tail critical alerts. |
+| **Nostr Relays** | Cryptographically signed Ed25519 events with tamper-proof IDs and DHT swarm sync. | No complex NIP protocols, no paid relay operators. Standard HTTP REST + SSE. |
+| **0x0.st / Pastebin** | Content-addressed ephemeral binary file drops (`POST /up`, `GET /down/<sha256>`). | Deduplicated by SHA-256. Size-weighted retention auto-evicts old files cleanly. |
+| **Redis Pub/Sub** | Ephemeral JSON documents with self-expiring TTLs and real-time streaming. | Pure SQLite WAL storage with microsecond query latency and zero RAM bloat. |
+| **S3 / Object Store** | Content-addressed `.bin` storage with streaming downloads and checksum verification. | Zero IAM policies or bucket configuration. Upload once, verify everywhere. |
 
 ---
 
-## 30-second tour
+## Run in 10 seconds
+
+Run a single node, or pass `NETWORK_ID` to automatically connect nodes across different PCs into a synchronized P2P mesh:
+
+### Docker
+```bash
+docker run -d --name originless --restart unless-stopped \
+  -p 3232:3232 -v originless-data:/data \
+  -e NETWORK_ID=my-project \
+  ghcr.io/besoeasy/originless:latest
+```
+
+### Podman
+```bash
+podman run -d --name originless --restart unless-stopped \
+  -p 3232:3232 -v originless-data:/data \
+  -e NETWORK_ID=my-project \
+  ghcr.io/besoeasy/originless:latest
+```
+
+* **Standalone mode**: Omit `-e NETWORK_ID` to run as an isolated local instance.
+* **Mesh mode**: Set `-e NETWORK_ID=<any-name>` on two or more machines. They automatically discover each other over the BitTorrent Mainline DHT, UPnP, and local network, keeping all events and blobs synchronized in real time.
+* **Dashboard**: Open **http://localhost:3232** in your browser.
+* **AI Agents**: Point LLMs or agents at **[/agent.txt](static/agent.txt)** for the complete machine-readable contract.
+
+---
+
+## Automatic P2P Mesh (Torrent Network)
+
+Originless is built for zero-config Docker and Podman deployments. When `NETWORK_ID` is set:
+
+1. **BitTorrent Mainline DHT (BEP 5)**: Nodes announce themselves to the global BitTorrent DHT swarm under `sha1("originless:" + NETWORK_ID)`.
+2. **Auto UPnP & NAT-PMP Port Forwarding**: On startup, Originless automatically maps port 3232 on your home or office Wi-Fi router.
+3. **Peer Exchange (PEX)**: Connected peers share their peer lists, creating a resilient, fully connected swarm.
+4. **Local Service Discovery (BEP 14 LSD)**: Nodes on the same LAN or Wi-Fi discover each other via UDP multicast and sync at local wire speed.
+5. **Bloom Filter Set Reconciliation**: Upon connection, nodes exchange 1% false-positive Bloom filters to transfer missing records and binary blobs without redundant bandwidth.
+
+---
+
+## 30-Second Tour
 
 ```bash
 BASE=http://localhost:3232
 
-# 1. Health: blob / event counts + live SSE subscribers
+# 1. Health check: active events, blobs, and connected P2P peers
 curl $BASE/status
 
-# 2. Drop a binary blob (filename MUST end in .bin), get its content address
-printf '\x00\x01\x02\x03binary-data' > save.bin
-curl -X POST -F "file=@save.bin" $BASE/up
+# 2. Drop a binary blob (must end in .bin), get its SHA-256 content address
+head -c 64 /dev/urandom > data.bin
+curl -X POST -F "file=@data.bin" $BASE/up
 # -> {"status":"success","hash":"<sha256>","url":"/down/<sha256>"}
 
-# 3. Download it back from any machine
+# 3. Download it back from any machine in the swarm
 curl -O $BASE/down/<sha256>
 
-# 4. Query signed events (see "Sign once" below for publishing)
-curl "$BASE/events?collection=chat&label=room:lobby&limit=20"
+# 4. Query signed events (filtered by collection or label)
+curl "$BASE/events?collection=chat&label=room:general&limit=20"
 
-# 5. Live-tail them (Server-Sent Events, no WebSocket needed)
-curl -N "$BASE/events/stream?collection=chat&label=room:lobby"
+# 5. Live stream events (Server-Sent Events — no WebSocket required)
+curl -N "$BASE/events/stream?collection=chat&label=room:general"
 ```
 
 ---
 
-## Minimal API
+## The Two Primitives
 
-Two primitives, no auth. Identity is an Ed25519 keypair you hold — the server only verifies.
+### 1. Events — Signed JSON Documents (8 KB max, TTL ≤ 1 year)
+Events are immutable, cryptographically signed JSON documents. You own the private key; Originless verifies the Ed25519 signature and stores the event.
 
-### Events — signed JSON docs (8 KB max, TTL ≤ 1 year)
-
-| Method | Endpoint | What it does |
+| Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/events` | Publish a signed event. `201` created, `200` duplicate (same payload = same id), `401` bad sig. Alias: `/records` |
-| `GET` | `/events?collection=&label=&owner=&since=&until=&search=&limit=&cursor=` | Query newest-first. `limit` 1–100 (default 50). Expired hidden unless `?include_expired=true` |
-| `GET` | `/events/{id}` | Fetch one. Add `?resolve=blob` to inline a linked blob's metadata |
-| `GET` | `/events/stream?collection=&label=&owner=&search=` | Live SSE feed. Filters match publish filters. Keepalive `: keepalive` every 15 s |
-
-Event body (never send `id` — server computes it):
+| `POST` | `/events` | Publish a signed event (`201` created, `200` duplicate). Alias: `/records` |
+| `GET` | `/events?collection=&label=&owner=&since=&until=&search=&limit=&cursor=` | Query newest-first. Expired events hidden by default. |
+| `GET` | `/events/{id}` | Fetch a single event. Add `?resolve=blob` to inline linked blob metadata. |
+| `GET` | `/events/stream?collection=&label=&owner=&search=` | Real-time Server-Sent Events (SSE) feed. |
 
 ```json
 {
   "owner": "ed25519:<64 hex pubkey>",
-  "collection": "chat",
+  "collection": "alerts",
   "created_at": 1758420000,
   "expires_at": 1789956000,
-  "data": { "text": "gg" },
-  "labels": ["room:lobby"],
+  "data": { "service": "api", "error": "database connection timeout" },
+  "labels": ["severity:critical", "env:prod"],
   "sig": "<128 hex chars>"
 }
 ```
 
-### Blobs — opaque `.bin` files, content-addressed by SHA-256
+### 2. Blobs — Opaque Binary Files (`.bin`, Content-Addressed)
+Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it with immutable caching headers.
 
-| Method | Endpoint | What it does |
+| Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/up` | Upload `multipart/form-data` field `file`, filename must end `.bin`. Text / images / PDFs rejected (415) even if renamed. `201` new, `200` duplicate |
-| `GET` | `/down/{hash}` | Download by 64-char hex SHA-256 (`HEAD` also works). `ETag`, `nosniff`, immutable cache |
-| `GET` | `/blobs?limit=50&offset=0` | List newest-first |
+| `POST` | `/up` | Upload `multipart/form-data` with field `file` (`.bin` only). Plaintext/HTML rejected. |
+| `GET` | `/down/{hash}` | Download by SHA-256 hash. Supports `HEAD`, `ETag`, and byte ranges. |
+| `GET` | `/blobs?limit=50&offset=0` | List stored blobs sorted by newest upload. |
 
-### System
-
-| Method | Endpoint | What it does |
-| :--- | :--- | :--- |
-| `GET` | `/status` | Node snapshot: blob / event counts, SSE clients |
-| `GET` | `/metrics` | Prometheus metrics |
-| `GET` | `/agent.txt` | Plain-text contract for AI agents (`/agent` redirects here) |
-
-Link a blob to an event: upload first, then set `data._blob = "<sha256>"`. The hash is covered by the signature, so the link is tamper-proof. Live (unexpired) events protect their blob from janitor eviction.
+* **Retention**: Size-weighted retention policy (30 days at 512 MiB → 1 year near 0 bytes).
+* **Link to Events**: Add `data._blob = "<sha256>"` inside any event. As long as the signed event is unexpired, the janitor will never evict its blob.
 
 ---
 
-## Sign once, publish anywhere (Python)
+## Showcase: Replacing Common Architectures
 
-Signing is the only "tricky" bit. `id = sha256(owner:collection:created_at:expires_at:canonical(data):labels)` where `canonical(data)` is sorted-keys, whitespace-free JSON. Sign the **raw 32 hash bytes**, not the hex string.
+### 1. Replacing `ntfy` / Pusher (Browser Push & Alerts)
+Subscribe to notifications directly in client-side JavaScript with zero WebSocket overhead:
+
+```javascript
+// Listen to room alerts live
+const feed = new EventSource("http://localhost:3232/events/stream?collection=alerts&label=env:prod");
+
+feed.addEventListener("event", (e) => {
+  const alert = JSON.parse(e.data);
+  console.log(`[ALERT] ${alert.data.service}: ${alert.data.error}`);
+});
+```
+
+### 2. Replacing `Sentry` (Zero-Auth Crash Telemetry)
+Devices, background workers, and scripts publish errors using their local Ed25519 key without credential provisioning:
+
+```bash
+curl -X POST http://localhost:3232/events -H "Content-Type: application/json" -d '{
+  "owner": "ed25519:<worker pubkey>",
+  "collection": "crashes",
+  "created_at": 1758420000, "expires_at": 1759024800,
+  "data": {"error": "Out of memory", "stack": "main.go:42", "node": "worker-04"},
+  "labels": ["env:prod", "service:indexer"],
+  "sig": "<sign raw sha256 bytes with private key>"
+}'
+```
+
+### 3. Replacing `0x0.st` / Pastebin (Temporary File Drops)
+Upload binary dumps, SQLite databases, firmware snapshots, or compressed bundles:
+
+```bash
+# Upload
+curl -X POST -F "file=@backup.bin" http://localhost:3232/up
+# -> {"status":"success","hash":"a8b3...","url":"/down/a8b3..."}
+
+# Download from anywhere
+curl -O http://localhost:3232/down/a8b3...
+```
+
+### 4. Replacing Nostr Relays (Social Feeds & Sovereign Identities)
+Publish signed public posts. Any node running the same `NETWORK_ID` receives and verifies the post over the P2P swarm:
+
+```bash
+# Fetch latest posts in public timeline
+curl "http://localhost:3232/events?collection=timeline&limit=25"
+
+# Tail new posts live
+curl -N "http://localhost:3232/events/stream?collection=timeline"
+```
+
+### 5. Multi-Agent Swarm Bus (`/agent.txt`)
+AI coding agents and autonomous bots can discover the entire API spec at `/agent.txt`, generate keypairs on the fly, and coordinate distributed tasks across nodes:
+
+```bash
+# Agent streams pending tasks
+curl -N "http://localhost:3232/events/stream?collection=agent-tasks&label=status:pending"
+```
+
+---
+
+## Signing an Event (Python Example)
+
+Event IDs are deterministic:
+```text
+id = sha256(owner + ":" + collection + ":" + created_at + ":" + expires_at + ":" + canonical(data) + ":" + labels.join(","))
+```
+Sign the raw 32 SHA-256 hash bytes using Ed25519:
 
 ```python
-import json, time, hashlib
+import json, time, hashlib, requests
 from nacl.signing import SigningKey  # pip install pynacl
 
-BASE = "http://localhost:3232"
 sk = SigningKey.generate()
 owner = "ed25519:" + sk.verify_key.encode().hex()
 
-collection = "chat"
 created = int(time.time())
-expires = created + 3600
-data = {"room": "lobby", "text": "hello"}
-labels = ["room:lobby"]
+expires = created + 86400  # 24 hour TTL
+data = {"status": "ok", "message": "All systems operational"}
+labels = ["env:prod", "team:ops"]
 
 canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
-id_bytes = hashlib.sha256(
-    f"{owner}:{collection}:{created}:{expires}:{canonical}:{','.join(labels)}".encode()
-).digest()
+payload = f"{owner}:status:{created}:{expires}:{canonical}:{','.join(labels)}"
+id_bytes = hashlib.sha256(payload.encode()).digest()
 sig = sk.sign(id_bytes).signature.hex()
 
-import requests
-r = requests.post(f"{BASE}/events", json={
-    "owner": owner, "collection": collection,
-    "created_at": created, "expires_at": expires,
-    "data": data, "labels": labels, "sig": sig,
+res = requests.post("http://localhost:3232/events", json={
+    "owner": owner,
+    "collection": "status",
+    "created_at": created,
+    "expires_at": expires,
+    "data": data,
+    "labels": labels,
+    "sig": sig,
 })
-print(r.status_code, r.json())  # 201 {"status":"success","id":"..."}
+print(res.status_code, res.json())
 ```
-
-Node equivalent: `canonical = JSON.stringify(sortKeys(data))`, `idBytes = sha256(...)`, `sig = crypto.sign(null, idBytes, privKey)`. Same field layout.
 
 ---
 
-## Use cases
+## API Summary
 
-### 1. Ephemeral chat rooms (browser, no WebSocket server)
-
-Topic filtering via `labels`, auto-expiry via `expires_at`, zero-polling sync via `EventSource`. Publish with the snippet above, subscribe like this:
-
-```javascript
-// Live-tail one room
-const room = new EventSource(
-  "http://localhost:3232/events/stream?collection=chat&label=room:lobby"
-);
-room.addEventListener("event", (e) => {
-  const ev = JSON.parse(e.data); // {id, owner, collection, data, labels, ...}
-  console.log(`[${ev.data.user ?? ev.owner.slice(-6)}]: ${ev.data.text}`);
-});
-
-// Catch up after a disconnect — same filter, plain GET
-const res = await fetch(
-  "http://localhost:3232/events?collection=chat&label=room:lobby&limit=50"
-);
-const { events } = await res.json();
-```
-
-Why Originless: no socket server to run, no auth to provision, messages evaporate when `expires_at` passes.
-
-### 2. AI agent task bus (zero key provisioning)
-
-Point any agent at `/agent.txt` — it documents every endpoint and rule in plain text. Agents generate their own keypair, publish results as signed events, and stream each other's output:
-
-```bash
-BASE=http://localhost:3232
-
-# Agent publishes a completed task (sign as above; body ≤ 8 KB)
-curl -X POST $BASE/events -H "Content-Type: application/json" -d '{
-  "owner": "ed25519:<agent pubkey>",
-  "collection": "agent-tasks",
-  "created_at": 1758420000, "expires_at": 1789956000,
-  "data": {"task_id": "audit-42", "result": "passed", "confidence": 0.98},
-  "labels": ["status:completed", "agent:scanner-01"],
-  "sig": "<sign as above>"
-}'
-
-# Coordinator live-tails completions
-curl -N "$BASE/events/stream?collection=agent-tasks&label=status:completed"
-```
-
-Pattern: one `collection` per queue, one `label` per state (`status:open`, `status:completed`). Keep payloads small; put large artifacts in blobs and link via `data._blob`.
-
-### 3. Game saves & binary attachments (events + blobs)
-
-Store the raw bytes once (deduplicated by SHA-256), link them from a signed manifest. The live event shields the blob from eviction; fetch both in one round-trip with `?resolve=blob`:
-
-```bash
-# 1. Upload the save (must be .bin)
-curl -X POST -F "file=@save.bin" $BASE/up
-# -> {"status":"success","hash":"e3b0...85","url":"/down/e3b0...85"}
-
-# 2. Publish a signed manifest pointing at it
-curl -X POST $BASE/events -H "Content-Type: application/json" -d '{
-  "owner": "ed25519:<player pubkey>",
-  "collection": "gamesaves",
-  "created_at": 1758420000, "expires_at": 1789956000,
-  "data": {"slot": 1, "level": 34, "score": 9200, "_blob": "e3b0...85"},
-  "labels": ["slot:1", "player:hero"],
-  "sig": "<sign as above>"
-}'
-
-# 3. Load save + blob URL together
-curl "$BASE/events/<event-id>?resolve=blob"
-# -> {"event": {...}, "blob": {"hash": "...", "url": "/down/...", ...}}
-```
-
-Same shape works for firmware images, SQLite snapshots, model weights — anything opaque.
-
-### 4. CLI drops & IoT telemetry (one-liners)
-
-```bash
-# Instant expiring drop from any server
-curl -X POST -F "file=@dump.bin" $BASE/up
-curl -O $BASE/down/<sha256>
-
-# Signed device reading (sign on-device, fire-and-forget)
-curl -X POST $BASE/events -H "Content-Type: application/json" -d '{
-  "owner": "ed25519:<device pubkey>",
-  "collection": "alerts",
-  "created_at": 1758420000, "expires_at": 1758506400,
-  "data": {"temp_c": 91.4, "rack": "a3"},
-  "labels": ["severity:critical", "rack:a3"],
-  "sig": "<sign as above>"
-}'
-
-# Ops dashboard tails only critical alerts live
-curl -N "$BASE/events/stream?collection=alerts&label=severity:critical"
-```
-
-Why Originless: devices need no accounts or rotated tokens — the keypair *is* the identity, and `collection` + `label` filters replace per-device topics.
-
----
-
-## Query cheat sheet
-
-```bash
-# Newest-first, filter by anything
-curl "$BASE/events?collection=chat&label=room:lobby&limit=20"
-curl "$BASE/events?owner=ed25519:...&since=1758420000&until=1758506400"
-curl "$BASE/events?search=timeout&limit=50&cursor=<created_at>:<id>"
-
-# Health + metrics
-curl $BASE/status
-curl $BASE/metrics
-```
-
-Rules worth knowing: `collection` must match `^[a-z0-9/_-]{1,32}$`, ≤ 10 labels per event, `data` must be a JSON object, `created_at` tolerates 15 min future skew, `expires_at - created_at` ≤ 1 year. Same payload re-POSTed returns `200 duplicate` with the same id — safe to retry.
+| Endpoint | Method | Purpose |
+| :--- | :--- | :--- |
+| `GET /status` | `GET` | Health, event/blob counts, active SSE clients, and P2P mesh status |
+| `POST /events` | `POST` | Publish signed event (`/records` alias) |
+| `GET /events` | `GET` | Query events with filtering (`collection`, `label`, `owner`, `since`, `until`, `cursor`) |
+| `GET /events/{id}` | `GET` | Fetch event by ID (`?resolve=blob` to inline linked blob) |
+| `GET /events/stream` | `GET` | Real-time Server-Sent Events stream |
+| `POST /up` | `POST` | Upload `.bin` binary file |
+| `GET /down/{hash}` | `GET` | Download `.bin` binary file (`HEAD` supported) |
+| `GET /blobs` | `GET` | List stored blobs |
+| `GET /metrics` | `GET` | Prometheus telemetry metrics |
+| `GET /agent.txt` | `GET` | Machine-readable contract for AI agents |
