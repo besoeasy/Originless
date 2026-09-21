@@ -244,7 +244,7 @@ podman run -d \
 | **3232** | Dashboard, REST API, Records, and Blobs |
 | **4001** TCP+UDP | IPFS swarm — other nodes Bitswap your pins |
 
-Open **http://localhost:3232** · Client Tools in **[`examples/`](examples/)** · Full API in **[api.md](api.md)**
+Open **http://localhost:3232** · Full API in **[api.md](api.md)**
 
 ---
 
@@ -261,20 +261,6 @@ Open **http://localhost:3232** · Client Tools in **[`examples/`](examples/)** �
 | **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Single `curl` pins full `dist/` directory tree under one root CID |
 | **Fast Binary Blobs** | Content-Addressed Blobs | `POST /up` & `GET /down/{hash}` | Direct SHA-256 blobs, size-weighted retention window, LRU auto-pruning |
 | **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
-| **Web Snippets & Tools** | Client Templates | [`examples/`](examples/) | Standalone client templates ready to open or pin to IPFS |
-
----
-
-### Decoupled Client Templates (`examples/`)
-
-Originless is a headless, zero-auth backend binary. A suite of production-ready, zero-dependency client apps is provided under [`examples/`](examples/) — open them directly in any browser or pin them to IPFS:
-
-- 📋 **[crypto-paste](examples/crypto-paste.html)**: Zero-knowledge client-encrypted pastebin (AES-GCM-256 key in URL hash).
-- 📁 **[file-share](examples/file-share.html)**: Drag-and-drop file sharing with automatic IPFS pinning and gateway links.
-- 💬 **[chat-room](examples/chat-room.html)**: Ephemeral decentralized chat rooms with real-time SSE streaming.
-- 🎮 **[game-save](examples/game-save.html)**: Keypair-authenticated cloud game save manager using Ed25519 signatures.
-- 🖼️ **[nip92-uploader](examples/nip92-uploader.html)**: Nostr NIP-92 media uploader with SHA-256 hashes and `imeta` tag generation.
-- 🤖 **[agent-memory](examples/agent-memory.html)**: State inspector and key-value memory browser for autonomous AI agents.
 
 ---
 
