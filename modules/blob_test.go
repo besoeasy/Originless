@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -51,7 +52,7 @@ func TestUpDownRoundTrip(t *testing.T) {
 	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
-	content := []byte("hello-blob-world")
+	content := []byte("hello-blob-world\x00\xff\x89\x01")
 	rec := postBin(t, h, "data.bin", content)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST /up status=%d body=%s", rec.Code, rec.Body.String())
@@ -115,6 +116,115 @@ func TestUpRejectsNonBin(t *testing.T) {
 	rec := postBin(t, h, "photo.png", []byte("x"))
 	if rec.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("expected 415, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpRejectsSniffedNonBinary(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	pngMagic := append([]byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}, bytes.Repeat([]byte{0}, 32)...)
+	cases := []struct {
+		name     string
+		content  []byte
+		detected string
+	}{
+		{"html", []byte("<!DOCTYPE html><html><body>pwn</body></html>"), "text/html"},
+		{"svg", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`), "text/plain"},
+		{"png", pngMagic, "image/png"},
+		{"pdf", []byte("%PDF-1.4 fake pdf body"), "application/pdf"},
+		{"text", []byte("just some plain pasted text for the bin store"), "text/plain"},
+	}
+	for _, tc := range cases {
+		rec := postBin(t, h, "payload.bin", tc.content)
+		if rec.Code != http.StatusUnsupportedMediaType {
+			t.Fatalf("%s: expected 415, got %d body=%s", tc.name, rec.Code, rec.Body.String())
+		}
+		var body map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &body)
+		if body["error"] != "non-binary content rejected" {
+			t.Fatalf("%s: unexpected body %v", tc.name, body)
+		}
+		if det, _ := body["detected"].(string); !strings.HasPrefix(det, strings.Split(tc.detected, ";")[0]) {
+			t.Fatalf("%s: detected=%q want prefix %q", tc.name, det, tc.detected)
+		}
+	}
+
+	// Opaque bytes still pass: unknown binary, archives, media containers.
+	for _, content := range [][]byte{
+		{0x00, 0x01, 0x02, 0xFF, 0xFE, 0x80, 0x7F},
+		append([]byte("PK\x03\x04"), bytes.Repeat([]byte{0xAA}, 64)...),
+		append([]byte("\x1A\x45\xDF\xA3"), bytes.Repeat([]byte{0x10}, 64)...), // ebml
+	} {
+		rec := postBin(t, h, "opaque.bin", content)
+		if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
+			t.Fatalf("binary should pass, got %d body=%s", rec.Code, rec.Body.String())
+		}
+	}
+
+	// Empty files still hit the empty-file 400, not the sniff 415.
+	empty := postBin(t, h, "empty.bin", []byte{})
+	if empty.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for empty, got %d body=%s", empty.Code, empty.Body.String())
+	}
+}
+
+func TestDownSendsNosniff(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	content := []byte("nosniff-probe\x00\xff")
+	up := postBin(t, h, "probe.bin", content)
+	if up.Code != http.StatusCreated {
+		t.Fatalf("POST /up status=%d body=%s", up.Code, up.Body.String())
+	}
+	var resp map[string]any
+	_ = json.Unmarshal(up.Body.Bytes(), &resp)
+	hash, _ := resp["hash"].(string)
+
+	req := httptest.NewRequest(http.MethodGet, "/down/"+hash, nil)
+	req.SetPathValue("hash", hash)
+	got := httptest.NewRecorder()
+	h.Down(got, req)
+	if got.Code != http.StatusOK {
+		t.Fatalf("GET /down status=%d", got.Code)
+	}
+	if v := got.Header().Get("X-Content-Type-Options"); v != "nosniff" {
+		t.Fatalf("X-Content-Type-Options=%q, want nosniff", v)
+	}
+}
+
+func TestIsBlockedContentType(t *testing.T) {
+	blocked := []string{
+		"text/html; charset=utf-8",
+		"text/plain; charset=utf-8",
+		"text/xml; charset=utf-8",
+		"image/png",
+		"image/svg+xml",
+		"application/pdf",
+	}
+	for _, c := range blocked {
+		if !isBlockedContentType(c) {
+			t.Fatalf("expected blocked: %q", c)
+		}
+	}
+	allowed := []string{
+		"application/octet-stream",
+		"application/zip",
+		"application/gzip",
+		"video/mp4",
+		"audio/mpeg",
+		"application/x-executable",
+		"",
+	}
+	for _, c := range allowed {
+		if isBlockedContentType(c) {
+			t.Fatalf("expected allowed: %q", c)
+		}
 	}
 }
 
@@ -224,7 +334,7 @@ func TestListBlobsAndCounts(t *testing.T) {
 		t.Fatalf("expected count=0, got %v", resp["count"])
 	}
 
-	postBin(t, h, "test.bin", []byte("blobby-data"))
+	postBin(t, h, "test.bin", []byte("blobby-data\x00\xff"))
 
 	rec2 := httptest.NewRecorder()
 	h.ListBlobs(rec2, req)

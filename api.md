@@ -221,7 +221,7 @@ curl "http://localhost:3232/records/8f2c...1a?resolve=blob"
 
 ## `POST /up`
 
-Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted; identical bytes dedupe to the same hash.
+Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted, and the head bytes are sniffed — content detected as text, HTML, images, or PDF is rejected even when renamed to `.bin`. Identical bytes dedupe to the same hash.
 
 - **Content-Type:** `multipart/form-data`
 - **Field name:** `file` (filename must end in `.bin`, case-insensitive)
@@ -238,7 +238,7 @@ curl -X POST -F "file=@save.bin" http://localhost:3232/up
 { "status": "success", "hash": "e3b0...85", "size": 4096, "url": "/down/e3b0...85", "duplicate": false }
 ```
 
-Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file, `503` server busy.
+Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file or sniffed non-binary content (`detected` names the MIME), `503` server busy.
 
 To reference the blob from a record, publish with `"data": { …, "_blob": "<hash>" }` (see [`POST /records`](#post-records)).
 
@@ -284,7 +284,7 @@ curl "http://localhost:3232/blobs?limit=50&offset=0"
 Serve a stored blob by sha256. `HEAD` is also allowed. Every hit refreshes LRU recency.
 
 - `{hash}` must be 64 hex chars, case-insensitive (`400` otherwise)
-- Responses send `Content-Type: application/octet-stream`, `Content-Disposition: inline; filename="<hash>.bin"`, `ETag: "<hash>"`, and immutable-friendly `Cache-Control`
+- Responses send `Content-Type: application/octet-stream`, `Content-Disposition: inline; filename="<hash>.bin"`, `ETag: "<hash>"`, `X-Content-Type-Options: nosniff`, and immutable-friendly `Cache-Control`
 - Unknown or evicted hashes return `404` (stale DB rows are dropped)
 
 ```bash
@@ -329,5 +329,5 @@ curl http://localhost:3232/metrics
 | :----- | :--- |
 | `400` | Missing `file` part, empty filename, or malformed multipart |
 | `413` | File larger than `min(STORAGE_MAX / 100, 512 MiB)` (`maxSize` is included) |
-| `415` | Filename does not end in `.bin` |
+| `415` | Filename does not end in `.bin`, or content sniffed as text/HTML/image/PDF |
 | `503` | 3 uploads already in flight (`"Server busy"`) |

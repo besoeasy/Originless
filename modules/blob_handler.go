@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -90,6 +91,22 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extension lies: renamed PNGs/HTML/text sail through IsBinFile, so
+	// sniff the head bytes and refuse renderable or textual payloads.
+	// (Empty bodies skip the sniff and hit the empty-file check below —
+	// DetectContentType reports "" as text/plain.)
+	var head [512]byte
+	headLen, _ := io.ReadFull(partReader, head[:])
+	headBytes := head[:headLen]
+	if len(headBytes) > 0 {
+		if ctype := http.DetectContentType(headBytes); isBlockedContentType(ctype) {
+			writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{
+				"status": "error", "error": "non-binary content rejected", "detected": ctype,
+			})
+			return
+		}
+	}
+
 	tmp, err := os.CreateTemp(BlobDir, "up-*")
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot stage upload"})
@@ -103,7 +120,9 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	hasher := sha256.New()
-	limited := io.LimitReader(partReader, FileLimit+1)
+	// Replays the sniffed head so no byte is lost or double-counted.
+	stream := io.MultiReader(bytes.NewReader(headBytes), partReader)
+	limited := io.LimitReader(stream, FileLimit+1)
 	written, err := io.Copy(tmp, io.TeeReader(limited, hasher))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
@@ -217,6 +236,7 @@ func (h *Handler) Down(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `inline; filename="`+filepath.Base(BlobFileName(hash))+`"`)
 	w.Header().Set("ETag", `"`+hash+`"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=86400, immutable")
 	http.ServeFile(w, r, path)
 }

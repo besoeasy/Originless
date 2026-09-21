@@ -42,3 +42,18 @@ func IsBinFile(name string) bool {
 	}
 	return strings.HasSuffix(base, ".bin")
 }
+
+// blockedContentTypes are sniffed MIME families /up refuses. The blob
+// store holds opaque bytes, so renderable or plainly textual payloads
+// (phishing HTML, images, PDFs, pasted text) are rejected even when
+// renamed to .bin. Everything else — including unknown binaries,
+// archives, and media containers — is accepted as opaque bytes.
+func isBlockedContentType(ctype string) bool {
+	if strings.HasPrefix(ctype, "text/") {
+		return true
+	}
+	if strings.HasPrefix(ctype, "image/") {
+		return true
+	}
+	return ctype == "application/pdf"
+}
