@@ -54,6 +54,9 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		"blobs": map[string]any{
 			"count": 0, "size": int64(0), "sizeStr": FormatBytes(0),
 		},
+		"events": map[string]any{
+			"count": int64(0),
+		},
 		"records": map[string]any{
 			"count": int64(0),
 		},
@@ -72,6 +75,9 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if rCount, err := st.GetRecordCount(); err == nil {
+			payload["events"] = map[string]any{
+				"count": rCount,
+			}
 			payload["records"] = map[string]any{
 				"count": rCount,
 			}

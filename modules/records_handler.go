@@ -184,7 +184,7 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 		next = fmt.Sprintf("%d:%s", last.CreatedAt, last.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "success", "records": records,
+		"status": "success", "events": records, "records": records,
 		"limit": limit, "cursor": q.Get("cursor"), "next_cursor": next,
 	})
 }
@@ -226,6 +226,7 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 			if meta, err := st.GetBlob(h); err == nil {
 				writeJSON(w, http.StatusOK, map[string]any{
 					"status": "success",
+					"event":  rec,
 					"record": rec,
 					"blob": map[string]any{
 						"hash":           meta.Hash,
@@ -239,12 +240,12 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]any{
-				"status": "success", "record": rec, "blob": nil,
+				"status": "success", "event": rec, "record": rec, "blob": nil,
 			})
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "record": rec})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "event": rec, "record": rec})
 }
 
 // sseKeepaliveInterval and sseWriteTimeout bound long-lived streams.

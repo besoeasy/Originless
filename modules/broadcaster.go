@@ -134,6 +134,6 @@ func FormatSSE(rec *Record) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	res := "event: record\nid: " + rec.ID + "\ndata: " + string(data) + "\n\n"
+	res := "event: event\nid: " + rec.ID + "\ndata: " + string(data) + "\n\n"
 	return []byte(res), nil
 }

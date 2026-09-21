@@ -19,10 +19,10 @@ Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads ret
 | Method | Path | What it does |
 | :----- | :--- | :----------- |
 | `GET` | [`/status`](#get-status) | Node and storage snapshot |
-| `POST` | [`/records`](#post-records) | Store a signed JSON record (8 KB max) |
-| `GET` | [`/records`](#get-records) | Query signed records (owner, collection, label, time) |
-| `GET` | [`/records/stream`](#get-recordsstream) | Real-time Server-Sent Events (SSE) feed |
-| `GET` | [`/records/{id}`](#get-recordsid) | Fetch one record by ID |
+| `POST` | [`/events`](#post-events) | Store a signed JSON event (8 KB max) · alias: `/records` |
+| `GET` | [`/events`](#get-events) | Query signed events (owner, collection, label, time) · alias: `/records` |
+| `GET` | [`/events/stream`](#get-eventsstream) | Real-time Server-Sent Events (SSE) feed · alias: `/records/stream` |
+| `GET` | [`/events/{id}`](#get-eventsid) | Fetch one event by ID · alias: `/records/{id}` |
 | `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
 | `GET` | [`/blobs`](#get-blobs) | List stored `.bin` blobs (limit, offset) |
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
@@ -64,9 +64,9 @@ curl http://localhost:3232/status
 
 ---
 
-## `POST /records`
+## `POST /events`
 
-Store a signed JSON record for app data (posts, chat, game saves, profiles). No accounts — ownership is an `ed25519` keypair, verified server-side on every publish.
+Store a signed JSON event for app data (posts, chat, game saves, profiles). Legacy alias `POST /records` is supported. No accounts — ownership is an `ed25519` keypair, verified server-side on every publish.
 
 - **Content-Type:** `application/json`
 - **Max size:** total body `<= 8192` bytes (`413` if over)
@@ -83,7 +83,7 @@ Store a signed JSON record for app data (posts, chat, game saves, profiles). No 
 | `sig` | yes | `128` hex chars: `ed25519_sign(id)` |
 
 ```bash
-curl -X POST http://localhost:3232/records \
+curl -X POST http://localhost:3232/events \
   -H "Content-Type: application/json" \
   -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
 ```
@@ -100,15 +100,15 @@ Errors: `400` schema/TTL failure (`referenced blob not found` when `data._blob` 
 
 ---
 
-## `GET /records`
+## `GET /events`
 
-Query records, newest-first. Expired records are hidden unless `include_expired=true`.
+Query signed events, newest-first. Legacy alias `GET /records` is supported. Expired events are hidden unless `include_expired=true`.
 
 | Query | Default | Notes |
 | :---- | :------ | :---- |
 | `owner` | | exact `ed25519:…` match |
 | `collection` | | exact match |
-| `label` | | records carrying this label |
+| `label` | | events carrying this label |
 | `since` / `until` | | unix seconds on `created_at` |
 | `search` | | substring match inside `data` |
 | `limit` | `50` | 1–100 |
@@ -116,7 +116,7 @@ Query records, newest-first. Expired records are hidden unless `include_expired=
 | `include_expired` | | `true` to show expired rows |
 
 ```bash
-curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
+curl "http://localhost:3232/events?collection=chat&label=room:general&limit=20"
 ```
 
 **200:**
@@ -124,7 +124,7 @@ curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
 ```json
 {
   "status": "success",
-  "records": [
+  "events": [
     {
       "id": "8f2c...1a",
       "owner": "ed25519:3b6a...29",
@@ -138,26 +138,27 @@ curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
       "size": 312
     }
   ],
+  "records": [ ... ],
   "limit": 20,
   "cursor": "",
   "next_cursor": "1790000000:8f2c...1a"
 }
 ```
 
-Tip for replaceable state (profile, save slots): publish a new record per change and read with `limit=1` — latest wins, older versions fade via `expires_at`.
+Tip for replaceable state (profile, save slots): publish a new event per change and read with `limit=1` — latest wins, older versions fade via `expires_at`.
 
 ---
 
-## `GET /records/stream`
+## `GET /events/stream`
 
-Real-time Server-Sent Events (SSE) stream of newly published records matching query filters. Ideal for live chats, multiplayer game events, push notifications, and IoT signal listening without polling.
+Real-time Server-Sent Events (SSE) stream of newly published events matching query filters. Legacy alias `GET /records/stream` is supported. Ideal for live chats, multiplayer game events, push notifications, and IoT signal listening without polling.
 
 | Parameter | Filter |
 | :-------- | :----- |
-| `collection` | Stream records matching exact collection name |
-| `label` | Stream records containing specific label |
-| `owner` | Stream records published by specific `ed25519:<pubkey>` |
-| `search` | Stream records where JSON `data` contains substring |
+| `collection` | Stream events matching exact collection name |
+| `label` | Stream events containing specific label |
+| `owner` | Stream events published by specific `ed25519:<pubkey>` |
+| `search` | Stream events where JSON `data` contains substring |
 
 ### SSE Event Format
 
@@ -169,12 +170,12 @@ Cache-Control: no-cache, no-transform
 Connection: keep-alive
 ```
 
-Clients receive an initial comment, followed by standard SSE event messages as records are published (plus `: keepalive` comments every 15 s):
+Clients receive an initial comment, followed by standard SSE event messages as events are published (plus `: keepalive` comments every 15 s):
 
 ```text
 : connected
 
-event: record
+event: event
 id: 8f2c...1a
 data: {"id":"8f2c...1a","owner":"ed25519:...","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"lobby","msg":"hi"},"labels":["room:lobby"],"sig":"...","stored_at":"..."}
 
@@ -185,39 +186,39 @@ data: {"id":"8f2c...1a","owner":"ed25519:...","collection":"chat","created_at":1
 
 ```bash
 # Listen for all chat messages in room:lobby
-curl -N "http://localhost:3232/records/stream?collection=chat&label=room:lobby"
+curl -N "http://localhost:3232/events/stream?collection=chat&label=room:lobby"
 ```
 
 ```javascript
 // Browser / Node EventSource
-const es = new EventSource("http://localhost:3232/records/stream?collection=chat&label=room:lobby");
-es.addEventListener("record", (e) => {
-  const record = JSON.parse(e.data);
-  console.log("New record:", record.data);
+const es = new EventSource("http://localhost:3232/events/stream?collection=chat&label=room:lobby");
+es.addEventListener("event", (e) => {
+  const event = JSON.parse(e.data);
+  console.log("New event:", event.data);
 });
 ```
 
-**Delivery guarantee** — SSE is useful but inherently lossy for a slow consumer: if a client reads too slowly, the server skips it rather than blocking others, and counts the skip in `originless_sse_dropped_total`. Reconnect (or poll `GET /records?limit=…`) to catch up after any disconnect or drop.
+**Delivery guarantee** — SSE is useful but inherently lossy for a slow consumer: if a client reads too slowly, the server skips it rather than blocking others, and counts the skip in `originless_sse_dropped_total`. Reconnect (or poll `GET /events?limit=…`) to catch up after any disconnect or drop.
 
 ---
 
-## `GET /records/{id}`
+## `GET /events/{id}`
 
-Fetch one record by its server-computed ID. Expired records return `404` unless `?include_expired=true`.
-
-```bash
-curl http://localhost:3232/records/8f2c...1a
-```
-
-**200:** `{ "status": "success", "record": { … } }` · **404:** unknown or expired ID.
-
-`?resolve=blob` inlines the record's linked blob in one round trip (record must carry `data._blob`):
+Fetch one event by its server-computed ID. Legacy alias `GET /records/{id}` is supported. Expired events return `404` unless `?include_expired=true`.
 
 ```bash
-curl "http://localhost:3232/records/8f2c...1a?resolve=blob"
+curl http://localhost:3232/events/8f2c...1a
 ```
 
-**200:** `{ "status": "success", "record": { … }, "blob": { "hash": "…", "size": 4096, "sizeStr": "4.00 KB", "url": "/down/…", "retained_until": "2027-09-21T02:00:00Z", "protected": true } }` — `blob` is `null` when the linked blob is gone.
+**200:** `{ "status": "success", "event": { … }, "record": { … } }` · **404:** unknown or expired ID.
+
+`?resolve=blob` inlines the event's linked blob in one round trip (event must carry `data._blob`):
+
+```bash
+curl "http://localhost:3232/events/8f2c...1a?resolve=blob"
+```
+
+**200:** `{ "status": "success", "event": { … }, "record": { … }, "blob": { "hash": "…", "size": 4096, "sizeStr": "4.00 KB", "url": "/down/…", "retained_until": "2027-09-21T02:00:00Z", "protected": true } }` — `blob` is `null` when the linked blob is gone.
 
 ---
 

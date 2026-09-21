@@ -329,12 +329,12 @@
             </div>
           </div>
 
-          <!-- Records Panel -->
+          <!-- Events Panel -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Active Records</span>
+              <span class="panel-title">Active Events</span>
               <span class="panel-meta mono">
-                {{ recordsCount || (records || []).length || 0 }} records
+                {{ recordsCount || (records || []).length || 0 }} events
               </span>
             </div>
 
@@ -351,7 +351,7 @@
               </div>
             </div>
             <div v-else class="type-empty">
-              <span>No active records yet — publish one to start the feed.</span>
+              <span>No active events yet — publish one to start the feed.</span>
             </div>
           </div>
         </div>
@@ -438,7 +438,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                 <span>{{ recordsCount || (records || []).length || 0 }}</span>
               </div>
-              <span class="traffic-total-sub mono">Signed records</span>
+              <span class="traffic-total-sub mono">Signed events</span>
             </div>
 
             <div class="traffic-rate-sep"></div>
@@ -449,7 +449,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 <span>{{ recordsSseConnected ? 'Live' : 'Offline' }}</span>
               </div>
-              <span class="traffic-total-sub mono">GET /records/stream</span>
+              <span class="traffic-total-sub mono">GET /events/stream</span>
             </div>
           </div>
 
@@ -458,40 +458,26 @@
             <svg viewBox="0 0 280 110" width="100%" height="90" class="stream-mesh-svg">
               <defs>
                 <linearGradient id="streamNetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.2" />
-                  <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.8" />
-                  <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.3" />
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.9" />
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.9" />
                 </linearGradient>
-                <filter id="meshGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
               </defs>
-              <circle cx="140" cy="55" r="45" fill="none" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4 4" />
-              <circle cx="140" cy="55" r="26" fill="none" stroke="rgba(61,214,140,0.08)" />
-
-              <line x1="40" y1="35" x2="95" y2="20" stroke="url(#streamNetGrad)" stroke-width="1.2" class="stream-wave-flow" />
-              <line x1="95" y1="20" x2="140" y2="55" stroke="url(#streamNetGrad)" stroke-width="1.5" />
-              <line x1="140" y1="55" x2="185" y2="25" stroke="url(#streamNetGrad)" stroke-width="1.5" />
-              <line x1="185" y1="25" x2="240" y2="40" stroke="url(#streamNetGrad)" stroke-width="1.2" class="stream-wave-flow" />
-              <line x1="40" y1="35" x2="80" y2="85" stroke="rgba(56,189,248,0.3)" stroke-dasharray="3 3" />
-              <line x1="80" y1="85" x2="140" y2="55" stroke="url(#streamNetGrad)" stroke-width="1.2" />
-              <line x1="140" y1="55" x2="200" y2="85" stroke="url(#streamNetGrad)" stroke-width="1.2" />
-              <line x1="200" y1="85" x2="240" y2="40" stroke="rgba(61,214,140,0.3)" stroke-dasharray="3 3" />
-              <line x1="80" y1="85" x2="200" y2="85" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
-
-              <circle cx="140" cy="55" r="9" fill="rgba(61,214,140,0.15)" />
-              <circle cx="140" cy="55" r="4.5" fill="#3dd68c" filter="url(#meshGlow)" class="traffic-dot-pulse" />
-
-              <circle cx="40" cy="35" r="3.5" fill="#38bdf8" class="stream-dot-pulse" />
-              <circle cx="95" cy="20" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 0.5s" />
-              <circle cx="185" cy="25" r="3.5" fill="#38bdf8" class="stream-dot-pulse" style="animation-delay: 1s" />
-              <circle cx="240" cy="40" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 1.5s" />
-              <circle cx="80" cy="85" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 0.8s" />
-              <circle cx="200" cy="85" r="3.5" fill="#38bdf8" class="stream-dot-pulse" style="animation-delay: 1.3s" />
+              <!-- Background Flow Curves -->
+              <path d="M 10 55 C 60 20, 90 90, 140 55 C 190 20, 220 90, 270 55" fill="none" stroke="rgba(61,214,140,0.12)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M 10 55 C 60 90, 90 20, 140 55 C 190 90, 220 20, 270 55" fill="none" stroke="rgba(56,189,248,0.12)" stroke-width="2" stroke-linecap="round"/>
+              <!-- Active Flow Path -->
+              <path class="stream-flow-line" d="M 10 55 C 60 30, 90 80, 140 55 C 190 30, 220 80, 270 55" fill="none" stroke="url(#streamNetGrad)" stroke-width="2.5" stroke-linecap="round"/>
+              <!-- Origin Emitter Node -->
+              <circle cx="10" cy="55" r="4.5" fill="#3dd68c"/>
+              <circle cx="10" cy="55" r="8" fill="none" stroke="#3dd68c" stroke-width="1.5" opacity="0.4" class="ping-pulse"/>
+              <!-- Edge Hub Node -->
+              <circle cx="140" cy="55" r="5" fill="#38bdf8"/>
+              <!-- Terminal Listener Node -->
+              <circle cx="270" cy="55" r="4.5" fill="#3dd68c"/>
+              <circle cx="270" cy="55" r="8" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.4" class="ping-pulse" style="animation-delay: 1s;"/>
+              <!-- Flow Packets -->
+              <circle class="stream-particle-1" r="3" fill="#ffffff" />
+              <circle class="stream-particle-2" r="2.5" fill="#f5b942" />
             </svg>
           </div>
 
@@ -512,8 +498,8 @@
       <!-- 2 Core Primitives Showcase Section -->
       <section class="primitives-showcase-section" aria-label="Core Primitives">
         <div class="primitives-grid">
-          <!-- Card 1: Quick Records -->
-          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'records' }" @click="setWorkspaceTab('records')">
+          <!-- Card 1: Signed Events -->
+          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'records' || workspaceTab === 'events' }" @click="setWorkspaceTab('records')">
             <div class="primitive-card-head">
               <div class="primitive-icon icon-records">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -524,13 +510,13 @@
               </div>
             </div>
             <div class="primitive-card-body">
-              <h3>Quick Records</h3>
-              <p>Cryptographic document store with Ed25519 identity, auto-expiring TTLs, and live Server-Sent Events push feed.</p>
+              <h3>Signed Events</h3>
+              <p>Cryptographic event stream with Ed25519 identity, auto-expiring TTLs, and live Server-Sent Events push feed.</p>
             </div>
             <div class="primitive-card-foot">
               <div class="primitive-metric">
                 <span class="metric-val mono">{{ recordsCount || (records || []).length || 0 }}</span>
-                <span class="metric-lbl">Active Records</span>
+                <span class="metric-lbl">Active Events</span>
               </div>
               <span class="primitive-action">Explore Feed &rarr;</span>
             </div>
@@ -565,13 +551,13 @@
         <div class="workspace-tabs" role="tablist" aria-label="Primitive Views">
           <button
             class="workspace-tab"
-            :class="{ 'is-active': workspaceTab === 'records' }"
+            :class="{ 'is-active': workspaceTab === 'records' || workspaceTab === 'events' }"
             role="tab"
-            :aria-selected="workspaceTab === 'records'"
+            :aria-selected="workspaceTab === 'records' || workspaceTab === 'events'"
             @click="setWorkspaceTab('records')"
           >
             <span class="live-indicator-dot" v-if="recordsSseConnected" title="Live SSE Feed Active"></span>
-            <span>Quick Records</span>
+            <span>Signed Events</span>
             <span class="tab-badge mono">{{ recordsCount || (records || []).length || 0 }}</span>
           </button>
           <button
@@ -610,9 +596,9 @@
           />
           <button class="btn btn-solid" type="button" @click="publishDemoRecord" :disabled="isPublishingRecord">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>{{ isPublishingRecord ? 'Signing...' : 'Demo Record' }}</span>
+            <span>{{ isPublishingRecord ? 'Signing...' : 'Demo Event' }}</span>
           </button>
-          <button class="icon-btn" type="button" @click="fetchRecords" title="Refresh records">
+          <button class="icon-btn" type="button" @click="fetchRecords" title="Refresh events">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
         </div>
@@ -633,8 +619,8 @@
         </div>
       </div>
 
-      <!-- Quick Records Table & Content -->
-      <div v-if="workspaceTab === 'records'">
+      <!-- Signed Events Table & Content -->
+      <div v-if="workspaceTab === 'records' || workspaceTab === 'events'">
         <div v-if="recordsLoading && (records || []).length === 0" class="empty">
           <div class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="80" height="80" class="empty-svg">
@@ -642,8 +628,8 @@
               <circle cx="60" cy="60" r="10" fill="#f5b942" opacity="0.4" />
             </svg>
           </div>
-          <strong>Connecting to Quick Records...</strong>
-          <p>Listening to real-time events and indexing records.</p>
+          <strong>Connecting to Event Stream...</strong>
+          <p>Listening to real-time event stream and indexing events.</p>
         </div>
 
         <div v-else-if="(filteredRecords || []).length === 0" class="empty">
@@ -655,11 +641,11 @@
               <line x1="45" y1="69" x2="65" y2="69" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" />
             </svg>
           </div>
-          <strong>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "No matching records" : "No records stored yet" }}</strong>
-          <p>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "Adjust your filters to inspect other records." : "Publish cryptographic signed records via POST /records or click 'Demo Record'." }}</p>
+          <strong>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "No matching events" : "No events published yet" }}</strong>
+          <p>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "Adjust your filters to inspect other events." : "Publish cryptographic signed events via POST /events or click 'Demo Event'." }}</p>
           <div v-if="!recordsFilterSearch && !recordsFilterCollection && !recordsFilterLabel" class="empty-actions">
             <button class="btn btn-solid" type="button" @click="publishDemoRecord" :disabled="isPublishingRecord">
-              <span>Publish Sample Signed Record</span>
+              <span>Publish Sample Signed Event</span>
             </button>
           </div>
         </div>
@@ -668,7 +654,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Record ID</th>
+                <th>Event ID</th>
                 <th>Collection</th>
                 <th>Labels</th>
                 <th>Owner (Ed25519)</th>
@@ -846,10 +832,10 @@
       </div>
     </section>
 
-    <!-- Quick Record Inspector -->
-    <aside v-if="workspaceTab === 'records' && inspectRecordModalOpen && inspectRecord" class="inspector">
+    <!-- Event Inspector -->
+    <aside v-if="(workspaceTab === 'records' || workspaceTab === 'events') && inspectRecordModalOpen && inspectRecord" class="inspector">
       <div class="inspector-head">
-        Record Details
+        Event Details
         <button class="icon-btn" type="button" @click="closeInspectRecord">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>

@@ -429,7 +429,7 @@ func TestRecordBroadcaster(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(sseBytes), "event: record") ||
+	if !strings.Contains(string(sseBytes), "event: event") ||
 		!strings.Contains(string(sseBytes), "id: rec1") ||
 		!strings.Contains(string(sseBytes), `"text":"hello"`) {
 		t.Fatalf("unexpected SSE format: %s", string(sseBytes))
@@ -480,8 +480,8 @@ func TestStreamRecordsSSE(t *testing.T) {
 	if !strings.Contains(body, ": connected") {
 		t.Fatalf("expected ': connected', got %q", body)
 	}
-	if !strings.Contains(body, "event: record") {
-		t.Fatalf("expected 'event: record', got %q", body)
+	if !strings.Contains(body, "event: event") {
+		t.Fatalf("expected 'event: event', got %q", body)
 	}
 	if !strings.Contains(body, `"msg":"hi"`) {
 		t.Fatalf("expected data payload in stream, got %q", body)

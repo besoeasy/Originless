@@ -73,4 +73,16 @@ func TestRouterRoutes(t *testing.T) {
 			t.Errorf("expected body to contain 'Agent', got %q", body)
 		}
 	})
+
+	t.Run("GET /events and /records routes exist", func(t *testing.T) {
+		for _, path := range []string{"/events", "/records"} {
+			req := httptest.NewRequest("GET", path, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			// Manager is nil so it returns 503 "records store unavailable", confirming route matched handler
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Errorf("path %s expected status 503 from mock, got %d", path, rec.Code)
+			}
+		}
+	})
 }

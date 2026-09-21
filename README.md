@@ -50,26 +50,26 @@ Open **http://localhost:3232** for the dashboard · Full API in **[api.md](api.m
 
 Two primitives, no auth:
 
-- **Quick Records** (`POST /records`, `GET /records`, `GET /records/stream`) — Ed25519-signed JSON documents (8 KB max) with collections, labels, mandatory TTL, and a real-time SSE feed. Identity is a keypair; IDs are server-computed content hashes.
+- **Signed Events** (`POST /events`, `GET /events`, `GET /events/stream`) — Ed25519-signed JSON documents (8 KB max) with collections, labels, mandatory TTL, and a real-time SSE feed. Identity is a keypair; IDs are server-computed content hashes. (Legacy `/records` endpoints supported as aliases).
 - **Binary Blobs** (`POST /up`, `GET /down/{hash}`, `GET /blobs`) — opaque `.bin` files stored as `<sha256>.bin`, deduplicated, with size-weighted retention (30 days at 512 MiB → 1 year near 0 bytes). Expired blobs are evicted periodically by the janitor. Non-binary uploads (HTML, images, PDFs, text) are rejected; downloads send `nosniff`.
 
-Records link blobs via `"_blob": "<sha256>"` in `data` — validated on publish, exempt from eviction while the record lives, inlinable with `GET /records/{id}?resolve=blob`.
+Events link blobs via `"_blob": "<sha256>"` in `data` — validated on publish, exempt from eviction while the event lives, inlinable with `GET /events/{id}?resolve=blob`.
 
 ---
 
 ## Usage
 
 ```bash
-# Publish a signed record (see api.md for the signing scheme)
-curl -X POST http://localhost:3232/records \
+# Publish a signed event (see api.md for the signing scheme)
+curl -X POST http://localhost:3232/events \
   -H "Content-Type: application/json" \
   -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
 
 # Query it back
-curl "http://localhost:3232/records?collection=chat&label=room:general&limit=5"
+curl "http://localhost:3232/events?collection=chat&label=room:general&limit=5"
 
 # Stream it live (Server-Sent Events, zero polling)
-curl -N "http://localhost:3232/records/stream?collection=chat&label=room:general"
+curl -N "http://localhost:3232/events/stream?collection=chat&label=room:general"
 
 # Store a binary blob, fetch it by hash
 curl -X POST -F "file=@savegame.bin" http://localhost:3232/up

@@ -472,21 +472,21 @@
           if (this.promptFormat === "markdown") {
             return `### 🌐 Originless Node Integration
 - **Node Origin**: \`${origin}\`
-- **Auth**: None (public primitives, signed records verified via Ed25519)
+- **Auth**: None (public primitives, signed events verified via Ed25519)
 
 #### API Endpoints
-- **Signed Records**: \`POST ${origin}/records\` (Ed25519 signed state, auto-expiring TTL)
-- **Record Stream**: \`GET ${origin}/records/stream\` (Server-Sent Events)
+- **Signed Events**: \`POST ${origin}/events\` (Ed25519 signed state, auto-expiring TTL)
+- **Event Stream**: \`GET ${origin}/events/stream\` (Server-Sent Events)
 - **Binary Blobs**: \`POST ${origin}/up\` (SHA-256 content-addressed .bin only)
 - **Node Telemetry**: \`GET ${origin}/status\`
 
 #### Skills
-Make this a skill. Whenever you need to publish records or store binary blobs, use this Originless node.`;
+Make this a skill. Whenever you need to publish events or store binary blobs, use this Originless node.`;
           }
 
           if (this.promptFormat === "curl") {
-            return `# 1. Publish a signed JSON record
-curl -X POST ${origin}/records -H "Content-Type: application/json" -d '{"owner":"ed25519:...","collection":"notes","created_at":...,"expires_at":...,"data":{...},"sig":"..."}'
+            return `# 1. Publish a signed JSON event
+curl -X POST ${origin}/events -H "Content-Type: application/json" -d '{"owner":"ed25519:...","collection":"notes","created_at":...,"expires_at":...,"data":{...},"sig":"..."}'
 
 # 2. Store a .bin blob (content-addressed by SHA-256)
 curl -X POST -F "file=@data.bin" ${origin}/up
@@ -507,19 +507,19 @@ with open("data.bin", "rb") as f:
     print(data["hash"])  # sha256 content address`;
           }
 
-          return `Publish records and binary blobs with Originless.
+          return `Publish events and binary blobs with Originless.
 
 Repo: https://github.com/besoeasy/Originless
 This Originless node: ${origin}
 
-Use this node for all record and blob operations. There is no auth.
+Use this node for all event and blob operations. There is no auth.
 Endpoints:
-- POST ${origin}/records — a signed JSON record (Ed25519 signature verification).
+- POST ${origin}/events — a signed JSON event (Ed25519 signature verification).
 - POST ${origin}/up — a content-addressed .bin blob (SHA-256), single file part "file".
-- GET ${origin}/records/stream — live Server-Sent Events feed of new records.
+- GET ${origin}/events/stream — live Server-Sent Events feed of new events.
 
 Make this a skill.
-Whenever you need to publish records or store blobs, use this Originless node.`;
+Whenever you need to publish events or store blobs, use this Originless node.`;
         },
       },
 
@@ -577,7 +577,9 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
                 this.blobsTotalBytes = data.blobs.size || 0;
                 this.blobsTotalBytesStr = data.blobs.sizeStr || formatBytes(this.blobsTotalBytes);
               }
-              if (data.records?.count !== undefined) {
+              if (data.events?.count !== undefined) {
+                this.recordsCount = data.events.count;
+              } else if (data.records?.count !== undefined) {
                 this.recordsCount = data.records.count;
               }
             }
@@ -594,10 +596,11 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
             if (this.recordsFilterCollection) params.set("collection", this.recordsFilterCollection);
             if (this.recordsFilterLabel) params.set("label", this.recordsFilterLabel);
             if (this.recordsFilterSearch) params.set("search", this.recordsFilterSearch);
-            const res = await fetch(`/records?${params.toString()}`);
+            const res = await fetch(`/events?${params.toString()}`);
             const data = await res.json();
             if (res.ok && data.status === "success") {
-              this.records = (data.records || []).map(r => ({
+              const list = data.events || data.records || [];
+              this.records = list.map(r => ({
                 ...r,
                 dataFormatted: typeof r.data === "string" ? r.data : JSON.stringify(r.data, null, 2),
                 dataPreview: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
@@ -605,7 +608,7 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
               this.recordsCount = data.count || this.records.length;
             }
           } catch (err) {
-            console.error("Failed to fetch records:", err);
+            console.error("Failed to fetch events:", err);
           } finally {
             this.recordsLoading = false;
           }
@@ -623,12 +626,12 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
             try { this.recordsEventSource.close(); } catch (_) {}
           }
           try {
-            const sse = new EventSource("/records/stream");
+            const sse = new EventSource("/events/stream");
             this.recordsEventSource = sse;
             sse.onopen = () => {
               this.recordsSseConnected = true;
             };
-            sse.onmessage = (event) => {
+            const handleEvent = (event) => {
               try {
                 const rec = JSON.parse(event.data);
                 const enriched = {
@@ -640,13 +643,16 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
                 if (!this.records.some(r => r.id === rec.id)) {
                   this.records.unshift(enriched);
                   this.recordsCount++;
-                  this.showToast(`New live record in "${rec.collection}"`, "success");
+                  this.showToast(`New live event in "${rec.collection}"`, "success");
                   setTimeout(() => { enriched.isNew = false; }, 3000);
                 }
               } catch (e) {
                 console.error("SSE parse error:", e);
               }
             };
+            sse.onmessage = handleEvent;
+            sse.addEventListener("event", handleEvent);
+            sse.addEventListener("record", handleEvent);
             sse.onerror = () => {
               this.recordsSseConnected = false;
             };
@@ -680,24 +686,24 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
             }
 
             if (!recordPayload) {
-              throw new Error("Web Crypto Ed25519 signing is not supported in this browser. Please use curl / API to publish records.");
+              throw new Error("Web Crypto Ed25519 signing is not supported in this browser. Please use curl / API to publish events.");
             }
 
-            const res = await fetch("/records", {
+            const res = await fetch("/events", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(recordPayload),
             });
             const data = await res.json();
             if (res.ok && data.status === "success") {
-              this.showToast(`Published demo record to "${chosenCol}"!`, "success");
+              this.showToast(`Published demo event to "${chosenCol}"!`, "success");
               this.fetchRecords();
               this.fetchStatus();
             } else {
-              throw new Error(data.error || "Failed to publish demo record");
+              throw new Error(data.error || "Failed to publish demo event");
             }
           } catch (err) {
-            console.error("Demo record error:", err);
+            console.error("Demo event error:", err);
             this.showToast(err.message, "error");
           } finally {
             this.isPublishingRecord = false;
