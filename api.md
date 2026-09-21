@@ -27,6 +27,7 @@ Uploads (`POST /upload`, `/uploadfolder`, `/up`) are limited to **3 concurrent r
 | `GET` | [`/records/stream`](#get-recordsstream) | Real-time Server-Sent Events (SSE) feed |
 | `GET` | [`/records/{id}`](#get-recordsid) | Fetch one record by ID |
 | `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
+| `GET` | [`/blobs`](#get-blobs) | List stored `.bin` blobs (limit, offset) |
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
 | `GET` | [`/metrics`](#get-metrics) | Prometheus text metrics |
 
@@ -367,6 +368,38 @@ curl -X POST -F "file=@save.bin" http://localhost:3232/up
 ```
 
 Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file, `503` server busy.
+
+---
+
+## `GET /blobs`
+
+List stored `.bin` binary blobs, ordered newest-first.
+
+```bash
+curl "http://localhost:3232/blobs?limit=50&offset=0"
+```
+
+**200 OK**:
+
+```json
+{
+  "status": "success",
+  "count": 1,
+  "total_bytes": 4096,
+  "total_bytes_str": "4.00 KB",
+  "limit": 50,
+  "offset": 0,
+  "blobs": [
+    {
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 4096,
+      "created_at": "2026-09-21T09:00:00Z",
+      "last_access": "2026-09-21T09:05:00Z",
+      "access_count": 2
+    }
+  ]
+}
+```
 
 ---
 

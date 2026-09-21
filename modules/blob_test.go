@@ -185,3 +185,43 @@ func TestBlobLRURespectsMinAge(t *testing.T) {
 		t.Fatalf("fresh blob must survive min-age: %v", err)
 	}
 }
+
+func TestListBlobsAndCounts(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, nil, NewMetrics())
+	h.SetStore(st)
+
+	req := httptest.NewRequest(http.MethodGet, "/blobs", nil)
+	rec := httptest.NewRecorder()
+	h.ListBlobs(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["count"].(float64) != 0 {
+		t.Fatalf("expected count=0, got %v", resp["count"])
+	}
+
+	postBin(t, h, "test.bin", []byte("blobby-data"))
+
+	rec2 := httptest.NewRecorder()
+	h.ListBlobs(rec2, req)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec2.Code)
+	}
+	var resp2 map[string]any
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatal(err)
+	}
+	if resp2["count"].(float64) != 1 {
+		t.Fatalf("expected count=1, got %v", resp2["count"])
+	}
+	blobs := resp2["blobs"].([]any)
+	if len(blobs) != 1 {
+		t.Fatalf("expected 1 blob, got %d", len(blobs))
+	}
+}

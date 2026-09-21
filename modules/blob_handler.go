@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -218,4 +219,41 @@ func (h *Handler) Down(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("ETag", `"`+hash+`"`)
 	w.Header().Set("Cache-Control", "public, max-age=86400, immutable")
 	http.ServeFile(w, r, path)
+}
+
+// ListBlobs handles GET /blobs?limit=50&offset=0
+func (h *Handler) ListBlobs(w http.ResponseWriter, r *http.Request) {
+	st := h.recordStore()
+	if st == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "error", "error": "store unavailable"})
+		return
+	}
+	limit := 50
+	offset := 0
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 && p <= 100 {
+			limit = p
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p >= 0 {
+			offset = p
+		}
+	}
+	blobs, err := st.ListBlobs(limit, offset)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": err.Error()})
+		return
+	}
+	count, _ := st.GetBlobCount()
+	totalBytes, _ := st.GetBlobSize()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":          "success",
+		"blobs":           blobs,
+		"count":           count,
+		"total_bytes":     totalBytes,
+		"total_bytes_str": FormatBytes(totalBytes),
+		"limit":           limit,
+		"offset":          offset,
+	})
 }

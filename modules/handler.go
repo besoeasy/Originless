@@ -100,6 +100,23 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		},
 		"appVersion": AppVersion,
 	}
+
+	if st := h.recordStore(); st != nil {
+		if bCount, err := st.GetBlobCount(); err == nil {
+			bSize, _ := st.GetBlobSize()
+			payload["blobs"] = map[string]any{
+				"count":   bCount,
+				"size":    bSize,
+				"sizeStr": FormatBytes(bSize),
+			}
+		}
+		if rCount, err := st.GetRecordCount(); err == nil {
+			payload["records"] = map[string]any{
+				"count": rCount,
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, payload)
 }
 

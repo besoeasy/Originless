@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Library — Originless</title>
+  <title>Dashboard — Originless</title>
   <meta name="theme-color" content="#0b0b0c" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <link rel="stylesheet" href="/css/app.css" />
@@ -613,12 +613,164 @@
         </div>
       </div>
 
-      <div class="workspace-bar">
-        <div class="bar-title">
-          <h1>Library</h1>
-          <span class="count">{{ filteredHistory.length }}</span>
+      <!-- 3 Core Primitives Showcase Section -->
+      <section class="primitives-showcase-section" aria-label="Core Primitives">
+        <div class="primitives-grid">
+          <!-- Card 1: Quick Records -->
+          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'records' }" @click="setWorkspaceTab('records')">
+            <div class="primitive-card-head">
+              <div class="primitive-icon icon-records">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              </div>
+              <div class="primitive-badge-group">
+                <span class="live-indicator-dot" v-if="recordsSseConnected" title="SSE Live Push Stream Connected"></span>
+                <span class="pill pill-ok mono">SSE Real-Time</span>
+              </div>
+            </div>
+            <div class="primitive-card-body">
+              <h3>Quick Records</h3>
+              <p>Cryptographic document store with Ed25519 identity, auto-expiring TTLs, and live Server-Sent Events push feed.</p>
+            </div>
+            <div class="primitive-card-foot">
+              <div class="primitive-metric">
+                <span class="metric-val mono">{{ recordsCount || records.length || 0 }}</span>
+                <span class="metric-lbl">Active Records</span>
+              </div>
+              <span class="primitive-action">Explore Feed &rarr;</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Binary Blobs -->
+          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'blobs' }" @click="setWorkspaceTab('blobs')">
+            <div class="primitive-card-head">
+              <div class="primitive-icon icon-blobs">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+              </div>
+              <div class="primitive-badge-group">
+                <span class="pill pill-ok mono">SHA-256</span>
+              </div>
+            </div>
+            <div class="primitive-card-body">
+              <h3>Binary Blobs</h3>
+              <p>Content-addressed storage for raw binaries &amp; artifacts. Zero metadata overhead, 7-day retention guarantee, LRU cache.</p>
+            </div>
+            <div class="primitive-card-foot">
+              <div class="primitive-metric">
+                <span class="metric-val mono">{{ blobsCount || blobs.length || 0 }} · {{ blobsTotalBytesStr || '0 B' }}</span>
+                <span class="metric-lbl">Retained Blobs</span>
+              </div>
+              <span class="primitive-action">Drop &amp; Inspect &rarr;</span>
+            </div>
+          </div>
+
+          <!-- Card 3: IPFS Swarm & Library -->
+          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'ipfs' }" @click="setWorkspaceTab('ipfs')">
+            <div class="primitive-card-head">
+              <div class="primitive-icon icon-ipfs">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              </div>
+              <div class="primitive-badge-group">
+                <span class="pill pill-ok mono">libp2p Swarm</span>
+              </div>
+            </div>
+            <div class="primitive-card-body">
+              <h3>IPFS Swarm</h3>
+              <p>Decentralized immutable file pinning distributed across the global peer-to-peer network with deterministic CIDs.</p>
+            </div>
+            <div class="primitive-card-foot">
+              <div class="primitive-metric">
+                <span class="metric-val mono">{{ pinStats.count }} pins · {{ pinStats.sizeStr }}</span>
+                <span class="metric-lbl">Permanent Pins</span>
+              </div>
+              <span class="primitive-action">View Library &rarr;</span>
+            </div>
+          </div>
         </div>
-        <div class="bar-tools">
+      </section>
+
+      <div class="workspace-bar">
+        <div class="workspace-tabs" role="tablist" aria-label="Primitive Views">
+          <button
+            class="workspace-tab"
+            :class="{ 'is-active': workspaceTab === 'records' }"
+            role="tab"
+            :aria-selected="workspaceTab === 'records'"
+            @click="setWorkspaceTab('records')"
+          >
+            <span class="live-indicator-dot" v-if="recordsSseConnected" title="Live SSE Feed Active"></span>
+            <span>Quick Records</span>
+            <span class="tab-badge mono">{{ recordsCount || records.length || 0 }}</span>
+          </button>
+          <button
+            class="workspace-tab"
+            :class="{ 'is-active': workspaceTab === 'blobs' }"
+            role="tab"
+            :aria-selected="workspaceTab === 'blobs'"
+            @click="setWorkspaceTab('blobs')"
+          >
+            <span>Binary Blobs</span>
+            <span class="tab-badge mono">{{ blobsCount || blobs.length || 0 }}</span>
+          </button>
+          <button
+            class="workspace-tab"
+            :class="{ 'is-active': workspaceTab === 'ipfs' }"
+            role="tab"
+            :aria-selected="workspaceTab === 'ipfs'"
+            @click="setWorkspaceTab('ipfs')"
+          >
+            <span>IPFS Library</span>
+            <span class="tab-badge mono">{{ filteredHistory.length }}</span>
+          </button>
+        </div>
+
+        <!-- Quick Records Toolbar -->
+        <div v-if="workspaceTab === 'records'" class="bar-tools">
+          <label class="search-box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input v-model="recordsFilterSearch" @input="fetchRecordsDebounced" type="search" placeholder="Filter by ID, payload, owner..." />
+          </label>
+          <input
+            v-model="recordsFilterCollection"
+            @input="fetchRecordsDebounced"
+            type="text"
+            placeholder="Collection..."
+            class="input-compact mono"
+            style="width: 130px;"
+          />
+          <input
+            v-model="recordsFilterLabel"
+            @input="fetchRecordsDebounced"
+            type="text"
+            placeholder="Label..."
+            class="input-compact mono"
+            style="width: 110px;"
+          />
+          <button class="btn btn-solid" type="button" @click="publishDemoRecord" :disabled="isPublishingRecord">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>{{ isPublishingRecord ? 'Signing...' : 'Demo Record' }}</span>
+          </button>
+          <button class="icon-btn" type="button" @click="fetchRecords" title="Refresh records">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+
+        <!-- Binary Blobs Toolbar -->
+        <div v-else-if="workspaceTab === 'blobs'" class="bar-tools">
+          <label class="search-box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input v-model="blobsSearchQuery" type="search" placeholder="Filter by SHA-256 hash..." />
+          </label>
+          <button class="btn btn-solid" type="button" @click="triggerBlobFileInput">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Upload .bin</span>
+          </button>
+          <button class="icon-btn" type="button" @click="fetchBlobs" title="Refresh blobs">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+
+        <!-- IPFS Library Toolbar -->
+        <div v-else class="bar-tools">
           <label class="search-box">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input ref="searchInput" v-model="searchQuery" type="search" placeholder="Filter by name or CID" />
@@ -639,141 +791,357 @@
         </div>
       </div>
 
-      <div v-if="filteredHistory.length === 0" class="empty">
-        <div v-if="searchQuery" class="empty-graphic-wrap">
-          <svg viewBox="0 0 120 120" width="96" height="96" class="empty-svg">
-            <defs>
-              <radialGradient id="searchGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
-                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
-              </radialGradient>
-            </defs>
-            <circle cx="60" cy="60" r="46" fill="url(#searchGlow)" />
-            <path d="M25 72 L60 90 L95 72 L60 54 Z" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 3" />
-            <path d="M36 68 L60 80 L84 68 L60 56 Z" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
-            <circle cx="56" cy="50" r="20" fill="#121218" stroke="#f59e0b" stroke-width="2" />
-            <circle cx="56" cy="50" r="14" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" />
-            <line x1="70" y1="64" x2="88" y2="82" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
-            <circle cx="56" cy="50" r="3" fill="#f59e0b" />
-          </svg>
+      <!-- Quick Records Table & Content -->
+      <div v-if="workspaceTab === 'records'">
+        <div v-if="recordsLoading && records.length === 0" class="empty">
+          <div class="empty-graphic-wrap">
+            <svg viewBox="0 0 120 120" width="80" height="80" class="empty-svg">
+              <circle cx="60" cy="60" r="36" fill="none" stroke="#f5b942" stroke-width="2" stroke-dasharray="6 6" class="orbit-rotate" />
+              <circle cx="60" cy="60" r="10" fill="#f5b942" opacity="0.4" />
+            </svg>
+          </div>
+          <strong>Connecting to Quick Records...</strong>
+          <p>Listening to real-time events and indexing records.</p>
         </div>
-        <div v-else class="empty-graphic-wrap">
-          <svg viewBox="0 0 140 140" width="110" height="110" class="empty-svg empty-cube-svg">
-            <defs>
-              <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.3" />
-                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.12" />
-              </linearGradient>
-              <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.18" />
-                <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
-              </linearGradient>
-              <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
-                <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
-              </linearGradient>
-              <radialGradient id="cubeAura" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.22" />
-                <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.08" />
-                <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0" />
-              </radialGradient>
-              <filter id="cubeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="2.5" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            <circle cx="70" cy="70" r="58" fill="url(#cubeAura)" />
-            <ellipse cx="70" cy="74" rx="55" ry="24" fill="none" stroke="#3dd68c" stroke-width="1" stroke-dasharray="6 8" opacity="0.3" class="orbit-rotate" />
-            <ellipse cx="70" cy="74" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="3 5" opacity="0.25" />
-            
-            <g class="floating-cube">
-              <polygon points="70,30 102,48 70,66 38,48" fill="url(#cubeTop)" stroke="#3dd68c" stroke-width="1.2" />
-              <polygon points="38,48 70,66 70,102 38,84" fill="url(#cubeLeft)" stroke="#3dd68c" stroke-width="1.2" />
-              <polygon points="70,66 102,48 102,84 70,102" fill="url(#cubeRight)" stroke="#38bdf8" stroke-width="1.2" />
-              
-              <circle cx="70" cy="66" r="4" fill="#3dd68c" filter="url(#cubeGlow)" />
-              <line x1="70" y1="48" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
-              <line x1="54" y1="75" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
-              <line x1="86" y1="75" x2="70" y2="66" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
 
-              <circle cx="34" cy="38" r="2.5" fill="#38bdf8" filter="url(#cubeGlow)" />
-              <circle cx="106" cy="42" r="2" fill="#3dd68c" filter="url(#cubeGlow)" />
-              <circle cx="70" cy="112" r="2" fill="#a78bfa" filter="url(#cubeGlow)" />
-            </g>
-          </svg>
+        <div v-else-if="filteredRecords.length === 0" class="empty">
+          <div class="empty-graphic-wrap">
+            <svg viewBox="0 0 120 120" width="90" height="90" class="empty-svg">
+              <rect x="35" y="25" width="50" height="70" rx="6" fill="#14141a" stroke="#f5b942" stroke-width="1.8" />
+              <line x1="45" y1="45" x2="75" y2="45" stroke="#f5b942" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+              <line x1="45" y1="57" x2="75" y2="57" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" />
+              <line x1="45" y1="69" x2="65" y2="69" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </div>
+          <strong>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "No matching records" : "No records stored yet" }}</strong>
+          <p>{{ (recordsFilterSearch || recordsFilterCollection || recordsFilterLabel) ? "Adjust your filters to inspect other records." : "Publish cryptographic signed records via POST /records or click 'Demo Record'." }}</p>
+          <div v-if="!recordsFilterSearch && !recordsFilterCollection && !recordsFilterLabel" class="empty-actions">
+            <button class="btn btn-solid" type="button" @click="publishDemoRecord" :disabled="isPublishingRecord">
+              <span>Publish Sample Signed Record</span>
+            </button>
+          </div>
         </div>
-        <strong>{{ searchQuery ? "No matching pins" : "Library is empty" }}</strong>
-        <p>{{ searchQuery ? "Try another name or CID." : "Upload files, pin from Tools, or integrate with AI agents." }}</p>
-        <div v-if="!searchQuery" class="empty-actions">
-          <a href="https://github.com/besoeasy/Originless/tree/main/examples" target="_blank" rel="noopener" class="btn btn-solid">Open Client Templates</a>
-          <a href="/agent" class="btn">Agent Prompt</a>
+
+        <div v-else class="workspace-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Record ID</th>
+                <th>Collection</th>
+                <th>Labels</th>
+                <th>Owner (Ed25519)</th>
+                <th>Preview</th>
+                <th>TTL / Expires</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="rec in filteredRecords"
+                :key="rec.id"
+                :class="{ 'is-open': inspectRecord && inspectRecord.id === rec.id, 'is-new-flash': rec.isNew }"
+                @click="openInspectRecord(rec)"
+              >
+                <td data-col="ID">
+                  <div class="record-id-cell">
+                    <span class="mono">{{ rec.id }}</span>
+                  </div>
+                </td>
+                <td data-col="Collection">
+                  <span class="collection-badge mono">{{ rec.collection || 'default' }}</span>
+                </td>
+                <td data-col="Labels">
+                  <div class="labels-cell">
+                    <span v-for="lbl in (rec.labels || [])" :key="lbl" class="label-chip mono">{{ lbl }}</span>
+                    <span v-if="!rec.labels || rec.labels.length === 0" class="text-sub mono" style="font-size: 0.75rem;">—</span>
+                  </div>
+                </td>
+                <td data-col="Owner" class="mono text-sub" :title="rec.owner">
+                  {{ shortOwner(rec.owner) }}
+                </td>
+                <td data-col="Preview">
+                  <div class="record-preview mono" :title="rec.dataPreview">
+                    {{ rec.dataPreview }}
+                  </div>
+                </td>
+                <td data-col="Expires" class="mono col-num">
+                  <span :title="'Expires: ' + formatUnix(rec.expires_at)">{{ formatExpires(rec.expires_at) }}</span>
+                </td>
+                <td data-col=" " @click.stop>
+                  <div class="row-actions">
+                    <button class="icon-btn" type="button" title="Copy Record JSON" @click="copyText(JSON.stringify(rec, null, 2), 'Record JSON copied')">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="icon-btn" type="button" title="Inspect Record" @click="openInspectRecord(rec)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div v-else class="workspace-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th class="col-name is-sort" @click="setSort('name')">Name</th>
-              <th class="col-type">Type</th>
-              <th class="col-cid">CID</th>
-              <th class="col-size is-sort" @click="setSort('size')">Size</th>
-              <th class="col-status">Status</th>
-              <th class="col-age is-sort" @click="setSort('date')">Added</th>
-              <th class="col-actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in filteredHistory"
-              :key="item.cid"
-              :class="{ 'is-open': inspectItem && inspectItem.cid === item.cid }"
-              @click="openInspect(item)"
-            >
-              <td data-col="File">
-                <div class="file-cell">
-                  <img v-if="item.showThumb" class="file-thumb" :src="item.thumbSrc" alt="" loading="lazy" @error="onThumbError(item.cid)" />
-                  <div v-else class="file-mark">
-                    <svg v-if="item.category === 'image'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                    <svg v-else-if="item.category === 'video'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
-                    <svg v-else-if="item.category === 'audio'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                    <svg v-else-if="item.category === 'archive'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/></svg>
-                    <svg v-else-if="item.category === 'code'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
-                    <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <!-- Binary Blobs View & Drop Zone -->
+      <div v-else-if="workspaceTab === 'blobs'">
+        <input
+          ref="blobFileInput"
+          type="file"
+          accept=".bin"
+          style="display: none"
+          @change="handleBlobFileSelect"
+        />
+
+        <!-- Drop Zone Panel -->
+        <div
+          class="blob-drop-panel"
+          :class="{ 'is-dragover': blobDragOver }"
+          @click="triggerBlobFileInput"
+          @dragover.prevent="blobDragOver = true"
+          @dragleave.prevent="blobDragOver = false"
+          @drop.prevent="handleBlobDrop"
+        >
+          <div class="blob-drop-content">
+            <div class="blob-drop-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="blob-drop-text">
+              <strong>Upload Binary Blob (.bin)</strong>
+              <p>Drag &amp; drop any raw artifact or binary payload here to ingest via <code>POST /up</code>. SHA-256 deduplicated, 7-day retention guarantee.</p>
+            </div>
+          </div>
+          <div class="blob-result-pill" v-if="isUploadingBlob">
+            <span class="pill pill-ok mono">Uploading binary...</span>
+          </div>
+          <div class="blob-result-pill" v-else>
+            <button class="btn btn-solid" type="button" @click.stop="triggerBlobFileInput">Choose File</button>
+          </div>
+        </div>
+
+        <div v-if="blobsLoading && blobs.length === 0" class="empty">
+          <div class="empty-graphic-wrap">
+            <svg viewBox="0 0 120 120" width="80" height="80" class="empty-svg">
+              <circle cx="60" cy="60" r="36" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6 6" class="orbit-rotate" />
+              <circle cx="60" cy="60" r="10" fill="#38bdf8" opacity="0.4" />
+            </svg>
+          </div>
+          <strong>Loading Binary Blobs...</strong>
+        </div>
+
+        <div v-else-if="filteredBlobs.length === 0" class="empty">
+          <div class="empty-graphic-wrap">
+            <svg viewBox="0 0 120 120" width="90" height="90" class="empty-svg">
+              <path d="M60 20 L95 40 L95 80 L60 100 L25 80 L25 40 Z" fill="#14141a" stroke="#38bdf8" stroke-width="1.8" />
+              <line x1="25" y1="40" x2="60" y2="60" stroke="#38bdf8" stroke-width="1.5" />
+              <line x1="95" y1="40" x2="60" y2="60" stroke="#38bdf8" stroke-width="1.5" />
+              <line x1="60" y1="100" x2="60" y2="60" stroke="#38bdf8" stroke-width="1.5" />
+            </svg>
+          </div>
+          <strong>{{ blobsSearchQuery ? "No matching blobs" : "No binary blobs stored yet" }}</strong>
+          <p>{{ blobsSearchQuery ? "Try searching another hash prefix." : "Upload raw binaries, firmware images, or artifacts via POST /up or curl -T file /up." }}</p>
+          <div v-if="!blobsSearchQuery" class="empty-actions">
+            <button class="btn btn-solid" type="button" @click="triggerBlobFileInput">Upload First Blob</button>
+          </div>
+        </div>
+
+        <div v-else class="workspace-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>SHA-256 Hash</th>
+                <th>Size</th>
+                <th>Retention Status</th>
+                <th>Added / Uploaded</th>
+                <th>Direct Download</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="b in filteredBlobs"
+                :key="b.hash"
+                :class="{ 'is-open': inspectBlob && inspectBlob.hash === b.hash }"
+                @click="openInspectBlob(b)"
+              >
+                <td data-col="Hash">
+                  <div class="file-cell">
+                    <div class="file-mark" style="color: #38bdf8; background: rgba(56, 189, 248, 0.1);">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    </div>
+                    <span class="blob-hash-cell mono" :title="b.hash">{{ b.hash }}</span>
                   </div>
-                  <span class="file-name" :title="item.filename || item.cid">{{ item.nameShort }}</span>
-                </div>
-              </td>
-              <td data-col="Type"><span class="type-tag">{{ item.category }}</span></td>
-              <td data-col="CID">
-                <a class="cid" :href="item.gatewayUrl" target="_blank" rel="noopener" :title="item.cid" @click.stop>{{ item.cidShort }}</a>
-              </td>
-              <td data-col="Size" class="col-num">{{ item.sizeLabel }}</td>
-              <td data-col="Status">
-                <span v-if="!item.unpinned" class="pill pill-ok"><span class="dot" style="width:5px;height:5px;box-shadow:none"></span>Pinned</span>
-                <span v-else class="pill pill-mute">Unpinned</span>
-              </td>
-              <td data-col="Added" class="col-num" :title="item.dateLabel">{{ item.ageLabel }}</td>
-              <td data-col=" " @click.stop>
-                <div class="row-actions">
-                  <button class="icon-btn" type="button" title="Copy CID" @click="copyText(item.cid, 'CID copied')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  </button>
-                  <a class="icon-btn" :href="item.gatewayUrl" target="_blank" rel="noopener" title="Open">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                </td>
+                <td data-col="Size" class="col-num mono">{{ b.sizeStr }}</td>
+                <td data-col="Retention">
+                  <span v-if="isBlobProtected(b)" class="pill pill-ok" title="Protected under 7-day retention guarantee">
+                    <span class="dot" style="background:#38bdf8;box-shadow:none;"></span>7d Guaranteed
+                  </span>
+                  <span v-else class="pill pill-mute" title="Eligible for LRU eviction when threshold is reached">
+                    LRU Eligible
+                  </span>
+                </td>
+                <td data-col="Added" class="col-num" :title="b.dateLabel">{{ b.ageLabel }}</td>
+                <td data-col="Download" @click.stop>
+                  <a class="mono" :href="'/down/' + b.hash" target="_blank" download style="color: #38bdf8; text-decoration: none; font-size: 0.8rem;">
+                    /down/{{ shortHash(b.hash) }}
                   </a>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td data-col=" " @click.stop>
+                  <div class="row-actions">
+                    <button class="icon-btn" type="button" title="Copy SHA-256 Hash" @click="copyText(b.hash, 'Hash copied')">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <a class="icon-btn" :href="'/down/' + b.hash" target="_blank" download title="Download Blob">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- IPFS Library View -->
+      <div v-else>
+        <div v-if="filteredHistory.length === 0" class="empty">
+          <div v-if="searchQuery" class="empty-graphic-wrap">
+            <svg viewBox="0 0 120 120" width="96" height="96" class="empty-svg">
+              <defs>
+                <radialGradient id="searchGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
+                  <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="60" cy="60" r="46" fill="url(#searchGlow)" />
+              <path d="M25 72 L60 90 L95 72 L60 54 Z" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 3" />
+              <path d="M36 68 L60 80 L84 68 L60 56 Z" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+              <circle cx="56" cy="50" r="20" fill="#121218" stroke="#f59e0b" stroke-width="2" />
+              <circle cx="56" cy="50" r="14" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" />
+              <line x1="70" y1="64" x2="88" y2="82" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
+              <circle cx="56" cy="50" r="3" fill="#f59e0b" />
+            </svg>
+          </div>
+          <div v-else class="empty-graphic-wrap">
+            <svg viewBox="0 0 140 140" width="110" height="110" class="empty-svg empty-cube-svg">
+              <defs>
+                <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.3" />
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.12" />
+                </linearGradient>
+                <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.18" />
+                  <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
+                </linearGradient>
+                <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
+                  <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
+                </linearGradient>
+                <radialGradient id="cubeAura" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.22" />
+                  <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.08" />
+                  <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0" />
+                </radialGradient>
+                <filter id="cubeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <circle cx="70" cy="70" r="58" fill="url(#cubeAura)" />
+              <ellipse cx="70" cy="74" rx="55" ry="24" fill="none" stroke="#3dd68c" stroke-width="1" stroke-dasharray="6 8" opacity="0.3" class="orbit-rotate" />
+              <ellipse cx="70" cy="74" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="3 5" opacity="0.25" />
+              
+              <g class="floating-cube">
+                <polygon points="70,30 102,48 70,66 38,48" fill="url(#cubeTop)" stroke="#3dd68c" stroke-width="1.2" />
+                <polygon points="38,48 70,66 70,102 38,84" fill="url(#cubeLeft)" stroke="#3dd68c" stroke-width="1.2" />
+                <polygon points="70,66 102,48 102,84 70,102" fill="url(#cubeRight)" stroke="#38bdf8" stroke-width="1.2" />
+                
+                <circle cx="70" cy="66" r="4" fill="#3dd68c" filter="url(#cubeGlow)" />
+                <line x1="70" y1="48" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+                <line x1="54" y1="75" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+                <line x1="86" y1="75" x2="70" y2="66" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
+
+                <circle cx="34" cy="38" r="2.5" fill="#38bdf8" filter="url(#cubeGlow)" />
+                <circle cx="106" cy="42" r="2" fill="#3dd68c" filter="url(#cubeGlow)" />
+                <circle cx="70" cy="112" r="2" fill="#a78bfa" filter="url(#cubeGlow)" />
+              </g>
+            </svg>
+          </div>
+          <strong>{{ searchQuery ? "No matching pins" : "Library is empty" }}</strong>
+          <p>{{ searchQuery ? "Try another name or CID." : "Upload files, pin from Tools, or integrate with AI agents." }}</p>
+          <div v-if="!searchQuery" class="empty-actions">
+            <a href="https://github.com/besoeasy/Originless/tree/main/examples" target="_blank" rel="noopener" class="btn btn-solid">Open Client Templates</a>
+            <a href="/agent" class="btn">Agent Prompt</a>
+          </div>
+        </div>
+
+        <div v-else class="workspace-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-name is-sort" @click="setSort('name')">Name</th>
+                <th class="col-type">Type</th>
+                <th class="col-cid">CID</th>
+                <th class="col-size is-sort" @click="setSort('size')">Size</th>
+                <th class="col-status">Status</th>
+                <th class="col-age is-sort" @click="setSort('date')">Added</th>
+                <th class="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in filteredHistory"
+                :key="item.cid"
+                :class="{ 'is-open': inspectItem && inspectItem.cid === item.cid }"
+                @click="openInspect(item)"
+              >
+                <td data-col="File">
+                  <div class="file-cell">
+                    <img v-if="item.showThumb" class="file-thumb" :src="item.thumbSrc" alt="" loading="lazy" @error="onThumbError(item.cid)" />
+                    <div v-else class="file-mark">
+                      <svg v-if="item.category === 'image'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      <svg v-else-if="item.category === 'video'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
+                      <svg v-else-if="item.category === 'audio'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                      <svg v-else-if="item.category === 'archive'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/></svg>
+                      <svg v-else-if="item.category === 'code'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
+                      <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                    </div>
+                    <span class="file-name" :title="item.filename || item.cid">{{ item.nameShort }}</span>
+                  </div>
+                </td>
+                <td data-col="Type"><span class="type-tag">{{ item.category }}</span></td>
+                <td data-col="CID">
+                  <a class="cid" :href="item.gatewayUrl" target="_blank" rel="noopener" :title="item.cid" @click.stop>{{ item.cidShort }}</a>
+                </td>
+                <td data-col="Size" class="col-num">{{ item.sizeLabel }}</td>
+                <td data-col="Status">
+                  <span v-if="!item.unpinned" class="pill pill-ok"><span class="dot" style="width:5px;height:5px;box-shadow:none"></span>Pinned</span>
+                  <span v-else class="pill pill-mute">Unpinned</span>
+                </td>
+                <td data-col="Added" class="col-num" :title="item.dateLabel">{{ item.ageLabel }}</td>
+                <td data-col=" " @click.stop>
+                  <div class="row-actions">
+                    <button class="icon-btn" type="button" title="Copy CID" @click="copyText(item.cid, 'CID copied')">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <a class="icon-btn" :href="item.gatewayUrl" target="_blank" rel="noopener" title="Open">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
-    <aside v-if="inspectModalOpen && inspectItem" class="inspector">
+    <!-- IPFS Item Inspector -->
+    <aside v-if="workspaceTab === 'ipfs' && inspectModalOpen && inspectItem" class="inspector">
       <div class="inspector-head">
         Details
         <button class="icon-btn" type="button" @click="closeInspect">
@@ -810,6 +1178,105 @@
       </div>
       <div class="inspector-foot">
         <a class="btn btn-solid" :href="inspectItem.gatewayUrl" target="_blank" rel="noopener">Open</a>
+      </div>
+    </aside>
+
+    <!-- Quick Record Inspector -->
+    <aside v-if="workspaceTab === 'records' && inspectRecordModalOpen && inspectRecord" class="inspector">
+      <div class="inspector-head">
+        Record Details
+        <button class="icon-btn" type="button" @click="closeInspectRecord">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="inspector-body">
+        <div class="inspect-name mono" style="font-size: 0.95rem;">{{ inspectRecord.id }}</div>
+        <div class="inspect-meta">
+          Collection: <span class="text-primary mono">{{ inspectRecord.collection || 'default' }}</span> · TTL: <span class="mono">{{ inspectRecord.ttl || 'none' }}</span>
+        </div>
+        <div class="kv">
+          <div class="kv-row">
+            <span class="kv-k">Expires</span>
+            <span class="kv-v mono" :title="formatUnix(inspectRecord.expires_at)">{{ formatExpires(inspectRecord.expires_at) }} ({{ formatUnix(inspectRecord.expires_at) }})</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-k">Created</span>
+            <span class="kv-v mono">{{ formatUnix(inspectRecord.created_at) }}</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-k">Owner Pubkey</span>
+            <span class="kv-v mono" :title="inspectRecord.owner">{{ inspectRecord.owner }}</span>
+            <button class="btn" type="button" @click="copyText(inspectRecord.owner, 'Owner pubkey copied')">Copy</button>
+          </div>
+          <div class="kv-row" v-if="inspectRecord.sig">
+            <span class="kv-k">Signature</span>
+            <span class="kv-v mono" :title="inspectRecord.sig">{{ inspectRecord.sig }}</span>
+            <button class="btn" type="button" @click="copyText(inspectRecord.sig, 'Signature copied')">Copy</button>
+          </div>
+          <div class="kv-row" v-if="inspectRecord.labels && inspectRecord.labels.length > 0">
+            <span class="kv-k">Labels</span>
+            <div class="labels-cell" style="justify-content: flex-end;">
+              <span v-for="l in inspectRecord.labels" :key="l" class="label-chip mono">{{ l }}</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 1rem;">
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--ink-3); margin-bottom: 0.5rem; font-weight: 600;">Record Data Payload</div>
+          <div class="json-code-box">
+            <pre>{{ inspectRecord.dataFormatted || JSON.stringify(inspectRecord.data, null, 2) }}</pre>
+          </div>
+        </div>
+      </div>
+      <div class="inspector-foot">
+        <button class="btn btn-solid" type="button" @click="copyText(JSON.stringify(inspectRecord, null, 2), 'Full record JSON copied')">Copy Full JSON</button>
+      </div>
+    </aside>
+
+    <!-- Binary Blob Inspector -->
+    <aside v-if="workspaceTab === 'blobs' && inspectBlobModalOpen && inspectBlob" class="inspector">
+      <div class="inspector-head">
+        Blob Details
+        <button class="icon-btn" type="button" @click="closeInspectBlob">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="inspector-body">
+        <div class="inspect-name mono" style="font-size: 0.85rem; word-break: break-all;">{{ inspectBlob.hash }}</div>
+        <div class="inspect-meta mono">
+          {{ inspectBlob.sizeStr }} ({{ inspectBlob.size }} bytes) · {{ inspectBlob.dateLabel }}
+        </div>
+        <div class="kv">
+          <div class="kv-row">
+            <span class="kv-k">SHA-256</span>
+            <span class="kv-v mono" :title="inspectBlob.hash">{{ inspectBlob.hash }}</span>
+            <button class="btn" type="button" @click="copyText(inspectBlob.hash, 'Hash copied')">Copy</button>
+          </div>
+          <div class="kv-row">
+            <span class="kv-k">Download Route</span>
+            <span class="kv-v mono">/down/{{ inspectBlob.hash }}</span>
+            <button class="btn" type="button" @click="copyText(location.origin + '/down/' + inspectBlob.hash, 'Download URL copied')">Copy</button>
+          </div>
+          <div class="kv-row">
+            <span class="kv-k">Retention</span>
+            <span class="kv-v">
+              <span v-if="isBlobProtected(inspectBlob)" class="pill pill-ok mono">7-Day Protected</span>
+              <span v-else class="pill pill-mute mono">LRU Eligible</span>
+            </span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-k">Storage Path</span>
+            <span class="kv-v mono text-sub">/data/blobs/{{ inspectBlob.hash }}.bin</span>
+          </div>
+        </div>
+        <div style="margin-top: 1.25rem;">
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--ink-3); margin-bottom: 0.5rem; font-weight: 600;">cURL Fetch Snippet</div>
+          <div class="json-code-box">
+            <pre>curl -OJ {{ location.origin }}/down/{{ inspectBlob.hash }}</pre>
+          </div>
+        </div>
+      </div>
+      <div class="inspector-foot">
+        <a class="btn btn-solid" :href="'/down/' + inspectBlob.hash" target="_blank" download>Download Blob</a>
       </div>
     </aside>
   </div>

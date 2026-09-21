@@ -215,6 +215,77 @@
     return Array.from((dt && dt.files) || []);
   }
 
+  function shortHash(hash) {
+    if (!hash) return "";
+    if (hash.length <= 16) return hash;
+    return `${hash.slice(0, 8)}…${hash.slice(-8)}`;
+  }
+
+  function shortOwner(owner) {
+    if (!owner) return "";
+    const clean = owner.replace(/^ed25519:/, "");
+    if (clean.length <= 14) return clean;
+    return `${clean.slice(0, 6)}…${clean.slice(-6)}`;
+  }
+
+  function formatExpires(unix) {
+    if (!unix) return "Never";
+    const now = Math.floor(Date.now() / 1000);
+    const diff = unix - now;
+    if (diff <= 0) return "Expired";
+    const days = Math.floor(diff / 86400);
+    if (days >= 1) return `in ${days}d`;
+    const hours = Math.floor(diff / 3600);
+    if (hours >= 1) return `in ${hours}h`;
+    const mins = Math.floor(diff / 60);
+    return `in ${mins}m`;
+  }
+
+  function isBlobProtected(val) {
+    if (!val) return false;
+    const dateVal = (val && typeof val === "object" && val.createdAt) ? val.createdAt : val;
+    const d = new Date(dateVal).getTime();
+    if (isNaN(d)) return false;
+    const diffMs = Date.now() - d;
+    return diffMs < 7 * 24 * 3600 * 1000;
+  }
+
+  function canonicalJSON(obj) {
+    if (obj === null || typeof obj !== "object") {
+      return JSON.stringify(obj);
+    }
+    if (Array.isArray(obj)) {
+      return "[" + obj.map(canonicalJSON).join(",") + "]";
+    }
+    const keys = Object.keys(obj).sort();
+    return "{" + keys.map(k => JSON.stringify(k) + ":" + canonicalJSON(obj[k])).join(",") + "}";
+  }
+
+  async function createSignedRecord(collection, data, labels, ttlSeconds = 86400 * 30) {
+    const keyPair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+    const rawPub = await crypto.subtle.exportKey("raw", keyPair.publicKey);
+    const pubHex = Array.from(new Uint8Array(rawPub)).map(b => b.toString(16).padStart(2, "0")).join("");
+    const owner = "ed25519:" + pubHex;
+    const now = Math.floor(Date.now() / 1000);
+    const expires = now + ttlSeconds;
+    const canonical = canonicalJSON(data);
+    const sortedLabels = (labels || []).slice().sort();
+    const msg = `${owner}:${collection}:${now}:${expires}:${canonical}:${sortedLabels.join(",")}`;
+    const enc = new TextEncoder().encode(msg);
+    const hashBuf = await crypto.subtle.digest("SHA-256", enc);
+    const sigBuf = await crypto.subtle.sign({ name: "Ed25519" }, keyPair.privateKey, hashBuf);
+    const sigHex = Array.from(new Uint8Array(sigBuf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return {
+      owner,
+      collection,
+      created_at: now,
+      expires_at: expires,
+      data,
+      labels: sortedLabels,
+      sig: sigHex,
+    };
+  }
+
   function statusDefaults() {
     return {
       nodeId: "...",
@@ -235,6 +306,8 @@
       repoSizeBytes: 0,
       storageMaxBytes: 0,
       isHealthy: true,
+      blobs: { count: 0, size: 0, sizeStr: "0 B" },
+      records: { count: 0 },
     };
   }
 
@@ -291,6 +364,10 @@
           formatUnix,
           formatRelative,
           shortCid,
+          shortHash,
+          shortOwner,
+          formatExpires,
+          isBlobProtected,
           getFileCategory,
           fileKind: itemCategory,
         };
@@ -317,8 +394,35 @@
           sortBy: "date-desc",
           
           activeTab: "pin", // pin, prompt
+          workspaceTab: safeGet("ol_workspace_tab") || "records", // records, blobs, ipfs
           brokenThumbs: {},
           anonymizeMedia: safeGet("ol_anonymize_media") !== "false",
+
+          // Quick Records Data
+          records: [],
+          recordsCount: 0,
+          recordsLoading: false,
+          recordsFilterCollection: "",
+          recordsFilterLabel: "",
+          recordsFilterSearch: "",
+          recordsSseConnected: false,
+          recordsEventSource: null,
+          isPublishingRecord: false,
+          inspectRecord: null,
+          inspectRecordModalOpen: false,
+
+          // Binary Blobs Data
+          blobs: [],
+          blobsCount: 0,
+          blobsTotalBytes: 0,
+          blobsTotalBytesStr: "0 B",
+          blobsLoading: false,
+          blobsSearchQuery: "",
+          blobDragOver: false,
+          isUploadingBlob: false,
+          lastBlobResult: null,
+          inspectBlob: null,
+          inspectBlobModalOpen: false,
           
           // Single File Upload
           dragOver: false,
@@ -634,6 +738,30 @@
           return list.map((row) => presentItem(row, this.currentGateway, this.brokenThumbs));
         },
 
+        filteredRecords() {
+          let list = [...(this.records || [])];
+          if (this.recordsFilterSearch && this.recordsFilterSearch.trim()) {
+            const q = this.recordsFilterSearch.toLowerCase().trim();
+            list = list.filter(r =>
+              (r.id || "").toLowerCase().includes(q) ||
+              (r.collection || "").toLowerCase().includes(q) ||
+              (r.owner || "").toLowerCase().includes(q) ||
+              (r.labels || []).some(l => l.toLowerCase().includes(q)) ||
+              (r.dataPreview || "").toLowerCase().includes(q)
+            );
+          }
+          return list;
+        },
+
+        filteredBlobs() {
+          let list = [...(this.blobs || [])];
+          if (this.blobsSearchQuery && this.blobsSearchQuery.trim()) {
+            const q = this.blobsSearchQuery.toLowerCase().trim();
+            list = list.filter(b => (b.hash || "").toLowerCase().includes(q));
+          }
+          return list;
+        },
+
         lastPinKind() {
           if (!this.lastUploadResult) return "";
           return itemCategory(this.lastUploadResult);
@@ -851,7 +979,18 @@ To confirm you have understood this skill, complete this check:
                 repoSizeBytes: data.repository?.size || 0,
                 storageMaxBytes: data.repository?.storageMax || 0,
                 isHealthy: true,
+                blobs: data.blobs || { count: 0, size: 0, sizeStr: "0 B" },
+                records: data.records || { count: 0 },
               };
+
+              if (data.blobs?.count !== undefined) {
+                this.blobsCount = data.blobs.count;
+                this.blobsTotalBytes = data.blobs.size || 0;
+                this.blobsTotalBytesStr = data.blobs.sizeStr || formatBytes(this.blobsTotalBytes);
+              }
+              if (data.records?.count !== undefined) {
+                this.recordsCount = data.records.count;
+              }
 
               this.gatewayEnabled = false;
               this.gateways = GATEWAYS.slice();
@@ -1064,11 +1203,249 @@ To confirm you have understood this skill, complete this check:
             this.focusSearch();
           }
         },
+
+        setWorkspaceTab(tab) {
+          this.workspaceTab = tab;
+          safeSet("ol_workspace_tab", tab);
+          this.inspectItem = null;
+          this.inspectModalOpen = false;
+          this.inspectRecord = null;
+          this.inspectRecordModalOpen = false;
+          this.inspectBlob = null;
+          this.inspectBlobModalOpen = false;
+          if (tab === "records") {
+            this.fetchRecords();
+            if (!this.recordsSseConnected) {
+              this.connectRecordsSSE();
+            }
+          } else if (tab === "blobs") {
+            this.fetchBlobs();
+          } else if (tab === "ipfs") {
+            this.fetchHistory();
+          }
+        },
+
+        async fetchRecords() {
+          this.recordsLoading = true;
+          try {
+            const params = new URLSearchParams({ limit: "50" });
+            if (this.recordsFilterCollection) params.set("collection", this.recordsFilterCollection);
+            if (this.recordsFilterLabel) params.set("label", this.recordsFilterLabel);
+            if (this.recordsFilterSearch) params.set("search", this.recordsFilterSearch);
+            const res = await fetch(`/records?${params.toString()}`);
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+              this.records = (data.records || []).map(r => ({
+                ...r,
+                dataFormatted: typeof r.data === "string" ? r.data : JSON.stringify(r.data, null, 2),
+                dataPreview: typeof r.data === "string" ? r.data : JSON.stringify(r.data),
+              }));
+              this.recordsCount = data.count || this.records.length;
+            }
+          } catch (err) {
+            console.error("Failed to fetch records:", err);
+          } finally {
+            this.recordsLoading = false;
+          }
+        },
+
+        fetchRecordsDebounced() {
+          clearTimeout(this._recSearchTimer);
+          this._recSearchTimer = setTimeout(() => {
+            this.fetchRecords();
+          }, 300);
+        },
+
+        connectRecordsSSE() {
+          if (this.recordsEventSource) {
+            try { this.recordsEventSource.close(); } catch (_) {}
+          }
+          try {
+            const sse = new EventSource("/records/stream");
+            this.recordsEventSource = sse;
+            sse.onopen = () => {
+              this.recordsSseConnected = true;
+            };
+            sse.onmessage = (event) => {
+              try {
+                const rec = JSON.parse(event.data);
+                const enriched = {
+                  ...rec,
+                  isNew: true,
+                  dataFormatted: typeof rec.data === "string" ? rec.data : JSON.stringify(rec.data, null, 2),
+                  dataPreview: typeof rec.data === "string" ? rec.data : JSON.stringify(rec.data),
+                };
+                if (!this.records.some(r => r.id === rec.id)) {
+                  this.records.unshift(enriched);
+                  this.recordsCount++;
+                  this.showToast(`New live record in "${rec.collection}"`, "success");
+                  setTimeout(() => { enriched.isNew = false; }, 3000);
+                }
+              } catch (e) {
+                console.error("SSE parse error:", e);
+              }
+            };
+            sse.onerror = () => {
+              this.recordsSseConnected = false;
+            };
+          } catch (err) {
+            console.error("SSE connection error:", err);
+            this.recordsSseConnected = false;
+          }
+        },
+
+        async publishDemoRecord() {
+          this.isPublishingRecord = true;
+          try {
+            const collections = ["gamesaves", "alerts", "chat", "agents"];
+            const chosenCol = this.recordsFilterCollection || collections[Math.floor(Math.random() * collections.length)];
+            const sampleData = {
+              slot: 1,
+              level: Math.floor(Math.random() * 50) + 1,
+              score: Math.floor(Math.random() * 10000),
+              timestamp: Date.now(),
+              message: "Demo state update from Originless Dashboard",
+            };
+            const sampleLabels = [`topic:${chosenCol}`, `client:web`, `ping:${Math.floor(Math.random() * 1000)}`];
+
+            let recordPayload;
+            if (window.crypto && window.crypto.subtle && window.crypto.subtle.generateKey) {
+              try {
+                recordPayload = await createSignedRecord(chosenCol, sampleData, sampleLabels);
+              } catch (e) {
+                console.warn("Native Web Crypto Ed25519 error:", e);
+              }
+            }
+
+            if (!recordPayload) {
+              throw new Error("Web Crypto Ed25519 signing is not supported in this browser. Please use curl / API to publish records.");
+            }
+
+            const res = await fetch("/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(recordPayload),
+            });
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+              this.showToast(`Published demo record to "${chosenCol}"!`, "success");
+              this.fetchRecords();
+              this.fetchStatus();
+            } else {
+              throw new Error(data.error || "Failed to publish demo record");
+            }
+          } catch (err) {
+            console.error("Demo record error:", err);
+            this.showToast(err.message, "error");
+          } finally {
+            this.isPublishingRecord = false;
+          }
+        },
+
+        openInspectRecord(rec) {
+          this.inspectRecord = rec;
+          this.inspectRecordModalOpen = true;
+        },
+
+        closeInspectRecord() {
+          this.inspectRecord = null;
+          this.inspectRecordModalOpen = false;
+        },
+
+        async fetchBlobs() {
+          this.blobsLoading = true;
+          try {
+            const res = await fetch("/blobs?limit=50");
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+              this.blobs = data.blobs || [];
+              this.blobsCount = data.count || this.blobs.length;
+              this.blobsTotalBytes = data.total_bytes || 0;
+              this.blobsTotalBytesStr = data.total_bytes_str || formatBytes(this.blobsTotalBytes);
+            }
+          } catch (err) {
+            console.error("Fetch blobs error:", err);
+          } finally {
+            this.blobsLoading = false;
+          }
+        },
+
+        triggerBlobFileInput() {
+          if (this.$refs.blobFileInput) {
+            this.$refs.blobFileInput.click();
+          }
+        },
+
+        handleBlobFileSelect(event) {
+          const file = event.target.files && event.target.files[0];
+          if (file) {
+            this.uploadBlobFile(file);
+          }
+        },
+
+        handleBlobDrop(event) {
+          this.blobDragOver = false;
+          const dt = event.dataTransfer;
+          const file = dt && dt.files && dt.files[0];
+          if (file) {
+            this.uploadBlobFile(file);
+          }
+        },
+
+        async uploadBlobFile(file) {
+          if (!file) return;
+          if (!file.name.toLowerCase().endsWith(".bin")) {
+            this.showToast("Only .bin files are accepted by /up", "error");
+            return;
+          }
+
+          this.isUploadingBlob = true;
+          this.lastBlobResult = null;
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const res = await fetch("/up", {
+              method: "POST",
+              body: formData,
+            });
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+              this.lastBlobResult = data;
+              this.showToast(`Saved blob "${file.name}"!`, "success");
+              this.fetchBlobs();
+              this.fetchStatus();
+            } else {
+              throw new Error(data.message || data.error || "Upload failed");
+            }
+          } catch (err) {
+            console.error("Blob upload error:", err);
+            this.showToast(err.message, "error");
+          } finally {
+            this.isUploadingBlob = false;
+            if (this.$refs.blobFileInput) {
+              this.$refs.blobFileInput.value = "";
+            }
+          }
+        },
+
+        openInspectBlob(blob) {
+          this.inspectBlob = blob;
+          this.inspectBlobModalOpen = true;
+        },
+
+        closeInspectBlob() {
+          this.inspectBlob = null;
+          this.inspectBlobModalOpen = false;
+        },
       },
 
       mounted() {
         this.fetchStatus();
         this.fetchPinStats();
+        this.fetchRecords();
+        this.connectRecordsSSE();
+        this.fetchBlobs();
         if (this.activePage === "overview") {
           this.fetchHistory();
         }
@@ -1078,12 +1455,19 @@ To confirm you have understood this skill, complete this check:
         // Live polling
         this._statusTimer = setInterval(() => this.fetchStatus(), 8000);
         this._pinsTimer = setInterval(() => this.fetchPinStats(), 25000);
+        this._blobsTimer = setInterval(() => this.fetchBlobs(), 15000);
+        this._recordsTimer = setInterval(() => this.fetchRecords(), 15000);
       },
 
       beforeUnmount() {
         window.removeEventListener("keydown", this.onGlobalKey);
         clearInterval(this._statusTimer);
         clearInterval(this._pinsTimer);
+        clearInterval(this._blobsTimer);
+        clearInterval(this._recordsTimer);
+        if (this.recordsEventSource) {
+          try { this.recordsEventSource.close(); } catch (_) {}
+        }
       },
     });
   }

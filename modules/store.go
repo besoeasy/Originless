@@ -550,3 +550,41 @@ func (s *Store) ListBlobHashes() ([]string, error) {
 	}
 	return out, rows.Err()
 }
+
+// GetRecordCount returns the count of non-expired records.
+func (s *Store) GetRecordCount() (int64, error) {
+	var count int64
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM records WHERE expires_at > ?`, time.Now().Unix()).Scan(&count)
+	return count, err
+}
+
+// ListBlobs returns newest blobs first.
+func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := s.db.Query(
+		`SELECT hash, size, created_at, last_access, access_count FROM blobs
+		 ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+		limit, offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BlobMeta
+	for rows.Next() {
+		var m BlobMeta
+		if err := rows.Scan(&m.Hash, &m.Size, &m.CreatedAt, &m.LastAccess, &m.AccessCount); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	if out == nil {
+		out = []BlobMeta{}
+	}
+	return out, rows.Err()
+}
