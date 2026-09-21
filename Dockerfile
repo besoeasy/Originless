@@ -1,12 +1,13 @@
 FROM golang:1.24-alpine AS builder
 
+ARG VERSION=dev
 WORKDIR /app
 
 COPY go.mod go.sum* ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /originless .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/besoeasy/originless/modules.Version=${VERSION}" -o /originless .
 
 FROM alpine:latest
 

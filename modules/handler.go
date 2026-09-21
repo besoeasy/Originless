@@ -7,7 +7,8 @@ import (
 )
 
 // Version is the Originless server build version reported by /status.
-const Version = "0.1.0"
+// Overridable at compile time via -ldflags="-X github.com/besoeasy/originless/modules.Version=...".
+var Version = "dev"
 
 type Handler struct {
 	janitor     *Manager
