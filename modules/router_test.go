@@ -18,7 +18,7 @@ func TestRouterRoutes(t *testing.T) {
 		},
 	}
 
-	router := NewRouter(nil, nil, mockUI)
+	router := NewRouter(nil, mockUI)
 
 	t.Run("GET / serves dashboard", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)

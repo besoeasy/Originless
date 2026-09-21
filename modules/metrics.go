@@ -20,10 +20,6 @@ type Metrics struct {
 	uploads    atomic.Int64
 	uploadSize atomic.Int64
 
-	ipfsHealthy atomic.Int64
-	peers       atomic.Int64
-	pinnedCount atomic.Int64
-	pinnedSize  atomic.Int64
 	storageUsed atomic.Int64
 }
 
@@ -98,36 +94,15 @@ func (m *Metrics) IncUpload(size int64) {
 	m.uploadSize.Add(size)
 }
 
-func (m *Metrics) SetIPFS(healthy bool, peers int) {
-	if healthy {
-		m.ipfsHealthy.Store(1)
-	} else {
-		m.ipfsHealthy.Store(0)
-	}
-	m.peers.Store(int64(peers))
-}
-
-func (m *Metrics) SetPinned(count, size int64) {
-	m.pinnedCount.Store(count)
-	m.pinnedSize.Store(size)
-}
-
 func (m *Metrics) SetStorageUsed(size int64) { m.storageUsed.Store(size) }
 
 // Handler serves the /metrics endpoint in Prometheus text format. Gauges are
 // refreshed on each scrape so they always reflect current state.
-func (m *Metrics) Handler(janitor *Manager, ipfs *Client) http.HandlerFunc {
+func (m *Metrics) Handler(janitor *Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if janitor != nil {
-			if count, size, err := janitor.GetStats(); err == nil {
-				m.SetPinned(count, size)
-			}
-		}
-		if ipfs != nil {
-			health := ipfs.CheckHealth(r.Context())
-			m.SetIPFS(health.Healthy, health.Peers)
-			if stats, err := ipfs.GetStats(r.Context()); err == nil {
-				m.SetStorageUsed(stats.Repository.Size)
+			if size, err := janitor.store.GetBlobSize(); err == nil {
+				m.SetStorageUsed(size)
 			}
 		}
 
@@ -159,29 +134,13 @@ func (m *Metrics) Handler(janitor *Manager, ipfs *Client) http.HandlerFunc {
 		sb.WriteString("# TYPE originless_upload_bytes_total counter\n")
 		fmt.Fprintf(&sb, "originless_upload_bytes_total %d\n", m.uploadSize.Load())
 
-		sb.WriteString("# HELP originless_pinned_count Number of pinned uploads.\n")
-		sb.WriteString("# TYPE originless_pinned_count gauge\n")
-		fmt.Fprintf(&sb, "originless_pinned_count %d\n", m.pinnedCount.Load())
-
-		sb.WriteString("# HELP originless_pinned_bytes Total bytes pinned.\n")
-		sb.WriteString("# TYPE originless_pinned_bytes gauge\n")
-		fmt.Fprintf(&sb, "originless_pinned_bytes %d\n", m.pinnedSize.Load())
-
 		sb.WriteString("# HELP originless_storage_limit_bytes Configured storage limit.\n")
 		sb.WriteString("# TYPE originless_storage_limit_bytes gauge\n")
 		fmt.Fprintf(&sb, "originless_storage_limit_bytes %d\n", StorageMaxBytes)
 
-		sb.WriteString("# HELP originless_storage_used_bytes Storage used by the IPFS repository.\n")
+		sb.WriteString("# HELP originless_storage_used_bytes Storage used by tracked blobs.\n")
 		sb.WriteString("# TYPE originless_storage_used_bytes gauge\n")
 		fmt.Fprintf(&sb, "originless_storage_used_bytes %d\n", m.storageUsed.Load())
-
-		sb.WriteString("# HELP originless_ipfs_healthy Whether the IPFS daemon is healthy (1) or not (0).\n")
-		sb.WriteString("# TYPE originless_ipfs_healthy gauge\n")
-		fmt.Fprintf(&sb, "originless_ipfs_healthy %d\n", m.ipfsHealthy.Load())
-
-		sb.WriteString("# HELP originless_ipfs_peers Number of connected IPFS peers.\n")
-		sb.WriteString("# TYPE originless_ipfs_peers gauge\n")
-		fmt.Fprintf(&sb, "originless_ipfs_peers %d\n", m.peers.Load())
 
 		w.Write([]byte(sb.String()))
 	}

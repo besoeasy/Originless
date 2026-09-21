@@ -121,7 +121,7 @@ func TestValidateRejectsBadSigAndTTL(t *testing.T) {
 
 func TestRecordsEndToEnd(t *testing.T) {
 	st := testStore(t)
-	h := NewHandler(nil, nil, NewMetrics())
+	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
 	_, priv, owner := testKeys(t)
@@ -292,7 +292,7 @@ func TestRecordBroadcaster(t *testing.T) {
 
 func TestStreamRecordsSSE(t *testing.T) {
 	st := testStore(t)
-	h := NewHandler(nil, nil, NewMetrics())
+	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
 	ctx, cancel := context.WithCancel(context.Background())
