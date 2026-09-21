@@ -7,11 +7,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -483,5 +485,250 @@ func TestStreamRecordsSSE(t *testing.T) {
 	}
 	if !strings.Contains(body, `"msg":"hi"`) {
 		t.Fatalf("expected data payload in stream, got %q", body)
+	}
+}
+
+func TestListRecordsInvalidCursor(t *testing.T) {
+	st := testStore(t)
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	for _, c := range []string{"garbage", "-1", "abc:def", "0:deadbeef", "123:", ":abc"} {
+		req := httptest.NewRequest(http.MethodGet, "/records?cursor="+c, nil)
+		rec := httptest.NewRecorder()
+		h.ListRecords(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("cursor=%q status=%d want 400 (body=%s)", c, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+func TestStatusSSEBlock(t *testing.T) {
+	st := testStore(t)
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	var resp struct {
+		SSE map[string]any `json:"sse"`
+	}
+	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+
+	rec := httptest.NewRecorder()
+	h.Status(rec, req)
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if c := resp.SSE["clients"].(float64); c != 0 {
+		t.Fatalf("expected 0 clients, got %v", c)
+	}
+	if d := resp.SSE["dropped"].(float64); d != 0 {
+		t.Fatalf("expected 0 dropped, got %v", d)
+	}
+
+	sub := &RecordSubscriber{Ch: make(chan *Record, 1), Collection: "chat"}
+	h.broadcaster.Subscribe(sub)
+	defer h.broadcaster.Unsubscribe(sub)
+
+	rec2 := httptest.NewRecorder()
+	h.Status(rec2, req)
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if c := resp.SSE["clients"].(float64); c != 1 {
+		t.Fatalf("expected 1 client, got %v", c)
+	}
+}
+
+func TestGetRecordByID500OnDBError(t *testing.T) {
+	st := testStore(t)
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	req := httptest.NewRequest(http.MethodGet, "/records/nonexistent", nil)
+	req.SetPathValue("id", "nonexistent")
+
+	rec := httptest.NewRecorder()
+	h.GetRecordByID(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing id status=%d want 404", rec.Code)
+	}
+
+	// A genuine DB failure must surface as 500, not be masked as 404.
+	if err := st.db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rec2 := httptest.NewRecorder()
+	h.GetRecordByID(rec2, req)
+	if rec2.Code != http.StatusInternalServerError {
+		t.Fatalf("db-error status=%d want 500 (body=%s)", rec2.Code, rec2.Body.String())
+	}
+}
+
+// failingResponseWriter implements http.Flusher and fails every Write from
+// failFrom onwards, mimicking a peer that died or stopped reading.
+type failingResponseWriter struct {
+	header   http.Header
+	failFrom int
+	writes   int
+}
+
+func (w *failingResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *failingResponseWriter) WriteHeader(code int) {}
+
+func (w *failingResponseWriter) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes >= w.failFrom {
+		return 0, errors.New("connection closed by peer")
+	}
+	return len(p), nil
+}
+
+func (w *failingResponseWriter) Flush() {}
+
+func TestStreamRecordsExitsOnWriteError(t *testing.T) {
+	prev := sseKeepaliveInterval
+	sseKeepaliveInterval = 5 * time.Millisecond
+	t.Cleanup(func() { sseKeepaliveInterval = prev })
+
+	h := NewHandler(nil, NewMetrics())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req := httptest.NewRequest(http.MethodGet, "/records/stream", nil).WithContext(ctx)
+	// Write 1 (": connected") succeeds; write 2 (keepalive) fails.
+	fw := &failingResponseWriter{failFrom: 2}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.StreamRecords(fw, req)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("StreamRecords did not exit on write error")
+	}
+	if fw.writes < 2 {
+		t.Fatalf("expected a failed keepalive write, writes=%d", fw.writes)
+	}
+}
+
+func TestStreamRecordsOverCapReturns503(t *testing.T) {
+	prev := MaxSSESubscribers
+	MaxSSESubscribers = 1
+	t.Cleanup(func() { MaxSSESubscribers = prev })
+
+	h := NewHandler(nil, NewMetrics())
+	h.broadcaster.Subscribe(&RecordSubscriber{Ch: make(chan *Record, 1)})
+
+	req := httptest.NewRequest(http.MethodGet, "/records/stream", nil)
+	rec := httptest.NewRecorder()
+	h.StreamRecords(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d want 503 (body=%s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBroadcastCap(t *testing.T) {
+	prev := MaxSSESubscribers
+	MaxSSESubscribers = 2
+	t.Cleanup(func() { MaxSSESubscribers = prev })
+
+	b := NewRecordBroadcaster()
+	var subs []*RecordSubscriber
+	for i := 0; i < 2; i++ {
+		s := &RecordSubscriber{Ch: make(chan *Record, 1)}
+		if !b.TrySubscribe(s) {
+			t.Fatalf("subscriber %d should fit under cap", i)
+		}
+		subs = append(subs, s)
+	}
+	extra := &RecordSubscriber{Ch: make(chan *Record, 1)}
+	if b.TrySubscribe(extra) {
+		t.Fatal("third subscriber must be refused at cap")
+	}
+	if b.SubscriberCount() != 2 {
+		t.Fatalf("count=%d want 2", b.SubscriberCount())
+	}
+	for _, s := range subs {
+		b.Unsubscribe(s)
+	}
+
+	// Cap <= 0 means unlimited.
+	MaxSSESubscribers = 0
+	if !b.TrySubscribe(extra) {
+		t.Fatal("cap disabled should accept any subscriber")
+	}
+}
+
+func TestConcurrentPublishDuplicateRace(t *testing.T) {
+	st := testStore(t)
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	sub := &RecordSubscriber{
+		Ch:         make(chan *Record, 128),
+		Collection: "race",
+	}
+	h.broadcaster.Subscribe(sub)
+	defer h.broadcaster.Unsubscribe(sub)
+
+	_, priv, owner := testKeys(t)
+
+	const iters = 40
+	base := time.Now().Unix() - 5
+	delivered := 0
+	for i := 0; i < iters; i++ {
+		created := base + int64(i)
+		p := signRecord(t, priv, owner, "race", created, created+3600, map[string]any{"n": i}, []string{})
+		delete(p, "_id")
+		raw, _ := json.Marshal(p)
+
+		results := make(chan int, 2)
+		var wg sync.WaitGroup
+		for g := 0; g < 2; g++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				req := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+				rec := httptest.NewRecorder()
+				h.PublishRecord(rec, req)
+				results <- rec.Code
+			}()
+		}
+		wg.Wait()
+		close(results)
+
+		created201, dup200 := 0, 0
+		for code := range results {
+			switch code {
+			case http.StatusCreated:
+				created201++
+			case http.StatusOK:
+				dup200++
+			default:
+				t.Fatalf("iter %d: unexpected publish code %d", i, code)
+			}
+		}
+		if created201 != 1 || dup200 != 1 {
+			t.Fatalf("iter %d: created=%d dup=%d, want exactly 1 and 1", i, created201, dup200)
+		}
+
+		// Exactly one broadcast total (only the created side fans out).
+		select {
+		case <-sub.Ch:
+			delivered++
+		default:
+		}
+	}
+	if delivered != iters {
+		t.Fatalf("expected %d broadcasts, got %d", iters, delivered)
 	}
 }

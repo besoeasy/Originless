@@ -75,6 +75,19 @@ func (b *RecordBroadcaster) Subscribe(sub *RecordSubscriber) {
 	b.subscribers[sub] = struct{}{}
 }
 
+// TrySubscribe registers a new subscriber but refuses (returning false)
+// when the configured per-node SSE cap is already reached. The check and
+// insert happen under the same lock, so concurrent joins can't overshoot.
+func (b *RecordBroadcaster) TrySubscribe(sub *RecordSubscriber) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if max := MaxSSESubscribers; max > 0 && len(b.subscribers) >= max {
+		return false
+	}
+	b.subscribers[sub] = struct{}{}
+	return true
+}
+
 // Unsubscribe removes an active subscriber.
 func (b *RecordBroadcaster) Unsubscribe(sub *RecordSubscriber) {
 	b.mu.Lock()

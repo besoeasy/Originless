@@ -25,12 +25,17 @@ var (
 	StorageMaxBytes int64
 	FileLimit       int64
 	BlobDir         = "/data/blobs"
+	// MaxSSESubscribers caps concurrent /records/stream connections;
+	// <= 0 disables the cap. Guarded atomically in TrySubscribe.
+	MaxSSESubscribers int
 )
 
 // Blob retention policy (size-weighted):
-//   min_age  = 30 days  (applies at max_size)
-//   max_age  = 1 year   (applies at size 0)
-//   max_size = 512 MiB  (normalization point + upload cap)
+//
+//	min_age  = 30 days  (applies at max_size)
+//	max_age  = 1 year   (applies at size 0)
+//	max_size = 512 MiB  (normalization point + upload cap)
+//
 // retention(size) = min_age + (min_age - max_age) * (size/max_size - 1)^3
 // Small blobs are retained longest; the guarantee decays cubically to
 // min_age as the blob approaches max_size.
@@ -57,6 +62,20 @@ func init() {
 	if FileLimit > BlobMaxSizeBytes {
 		FileLimit = BlobMaxSizeBytes
 	}
+
+	MaxSSESubscribers = envOrDefaultInt("SSE_MAX_SUBSCRIBERS", 256)
+}
+
+func envOrDefaultInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func envOrDefault(key, fallback string) string {

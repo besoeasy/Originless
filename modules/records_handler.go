@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -245,19 +247,23 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "record": rec})
 }
 
+// sseKeepaliveInterval and sseWriteTimeout bound long-lived streams.
+// The keepalive interval is a var (not const) so tests can shorten it.
+var sseKeepaliveInterval = 15 * time.Second
+
+// sseWriteTimeout is the per-frame write deadline: with the server-wide
+// WriteTimeout disabled, a client that stops reading would block the
+// handler goroutine forever. A short deadline on each write (reset after
+// success) turns that into a bounded disconnect.
+const sseWriteTimeout = 5 * time.Second
+
 // StreamRecords streams newly published records matching query filters over Server-Sent Events (SSE).
 // GET /records/stream?owner=&collection=&label=&search=
 func (h *Handler) StreamRecords(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+	if _, ok := w.(http.Flusher); !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache, no-transform")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
 
 	q := r.URL.Query()
 	sub := &RecordSubscriber{
@@ -269,37 +275,69 @@ func (h *Handler) StreamRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.broadcaster != nil {
-		h.broadcaster.Subscribe(sub)
+		if !h.broadcaster.TrySubscribe(sub) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+				"status": "error", "error": "too many stream subscribers",
+			})
+			return
+		}
 		defer h.broadcaster.Unsubscribe(sub)
 	}
 
-	_, _ = w.Write([]byte(": connected\n\n"))
-	flusher.Flush()
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 
-	ticker := time.NewTicker(15 * time.Second)
+	rc := http.NewResponseController(w)
+	deadlineErrOnce := sync.Once{}
+	var writeFailed bool
+	writeFrame := func(b []byte) {
+		if writeFailed {
+			return
+		}
+		if err := rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil {
+			deadlineErrOnce.Do(func() { log.Printf("sse: SetWriteDeadline unsupported: %v", err) })
+		}
+		// The socket write for a streamed response happens on Flush, not on
+		// Write (which only fills net/http's internal bufio), so the
+		// deadline must stay active across Flush and the Flush error must
+		// be observed. ResponseController.Flush reports conn-level errors
+		// that http.Flusher silently swallows.
+		_, werr := w.Write(b)
+		var ferr error
+		if werr == nil {
+			ferr = rc.Flush()
+		}
+		_ = rc.SetWriteDeadline(time.Time{})
+		if werr != nil || ferr != nil {
+			// Peer gone or stuck un-acked for sseWriteTimeout: stop the
+			// stream instead of leaking the goroutine and connection.
+			writeFailed = true
+		}
+	}
+
+	ticker := time.NewTicker(sseKeepaliveInterval)
 	defer ticker.Stop()
+
+	writeFrame([]byte(": connected\n\n"))
 
 	ctx := r.Context()
 	for {
+		if writeFailed {
+			return
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := w.Write([]byte(": keepalive\n\n"))
-			if err != nil {
-				return
-			}
-			flusher.Flush()
+			writeFrame([]byte(": keepalive\n\n"))
 		case rec := <-sub.Ch:
 			sse, err := FormatSSE(rec)
 			if err != nil {
 				continue
 			}
-			_, err = w.Write(sse)
-			if err != nil {
-				return
-			}
-			flusher.Flush()
+			writeFrame(sse)
 		}
 	}
 }

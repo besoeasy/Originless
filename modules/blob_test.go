@@ -354,6 +354,30 @@ func TestReconcileCleansStaleTemps(t *testing.T) {
 	}
 }
 
+func TestGetBlobSizeFreshBypassesCache(t *testing.T) {
+	st := testStore(t)
+
+	if _, err := st.UpsertBlob("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 100); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := st.GetBlobSize(); err != nil || n != 100 {
+		t.Fatalf("GetBlobSize=%d err=%v want 100", n, err)
+	}
+
+	// A second blob lands inside the TTL window...
+	if _, err := st.UpsertBlob("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 50); err != nil {
+		t.Fatal(err)
+	}
+	// ...so GetBlobSize still serves the cached 100...
+	if n, err := st.GetBlobSize(); err != nil || n != 100 {
+		t.Fatalf("cached GetBlobSize=%d err=%v want 100", n, err)
+	}
+	// ...while GetBlobSizeFresh recomputes: 150.
+	if n, err := st.GetBlobSizeFresh(); err != nil || n != 150 {
+		t.Fatalf("GetBlobSizeFresh=%d err=%v want 150", n, err)
+	}
+}
+
 func TestListBlobsAndCounts(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())

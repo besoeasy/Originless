@@ -1,0 +1,54 @@
+# Originless — project basics
+
+Originless is a zero-auth backend: no logins, no sessions. Identity is an
+ed25519 keypair held by the client; the server only verifies signatures.
+
+## Core primitives
+
+- **Record** — a small signed JSON object: `owner`, `collection`, `labels`,
+  `data`, `created_at`, `expires_at`, `sig`. The server computes `id` from a
+  canonical hash of those fields, so republishing the same payload yields the
+  same id and is idempotent (`200 duplicate`, never a second `201`).
+- **Blob** — an opaque binary addressed by its sha256 (`<hash>.bin`).
+  Uploads must be `.bin` and pass a binary sniff check; identical bytes dedupe
+  to the same hash. A record can link a blob via `data._blob`; the hash is
+  covered by the record signature.
+- **Stream** — `GET /records/stream` is SSE: new records matching
+  `owner/collection/label/search` are fanned out to subscribers with a
+  15 s keepalive. Slow consumers are skipped (counted, not blocking).
+
+## Request lifecycle
+
+1. **Publish** (`POST /records`): validate body size/TTL → verify ed25519
+   signature → `INSERT OR IGNORE` record + labels in one transaction →
+   broadcast to matching SSE subscribers only when newly created.
+   Responses: `201` created, `200` duplicate, `401` bad sig, `413` oversize.
+2. **Read** (`GET /records`, `GET /records/{id}`): newest-first, expired
+   hidden unless `include_expired=true`. List pagination is a keyset cursor
+   `<created_at>:<id>` in `next_cursor` (numeric offsets still accepted).
+3. **Upload** (`POST /up`, max 3 concurrent): stream to an `up-*` temp file,
+   sniff content, size/quota gate, rename to `<sha256>.bin`, upsert DB row.
+   Post-hash quota uses a fresh size sum so the hard cap can't be bypassed.
+4. **Download** (`GET /down/{hash}`, `HEAD` allowed): serve bytes, refresh LRU
+   recency; unknown/evicted hashes are `404` and stale DB rows are dropped.
+5. **Janitor** (hourly + startup): size-weighted blob retention (30 d at
+   512 MiB → 1 y at size 0), LRU eviction above 75% of `STORAGE_MAX`, expiry
+   purge of records, hash re-verification, and sweep of crashed `up-*` temps.
+   Blobs linked from live records are never evicted.
+
+## Storage and limits
+
+- SQLite (`/data/originless.db`), WAL + `synchronous=NORMAL`, one connection.
+- Blobs live in `/data/blobs`; `STORAGE_MAX` (default `100GB`); per-file cap
+  is `min(STORAGE_MAX/100, 512 MiB)`; records capped at 8 KB.
+- SSE capped at `SSE_MAX_SUBSCRIBERS` (default 256, `503` beyond); each stream
+  frame carries a write deadline so stuck clients are disconnected, not leaked.
+- No read/write server timeouts (slow uploads and long streams survive);
+  header reads and keep-alive idle stay bounded.
+
+## Observability
+
+- `GET /status`: storage policy, blob/record counts, live `sse` clients/drops.
+- `GET /metrics`: Prometheus text, incl. `originless_sse_clients` and
+  `originless_sse_dropped_total`.
+- Full contract in `api.md`; run with `go run .` (listens on `:3232`).
