@@ -464,7 +464,7 @@ input:focus-visible {
 
 .home-hub-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 1.0769rem;
 }
 
@@ -1281,7 +1281,19 @@ input:focus-visible {
 .storage-policy-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6154rem;
+}
+
+.pill-cache {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+}
+
+.dot-cyan {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.7) !important;
 }
 
 .storage-policy-limits {
@@ -1291,15 +1303,16 @@ input:focus-visible {
 
 .storage-policy-grid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1.0769rem;
 }
 
 .storage-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.6923rem;
-  padding: 0.9231rem 1.0769rem;
+  justify-content: space-between;
+  gap: 0.8462rem;
+  padding: 1rem 1.1538rem;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--line);
   border-radius: 0.6154rem;
@@ -1310,123 +1323,140 @@ input:focus-visible {
   align-items: center;
   justify-content: space-between;
   font-size: 0.8462rem;
+  gap: 0.5rem;
+}
+
+.panel-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5385rem;
 }
 
 .panel-title {
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink);
+  font-size: 0.9231rem;
+}
+
+.panel-badge-sub {
+  font-size: 0.6923rem;
+  padding: 0.1538rem 0.4615rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 0.3077rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .panel-meta {
   color: #fff;
   font-weight: 500;
+  font-size: 0.8462rem;
 }
 
-.capacity-track-wrap {
-  position: relative;
-  width: 100%;
-  padding-bottom: 1.3846rem;
+.text-cyan {
+  color: #38bdf8 !important;
 }
 
-.capacity-track {
-  width: 100%;
-  height: 0.6154rem;
-  border-radius: 7.6154rem;
-  background: #18181b;
-  overflow: hidden;
+.text-green {
+  color: #3dd68c !important;
+}
+
+/* Retention Curve Step Visualizer */
+.policy-decay-bar-wrap {
+  padding: 0.6154rem 0.7692rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 0.4615rem;
+}
+
+.policy-decay-bar {
   display: flex;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4615rem;
 }
 
-.capacity-fill {
-  height: 100%;
-  transition: width 0.6s var(--ease);
-}
-
-.fill-used {
-  background: linear-gradient(90deg, #2bb673, #3dd68c);
-}
-
-.fill-overhead {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-}
-
-.capacity-marker {
-  position: absolute;
-  top: -2px;
-  transform: translateX(-50%);
+.decay-step {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  pointer-events: none;
+  gap: 0.1538rem;
 }
 
-.marker-line {
-  width: 2px;
-  height: calc(0.6154rem + 4px);
-  background: var(--bad);
-  border-radius: 1px;
-}
-
-.marker-label {
-  margin-top: 0.2308rem;
-  font-family: var(--mono);
+.decay-label {
   font-size: 0.6923rem;
-  font-weight: 600;
-  color: var(--bad);
+  text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--ink-4);
+  font-weight: 600;
+}
+
+.decay-val {
+  font-size: 0.8462rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.decay-arrow {
+  color: var(--ink-4);
+  font-size: 0.9231rem;
+  opacity: 0.6;
+}
+
+.decay-1y .decay-val {
+  color: #3dd68c;
+}
+
+.decay-mid .decay-val {
+  color: #38bdf8;
+}
+
+.decay-30d .decay-val {
+  color: #f59e0b;
+}
+
+/* HTTP Cache Spec Box */
+.cache-spec-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3846rem;
+  padding: 0.6154rem 0.7692rem;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.4615rem;
+  font-size: 0.7692rem;
+}
+
+.cache-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4615rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.capacity-legend {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.9231rem;
-  font-size: 0.7692rem;
-  color: var(--ink-3);
-  margin-top: -0.3077rem;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3846rem;
-}
-
-.legend-dot {
-  width: 0.4615rem;
-  height: 0.4615rem;
-  border-radius: 50%;
-}
-
-.dot-used { background: #3dd68c; }
-.dot-overhead { background: #f59e0b; }
-.dot-headroom { background: #52525b; }
-
-.legend-name {
+.cache-spec-key {
   color: var(--ink-4);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
-.type-track-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6923rem;
-}
-
-.type-track {
-  width: 100%;
-  height: 0.6154rem;
-  border-radius: 7.6154rem;
-  background: #18181b;
+.cache-spec-val {
   overflow: hidden;
-  display: flex;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.type-fill {
-  height: 100%;
-  transition: width 0.6s var(--ease);
+.cache-spec-tag {
+  margin-left: auto;
+  font-size: 0.6538rem;
+  padding: 0.0769rem 0.3846rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-radius: 0.2308rem;
+  flex-shrink: 0;
 }
 
 .type-legend {
@@ -1440,17 +1470,24 @@ input:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 0.3846rem;
-  padding: 0.1538rem 0.4615rem;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 0.2308rem 0.5385rem;
+  background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--line);
   border-radius: 0.3077rem;
   font-size: 0.7692rem;
+  transition: background 0.15s var(--ease);
+}
+
+.type-pill.pill-highlight {
+  background: rgba(61, 214, 140, 0.06);
+  border-color: rgba(61, 214, 140, 0.2);
 }
 
 .type-dot {
   width: 0.3846rem;
   height: 0.3846rem;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .type-name {
@@ -1458,20 +1495,14 @@ input:focus-visible {
 }
 
 .type-pct {
-  color: var(--ink-4);
-  font-size: 0.6923rem;
-}
-
-.type-empty {
-  padding: 0.6154rem 0;
-  font-size: 0.8462rem;
-  color: var(--ink-4);
-  text-align: center;
+  color: var(--ink-3);
+  font-size: 0.7308rem;
+  font-weight: 600;
 }
 
 .policy-rules-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.7692rem;
 }
 
@@ -1483,6 +1514,13 @@ input:focus-visible {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--line);
   border-radius: 0.4615rem;
+  min-width: 0;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.rule-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line-strong);
 }
 
 .rule-icon {
@@ -1540,8 +1578,17 @@ input:focus-visible {
   text-overflow: ellipsis;
 }
 
+@media (max-width: 1100px) {
+  .policy-rules-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 860px) {
   .storage-policy-grid {
+    grid-template-columns: 1fr;
+  }
+  .policy-rules-row {
     grid-template-columns: 1fr;
   }
 }
@@ -2639,28 +2686,7 @@ input:focus-visible {
       <!-- Navigation & Hub Cards -->
       <section class="home-hub-section" aria-label="Quick Hub">
         <div class="home-hub-grid">
-          <!-- Card 1: Blob Vault -->
-          <a class="hub-card hub-card-link" href="#blobs" @click.prevent="setWorkspaceTab('blobs')">
-            <div class="hub-card-head">
-              <div class="hub-card-badge-wrap">
-                <div class="hub-card-icon hub-icon-blob">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                </div>
-                <span class="showcase-badge">Blob Vault</span>
-              </div>
-              <span class="hub-card-action">Open Vault &rarr;</span>
-            </div>
-            <div class="hub-card-body">
-              <h3>Binary Blobs</h3>
-              <p>Store raw binaries and artifacts as SHA-256 content-addressed blobs with size-weighted retention (30 days–1 year) and periodic eviction of expired blobs.</p>
-            </div>
-            <div class="hub-card-foot">
-              <span class="mono">POST /up · SHA-256</span>
-              <span class="pill pill-ok"><span class="dot"></span>{{ blobsCount || 0 }} Stored</span>
-            </div>
-          </a>
-
-          <!-- Card 2: Agent Skill -->
+          <!-- Agent Skill -->
           <a class="hub-card hub-card-link" href="/agent.txt">
             <div class="hub-card-head">
               <div class="hub-card-badge-wrap">
@@ -2692,98 +2718,119 @@ input:focus-visible {
             <span class="showcase-badge">Storage &amp; Cache Policy</span>
             <span class="pill pill-ok">
               <span class="dot"></span>
-              Persistent
+              Persistent Vault
+            </span>
+            <span class="pill pill-cache">
+              <span class="dot dot-cyan"></span>
+              Immutable Cache
             </span>
           </div>
           <div class="storage-policy-limits mono">
-            No total storage cap · Retention 30d at 512 MiB → 1y at 0 B
+            Zero-Cap Storage · Size-Weighted Retention · Edge-Cacheable
           </div>
         </div>
 
         <div class="storage-policy-grid">
-          <!-- Blob Storage Panel -->
+          <!-- Blob Storage & Retention Panel -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Blob Storage</span>
+              <div class="panel-title-wrap">
+                <span class="panel-title">Blob Storage &amp; Retention</span>
+                <span class="panel-badge-sub mono">Cubic Decay</span>
+              </div>
               <span class="panel-meta mono">
-                {{ storageBreakdown.usedStr }}
+                {{ storageBreakdown.usedStr }} <span class="text-sub">({{ blobsCount }} {{ blobsCount === 1 ? 'blob' : 'blobs' }})</span>
               </span>
             </div>
 
-            <div class="capacity-legend" style="margin-top: 0.75rem;">
-              <div class="legend-item">
-                <span class="legend-dot dot-used"></span>
-                <span class="legend-name">Stored Blobs:</span>
-                <span class="mono">{{ storageBreakdown.usedStr }} ({{ blobsCount }} blobs)</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background:#38bdf8;"></span>
-                <span class="legend-name">Retention:</span>
-                <span class="mono">30d @ 512 MiB → 1y @ 0 B</span>
+            <!-- Retention Curve Step Visualizer -->
+            <div class="policy-decay-bar-wrap" title="Size-weighted retention: 30 days at 512 MiB → 1 year at 0 Bytes">
+              <div class="policy-decay-bar">
+                <div class="decay-step decay-1y">
+                  <span class="decay-label">&lt; 1 KB</span>
+                  <span class="decay-val mono">1 Year</span>
+                </div>
+                <div class="decay-arrow">&rarr;</div>
+                <div class="decay-step decay-mid">
+                  <span class="decay-label">64 MB</span>
+                  <span class="decay-val mono">~4 Mo</span>
+                </div>
+                <div class="decay-arrow">&rarr;</div>
+                <div class="decay-step decay-30d">
+                  <span class="decay-label">&ge; 512 MB</span>
+                  <span class="decay-val mono">30 Days</span>
+                </div>
               </div>
             </div>
 
-            <div v-if="(blobs || []).length > 0" class="type-legend" style="margin-top: 0.75rem;">
-              <div class="type-pill">
+            <!-- Vault Status Breakdown -->
+            <div class="type-legend">
+              <div class="type-pill" :class="{ 'pill-highlight': blobsProtectedCount > 0 }">
                 <span class="type-dot" style="background:#3dd68c;"></span>
-                <span class="type-name">Protected (inside retention)</span>
+                <span class="type-name">Active / Protected</span>
                 <span class="mono type-pct">{{ blobsProtectedCount || 0 }}</span>
               </div>
               <div class="type-pill">
-                <span class="type-dot" style="background:#52525b;"></span>
-                <span class="type-name">Expired (janitor-eligible)</span>
+                <span class="type-dot" style="background:#f59e0b;"></span>
+                <span class="type-name">Janitor Eligible</span>
                 <span class="mono type-pct">{{ blobsExpiredCount || 0 }}</span>
               </div>
-            </div>
-            <div v-else class="type-empty">
-              <span>No total pool cap — blobs persist until their size-weighted retention window (30 d at 512 MiB → 1 y at 0 B) elapses, then the janitor evicts them.</span>
+              <div class="type-pill">
+                <span class="type-dot" style="background:#a78bfa;"></span>
+                <span class="type-name">Quota</span>
+                <span class="mono type-pct">Zero Cap</span>
+              </div>
             </div>
           </div>
 
-          <!-- Events Panel -->
+          <!-- HTTP & Edge Cache Policy Panel -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Active Events</span>
-              <span class="panel-meta mono">
-                {{ recordsCount || (records || []).length || 0 }} events
+              <div class="panel-title-wrap">
+                <span class="panel-title">HTTP &amp; Edge Cache</span>
+                <span class="panel-badge-sub mono">RFC 9111</span>
+              </div>
+              <span class="panel-meta mono text-cyan">
+                Immutable Blobs
               </span>
             </div>
 
-            <div v-if="(records || []).length > 0" class="type-legend" style="margin-top: 0.75rem;">
-              <div class="type-pill">
-                <span class="type-dot" style="background:#f5b942;"></span>
-                <span class="type-name">Signed Ed25519</span>
-                <span class="mono type-pct">{{ recordsCount || 0 }}</span>
+            <!-- Cache Directives Showcase -->
+            <div class="cache-spec-box mono">
+              <div class="cache-spec-row">
+                <span class="cache-spec-key">Cache-Control:</span>
+                <span class="cache-spec-val text-green">public, max-age=86400, immutable</span>
               </div>
-              <div class="type-pill">
-                <span class="type-dot" style="background:#38bdf8;"></span>
-                <span class="type-name">Live SSE Feed</span>
-                <span class="mono type-pct">{{ recordsSseConnected ? 'On' : 'Idle' }}</span>
+              <div class="cache-spec-row">
+                <span class="cache-spec-key">ETag:</span>
+                <span class="cache-spec-val text-cyan">&quot;&lt;sha256-hash&gt;&quot;</span>
+                <span class="cache-spec-tag">Zero Invalidation</span>
               </div>
             </div>
-            <div v-else class="type-empty">
-              <span>No active events yet — publish one to start the feed.</span>
+
+            <!-- Cache Guarantees Pills -->
+            <div class="type-legend">
+              <div class="type-pill">
+                <span class="type-dot" style="background:#38bdf8;"></span>
+                <span class="type-name">Client &amp; CDN</span>
+                <span class="mono type-pct">24h Edge TTL</span>
+              </div>
+              <div class="type-pill">
+                <span class="type-dot" style="background:#3dd68c;"></span>
+                <span class="type-name">Tamper-Proof</span>
+                <span class="mono type-pct">Content-Addressed</span>
+              </div>
+              <div class="type-pill">
+                <span class="type-dot" style="background:#a78bfa;"></span>
+                <span class="type-name">Events / SSE</span>
+                <span class="mono type-pct">no-cache</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Eviction & Cache Policy Rules Row -->
         <div class="policy-rules-row">
-          <div class="rule-card">
-            <div class="rule-icon rule-icon-evict">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4" />
-                <path d="M12 4v5l3 2" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" />
-                <path d="M19 12a7 7 0 1 1-2.05-4.95L19 9" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <polyline points="15 9 19 9 19 5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <div class="rule-content">
-              <span class="rule-k">Eviction Policy</span>
-              <span class="rule-v">Expired-retention blobs, periodic</span>
-            </div>
-          </div>
-
           <div class="rule-card">
             <div class="rule-icon rule-icon-ttl">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -2794,23 +2841,21 @@ input:focus-visible {
               </svg>
             </div>
             <div class="rule-content">
-              <span class="rule-k">Retention Window</span>
-              <span class="rule-v">30d at 512 MiB → 1y at 0 B</span>
+              <span class="rule-k">Retention Curve</span>
+              <span class="rule-v">30d (512 MiB) → 1y (0 B)</span>
             </div>
           </div>
 
           <div class="rule-card">
             <div class="rule-icon rule-icon-upload">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <rect x="4" y="5" width="16" height="14" rx="3" stroke="#3dd68c" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.4" />
-                <path d="M12 15V8" stroke="#3dd68c" stroke-width="2" stroke-linecap="round" />
-                <path d="M8.5 10.5L12 7l3.5 3.5" stroke="#3dd68c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                <circle cx="12" cy="17" r="1.5" fill="#3dd68c" />
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#3dd68c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="m9 12 2 2 4-4" stroke="#3dd68c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </div>
             <div class="rule-content">
-              <span class="rule-k">Upload Size</span>
-              <span class="rule-v">Unlimited · any size</span>
+              <span class="rule-k">Cache Directives</span>
+              <span class="rule-v">Immutable · 1-Day Edge TTL</span>
             </div>
           </div>
 
@@ -2826,7 +2871,22 @@ input:focus-visible {
             </div>
             <div class="rule-content">
               <span class="rule-k">Content Addressing</span>
-              <span class="rule-v">SHA-256 Dedup</span>
+              <span class="rule-v">SHA-256 Dedup · Zero Cap</span>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-icon rule-icon-evict">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.4" />
+                <path d="M12 4v5l3 2" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M19 12a7 7 0 1 1-2.05-4.95L19 9" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <polyline points="15 9 19 9 19 5" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <div class="rule-content">
+              <span class="rule-k">Janitor Eviction</span>
+              <span class="rule-v">Hourly Periodic GC</span>
             </div>
           </div>
         </div>
