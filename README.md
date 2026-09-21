@@ -78,19 +78,3 @@ curl -O "http://localhost:3232/down/<sha256>"
 # Health snapshot for monitoring / healthchecks
 curl http://localhost:3232/status
 ```
-
----
-
-## Config
-
-| Variable | Default | Notes |
-| :------- | :------ | :---- |
-| `STORAGE_MAX` | `100GB` | Shared quota for blob storage; janitor evicts at 75% |
-
-Data (SQLite + blobs) lives in `/data` — back up the volume and you back up the node.
-
----
-
-## License
-
-**ISC** — free for personal and commercial use.
