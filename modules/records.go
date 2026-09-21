@@ -16,8 +16,8 @@ import (
 const (
 	// MaxRecordSize is the max total JSON size in bytes (8 KB).
 	MaxRecordSize = 8192
-	// MaxRecordTTL is the max expires_at - created_at (10 years).
-	MaxRecordTTL int64 = 10 * 365 * 24 * 3600 // 315360000
+	// MaxRecordTTL is the max expires_at - created_at (1 year).
+	MaxRecordTTL int64 = 365 * 24 * 3600 // 31536000
 	// MaxRecordLabels caps indexable labels per record.
 	MaxRecordLabels = 10
 	// MaxCreatedDrift allows 15 min future clock skew on created_at.
@@ -132,7 +132,7 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 		return nil, fmt.Errorf("expires_at must be > created_at")
 	}
 	if expires-created > MaxRecordTTL {
-		return nil, fmt.Errorf("expires_at too far: max +10y (315360000s)")
+		return nil, fmt.Errorf("expires_at too far: max +1y (31536000s)")
 	}
 	if created > nowUnix+MaxCreatedDrift {
 		return nil, fmt.Errorf("created_at too far in the future")

@@ -77,7 +77,7 @@ Store a signed JSON event for app data (posts, chat, game saves, profiles). Lega
 | `owner` | yes | `ed25519:<64 hex>` (32-byte pubkey) |
 | `collection` | yes | `^[a-z0-9/_-]{1,32}$` — your table: `chat`, `saves`, `profile` |
 | `created_at` | yes | unix seconds (≤ 15 min future skew allowed) |
-| `expires_at` | yes | unix seconds, `created_at < expires_at <= created_at + 315360000` (10y) |
+| `expires_at` | yes | unix seconds, `created_at < expires_at <= created_at + 31536000` (1y) |
 | `data` | yes | JSON **object** (stringify app structs into it) |
 | `labels` | yes | `0–10` strings for filtering (`[]` for none) |
 | `sig` | yes | `128` hex chars: `ed25519_sign(id)` |
@@ -85,7 +85,7 @@ Store a signed JSON event for app data (posts, chat, game saves, profiles). Lega
 ```bash
 curl -X POST http://localhost:3232/events \
   -H "Content-Type: application/json" \
-  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
+  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
 ```
 
 **201** (new) or **200** (`duplicate: true` — same payload republishes to the same ID):
@@ -130,7 +130,7 @@ curl "http://localhost:3232/events?collection=chat&label=room:general&limit=20"
       "owner": "ed25519:3b6a...29",
       "collection": "chat",
       "created_at": 1758420000,
-      "expires_at": 1790040000,
+      "expires_at": 1789956000,
       "data": { "room": "general", "text": "gg" },
       "labels": ["room:general"],
       "sig": "a3f1...c9",
@@ -177,7 +177,7 @@ Clients receive an initial comment, followed by standard SSE event messages as e
 
 event: event
 id: 8f2c...1a
-data: {"id":"8f2c...1a","owner":"ed25519:...","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"lobby","msg":"hi"},"labels":["room:lobby"],"sig":"...","stored_at":"..."}
+data: {"id":"8f2c...1a","owner":"ed25519:...","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"lobby","msg":"hi"},"labels":["room:lobby"],"sig":"...","stored_at":"..."}
 
 : keepalive
 ```

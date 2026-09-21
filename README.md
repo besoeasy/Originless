@@ -63,7 +63,7 @@ Events link blobs via `"_blob": "<sha256>"` in `data` — validated on publish, 
 # Publish a signed event (see api.md for the signing scheme)
 curl -X POST http://localhost:3232/events \
   -H "Content-Type: application/json" \
-  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
+  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
 
 # Query it back
 curl "http://localhost:3232/events?collection=chat&label=room:general&limit=5"
