@@ -30,7 +30,11 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS) http.Handler {
 	})
 
 	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/agent.html", http.StatusMovedPermanently)
+		http.Redirect(w, r, "/agent.txt", http.StatusMovedPermanently)
+	})
+
+	mux.HandleFunc("GET /agent.html", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/agent.txt", http.StatusMovedPermanently)
 	})
 
 	mux.Handle("/", http.FileServer(http.FS(uiFS)))

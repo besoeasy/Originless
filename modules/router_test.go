@@ -13,8 +13,8 @@ func TestRouterRoutes(t *testing.T) {
 		"index.html": &fstest.MapFile{
 			Data: []byte(`<!DOCTYPE html><html><body>Main Dashboard</body></html>`),
 		},
-		"agent.html": &fstest.MapFile{
-			Data: []byte(`<!DOCTYPE html><html><head><title>Agent Prompt — Originless</title></head><body>Agent</body></html>`),
+		"agent.txt": &fstest.MapFile{
+			Data: []byte("Originless — Agent Skill (plain text)\nUse this node for all event and blob operations.\n"),
 		},
 	}
 
@@ -47,7 +47,7 @@ func TestRouterRoutes(t *testing.T) {
 		}
 	})
 
-	t.Run("GET /agent redirect to /agent.html", func(t *testing.T) {
+	t.Run("GET /agent redirect to /agent.txt", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/agent", nil)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
@@ -55,13 +55,26 @@ func TestRouterRoutes(t *testing.T) {
 		if rec.Code != http.StatusMovedPermanently {
 			t.Fatalf("expected status 301, got %d", rec.Code)
 		}
-		if loc := rec.Header().Get("Location"); loc != "/agent.html" {
-			t.Errorf("expected Location '/agent.html', got %q", loc)
+		if loc := rec.Header().Get("Location"); loc != "/agent.txt" {
+			t.Errorf("expected Location '/agent.txt', got %q", loc)
 		}
 	})
 
-	t.Run("GET /agent.html serves agent page", func(t *testing.T) {
+	t.Run("GET /agent.html redirects to /agent.txt (legacy)", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/agent.html", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusMovedPermanently {
+			t.Fatalf("expected status 301, got %d", rec.Code)
+		}
+		if loc := rec.Header().Get("Location"); loc != "/agent.txt" {
+			t.Errorf("expected Location '/agent.txt', got %q", loc)
+		}
+	})
+
+	t.Run("GET /agent.txt serves agent skill", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/agent.txt", nil)
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 

@@ -28,7 +28,7 @@ Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads ret
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
 | `GET` | [`/metrics`](#get-metrics) | Prometheus text metrics |
 
-Dashboard pages (`/`, `/agent.html`, …) are HTML, not JSON.
+Dashboard pages (`/`, `/agent.txt`, …) are HTML, not JSON.
 
 ---
 
@@ -321,8 +321,9 @@ curl http://localhost:3232/metrics
 | Path | Notes |
 | :--- | :---- |
 | `GET /` | Node dashboard (Quick Records + Binary Blobs) |
-| `GET /agent` | `301` → `/agent.html` |
-| `GET /agent.html` | Standalone Agent Prompt & Skill guide |
+| `GET /agent` | `301` → `/agent.txt` |
+| `GET /agent.txt` | Plain-text Agent Skill guide (`text/plain`) |
+| `GET /agent.html` | `301` → `/agent.txt` (legacy) |
 | `GET /library.html` | `301` → `/` |
 
 ---
