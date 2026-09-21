@@ -35,7 +35,7 @@
   <div class="app-body">
     <section class="workspace">
 
-      <!-- Node Identity & Network Telemetry Row (2/3 and 1/3) -->
+      <!-- Node Identity & Storage Telemetry Row (2/3 and 1/3) -->
       <div class="node-identity-row">
         <!-- 2/3 Node Identity Section -->
         <section class="node-showcase" aria-label="Node Identity">
@@ -147,172 +147,107 @@
           <div class="node-showcase-content">
             <div class="node-showcase-header">
               <span class="showcase-badge">Node Identity</span>
-              <span class="pill pill-ok"><span class="dot"></span>Swarm Online</span>
-              <span class="showcase-chip mono">ed25519</span>
+              <span class="pill pill-ok"><span class="dot"></span>Healthy</span>
+              <span class="showcase-chip mono">sha-256</span>
               <span class="showcase-chip mono dna-chip" :style="{ borderColor: nodeGraphics?.color1 + '40', color: nodeGraphics?.color1 }">#{{ nodeGraphics?.hashHex }}</span>
             </div>
 
-            <div class="node-showcase-id-row">
-              <div class="node-showcase-id" :title="status.fullNodeId || status.nodeId">
-                <span class="node-id-prefix">peer/</span>
-                <span class="node-id-full mono">{{ status.fullNodeId || status.nodeId }}</span>
-              </div>
-              <button
-                class="btn btn-solid node-copy-btn"
-                type="button"
-                @click="copyText(status.fullNodeId || status.nodeId, 'Peer ID copied')"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                <span>Copy Peer ID</span>
-              </button>
+            <div class="node-showcase-origin-row">
+              <span class="node-id-prefix">node</span>
+              <span class="node-id-full mono">{{ originUrl }}</span>
             </div>
 
             <!-- Structured Telemetry Specs Block -->
             <div class="node-specs-block">
               <div class="spec-item">
-                <span class="spec-label">KUBO DAEMON</span>
+                <span class="spec-label">ORIGINLESS SERVER</span>
                 <div class="spec-val mono text-primary">v{{ status.version }}</div>
-                <span class="spec-sub">IPFS Core Engine</span>
+                <span class="spec-sub">Records &amp; Blob Engine</span>
               </div>
 
               <div class="spec-sep"></div>
 
               <div class="spec-item">
-                <span class="spec-label">REPO OBJECTS</span>
-                <div class="spec-val mono">{{ status.repoObjects }}</div>
-                <span class="spec-sub">DAG Merkle Blocks</span>
+                <span class="spec-label">BLOB VAULT</span>
+                <div class="spec-val mono">{{ status.blobs.count }}</div>
+                <span class="spec-sub">SHA-256 Blobs · {{ status.blobs.sizeStr }}</span>
               </div>
 
               <div class="spec-sep"></div>
 
-              <div class="spec-item spec-multiaddr-item">
-                <span class="spec-label">MULTIADDR</span>
-                <button
-                  class="spec-multiaddr-btn mono"
-                  type="button"
-                  @click="copyText('/p2p/' + (status.fullNodeId || status.nodeId), 'Multiaddr copied')"
-                  :title="'/p2p/' + (status.fullNodeId || status.nodeId) + ' (click to copy)'"
-                >
-                  <span class="spec-p2p-prefix">/p2p/</span><span class="spec-p2p-val">{{ status.nodeId }}</span>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                </button>
-                <span class="spec-sub">libp2p Network Address</span>
+              <div class="spec-item">
+                <span class="spec-label">QUICK RECORDS</span>
+                <div class="spec-val mono">{{ status.records.count }}</div>
+                <span class="spec-sub">Active Signed Records</span>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 1/3 Traffic & Bandwidth Card -->
-        <div class="node-traffic-card" aria-label="Network Traffic">
+        <!-- 1/3 Storage Card -->
+        <div class="node-traffic-card" aria-label="Storage Usage">
           <div class="traffic-card-head">
             <div class="traffic-badge-wrap">
-              <span class="showcase-badge">Traffic</span>
-              <span class="pill pill-ok"><span class="dot" style="background:#38bdf8;box-shadow:0 0 6px #38bdf8;"></span>Live I/O</span>
+              <span class="showcase-badge">Storage</span>
+              <span class="pill" :class="storageBreakdown.isOverThreshold ? 'pill-mute' : 'pill-ok'"><span class="dot"></span>{{ storageBreakdown.statusText }}</span>
             </div>
-            <span class="mono traffic-interval">Rate &amp; Total</span>
+            <span class="mono traffic-interval">Safe Watermark 75%</span>
           </div>
 
           <div class="traffic-rates-block">
             <div class="traffic-rate-item">
-              <span class="traffic-dir-label">INCOMING</span>
+              <span class="traffic-dir-label">STORED BLOBS</span>
               <div class="traffic-rate-val mono text-in">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>{{ status.bandwidthRateIn }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span>{{ storageBreakdown.usedStr }}</span>
               </div>
-              <span class="traffic-total-sub mono">{{ status.bandwidthIn }} total</span>
+              <span class="traffic-total-sub mono">{{ blobsCount }} blobs</span>
             </div>
 
             <div class="traffic-rate-sep"></div>
 
             <div class="traffic-rate-item">
-              <span class="traffic-dir-label">OUTGOING</span>
+              <span class="traffic-dir-label">QUOTA LIMIT</span>
               <div class="traffic-rate-val mono text-out">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 14 12 9 7 14"/><line x1="12" y1="21" x2="12" y2="9"/></svg>
-                <span>{{ status.bandwidthRateOut }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>{{ status.storageLimit.configured || '100GB' }}</span>
               </div>
-              <span class="traffic-total-sub mono">{{ status.bandwidthOut }} total</span>
+              <span class="traffic-total-sub mono">{{ storageBreakdown.headroomStr }} headroom</span>
             </div>
           </div>
 
           <div class="traffic-wave-wrap">
-            <svg viewBox="0 0 240 32" width="100%" height="26" preserveAspectRatio="none" class="traffic-wave-svg">
-              <defs>
-                <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.1" />
-                  <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.8" />
-                  <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.2" />
-                </linearGradient>
-              </defs>
-              <path d="M0 16 Q 30 4, 60 16 T 120 16 T 180 16 T 240 16" fill="none" stroke="url(#waveGrad)" stroke-width="2" class="traffic-wave-flow" />
-              <circle cx="120" cy="16" r="3" fill="#38bdf8" class="traffic-dot-pulse" />
-            </svg>
+            <div class="storage-mini-bar" :class="storageGaugeClass">
+              <div class="storage-mini-fill" :style="{ width: storagePercentage + '%' }"></div>
+              <span class="storage-mini-pct mono">{{ storagePercentage }}%</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Navigation & Gateway Hub Cards -->
+      <!-- Navigation & Hub Cards -->
       <section class="home-hub-section" aria-label="Quick Hub">
         <div class="home-hub-grid">
-          <!-- Card 1: Gateway Selector -->
-          <div class="hub-card hub-card-gateway" aria-label="Gateway Selector">
-            <div class="traffic-card-head">
-              <div class="traffic-badge-wrap">
-                <div class="hub-card-icon hub-icon-gateway">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <!-- Card 1: Blob Vault -->
+          <a class="hub-card hub-card-link" href="#blobs" @click.prevent="setWorkspaceTab('blobs')">
+            <div class="hub-card-head">
+              <div class="hub-card-badge-wrap">
+                <div class="hub-card-icon hub-icon-blob">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                 </div>
-                <span class="showcase-badge">Gateway</span>
-                <span class="pill pill-ok"><span class="dot" style="background:#a78bfa;box-shadow:0 0 6px #a78bfa;"></span>Active</span>
+                <span class="showcase-badge">Blob Vault</span>
               </div>
-              <span class="mono traffic-interval">IPFS HTTP</span>
+              <span class="hub-card-action">Open Vault &rarr;</span>
             </div>
-
-            <div class="traffic-rates-block">
-              <div class="traffic-rate-item">
-                <span class="traffic-dir-label">RESOLVER HOST</span>
-                <div class="traffic-rate-val mono text-gw" :title="currentGateway">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  <span class="gw-host-text">{{ gatewayHost }}</span>
-                </div>
-                <span class="traffic-total-sub mono">Resolution Node</span>
-              </div>
-
-              <div class="traffic-rate-sep"></div>
-
-              <div class="traffic-rate-item">
-                <span class="traffic-dir-label">RESOLVER MODE</span>
-                <div class="traffic-rate-val mono text-in">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-                  <span>Public IPFS</span>
-                </div>
-                <span class="traffic-total-sub mono">External Gateway</span>
-              </div>
+            <div class="hub-card-body">
+              <h3>Binary Blobs</h3>
+              <p>Store raw binaries and artifacts as SHA-256 content-addressed blobs with a 7-day retention guarantee and LRU eviction.</p>
             </div>
-
-            <div class="gateway-select-wrap">
-              <div class="gateway-select-icon">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
-              </div>
-              <select v-model="currentGateway" @change="onGatewayChange" class="hub-gateway-select" aria-label="Gateway Selector">
-                <option v-for="gw in gateways" :key="gw.url" :value="gw.url">{{ gw.label }} ({{ gw.url }})</option>
-              </select>
+            <div class="hub-card-foot">
+              <span class="mono">POST /up · SHA-256</span>
+              <span class="pill pill-ok"><span class="dot"></span>{{ blobsCount || 0 }} Stored</span>
             </div>
-
-            <div class="traffic-wave-wrap">
-              <svg viewBox="0 0 240 32" width="100%" height="26" preserveAspectRatio="none" class="traffic-wave-svg">
-                <defs>
-                  <linearGradient id="gwWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.1" />
-                    <stop offset="50%" stop-color="#a78bfa" stop-opacity="0.85" />
-                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2" />
-                  </linearGradient>
-                </defs>
-                <path d="M0 16 Q 30 6, 60 16 T 120 16 T 180 16 T 240 16" fill="none" stroke="url(#gwWaveGrad)" stroke-width="2" class="gateway-beam-flow" />
-                <circle cx="60" cy="16" r="2.5" fill="#a78bfa" class="gateway-dot-pulse" />
-                <circle cx="120" cy="16" r="3.5" fill="#a78bfa" class="traffic-dot-pulse" />
-                <circle cx="180" cy="16" r="2.5" fill="#38bdf8" class="gateway-dot-pulse" style="animation-delay: 0.8s" />
-              </svg>
-            </div>
-          </div>
+          </a>
 
           <!-- Card 2: Agent Skill -->
           <a class="hub-card hub-card-link" href="/agent">
@@ -327,7 +262,7 @@
             </div>
             <div class="hub-card-body">
               <h3>Autonomous Agents</h3>
-              <p>Equip Cursor, Claude, or Copilot to pin files, folders, and sites directly onto this node without API keys.</p>
+              <p>Equip Cursor, Claude, or Copilot to publish signed records and store binary blobs onto this node without API keys.</p>
             </div>
             <div class="hub-card-foot">
               <span class="mono">Prompt · Markdown · cURL</span>
@@ -337,8 +272,8 @@
         </div>
       </section>
 
-      <!-- Storage Policy (2/3) & Swarm Telemetry (1/3) Row -->
-      <div class="storage-swarm-row">
+      <!-- Storage Policy (2/3) & Records Stream (1/3) Row -->
+      <div class="storage-stream-row">
         <!-- 2/3 Storage & Cache Policy Section -->
         <section class="storage-policy-section" aria-label="Storage and Cache Policy">
         <div class="storage-policy-head">
@@ -350,7 +285,7 @@
             </span>
           </div>
           <div class="storage-policy-limits mono">
-            Quota: {{ status.storageLimit.configured || '100GB' }} · Safe Watermark: {{ pinStats.threshold }}%
+            Quota: {{ status.storageLimit.configured || '100GB' }} · Safe Watermark: 75%
           </div>
         </div>
 
@@ -358,9 +293,9 @@
           <!-- Main Capacity Bar with 75% Eviction Threshold Line -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Repository Capacity</span>
+              <span class="panel-title">Blob Capacity</span>
               <span class="panel-meta mono">
-                {{ status.repoSize }} ({{ storagePercentage }}%)
+                {{ storageBreakdown.usedStr }} ({{ storagePercentage }}%)
               </span>
             </div>
 
@@ -368,34 +303,24 @@
             <div class="capacity-track-wrap">
               <div class="capacity-track">
                 <div
-                  class="capacity-fill fill-pinned"
-                  :style="{ width: storageBreakdown.pinnedPct + '%' }"
-                  :title="'Pinned Data: ' + pinStats.sizeStr"
-                ></div>
-                <div
-                  class="capacity-fill fill-overhead"
-                  :style="{ width: storageBreakdown.overheadPct + '%' }"
-                  :title="'Kubo Overhead & Blocks: ' + storageBreakdown.overheadStr"
+                  class="capacity-fill fill-used"
+                  :style="{ width: storageBreakdown.usedPct + '%' }"
+                  :title="'Stored Blobs: ' + storageBreakdown.usedStr"
                 ></div>
               </div>
               <!-- 75% threshold marker -->
-              <div class="capacity-marker" :style="{ left: pinStats.threshold + '%' }" :title="'Auto-eviction trigger at ' + pinStats.threshold + '%'">
+              <div class="capacity-marker" style="left: 75%;" :title="'Auto-eviction trigger at 75%'">
                 <span class="marker-line"></span>
-                <span class="marker-label">{{ pinStats.threshold }}% EVICT</span>
+                <span class="marker-label">75% EVICT</span>
               </div>
             </div>
 
             <!-- Legend for capacity -->
             <div class="capacity-legend">
               <div class="legend-item">
-                <span class="legend-dot dot-pinned"></span>
-                <span class="legend-name">Pinned:</span>
-                <span class="mono">{{ pinStats.sizeStr }}</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot dot-overhead"></span>
-                <span class="legend-name">System Blocks:</span>
-                <span class="mono">{{ storageBreakdown.overheadStr }}</span>
+                <span class="legend-dot dot-used"></span>
+                <span class="legend-name">Stored Blobs:</span>
+                <span class="mono">{{ storageBreakdown.usedStr }}</span>
               </div>
               <div class="legend-item">
                 <span class="legend-dot dot-headroom"></span>
@@ -405,40 +330,34 @@
             </div>
           </div>
 
-          <!-- Type Distribution Panel -->
+          <!-- Records Panel -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Active Pin Distribution</span>
+              <span class="panel-title">Active Records</span>
               <span class="panel-meta mono">
-                {{ pinStats.count }} pins
+                {{ recordsCount || (records || []).length || 0 }} records
               </span>
             </div>
 
-            <div v-if="(categoryDistribution || []).length > 0" class="type-track-wrap">
-              <div class="type-track">
-                <div
-                  v-for="cat in categoryDistribution"
-                  :key="cat.category"
-                  class="type-fill"
-                  :style="{ width: cat.pct + '%', backgroundColor: cat.color }"
-                  :title="cat.label + ': ' + cat.sizeStr + ' (' + cat.pct + '%)'"
-                ></div>
+            <div v-if="(records || []).length > 0" class="type-legend" style="margin-top: 0.75rem;">
+              <div class="type-pill">
+                <span class="type-dot" style="background:#f5b942;"></span>
+                <span class="type-name">Signed Ed25519</span>
+                <span class="mono type-pct">{{ recordsCount || 0 }}</span>
               </div>
-              <div class="type-legend">
-                <div v-for="cat in categoryDistribution" :key="cat.category" class="type-pill">
-                  <span class="type-dot" :style="{ backgroundColor: cat.color }"></span>
-                  <span class="type-name">{{ cat.label }}</span>
-                  <span class="mono type-pct">{{ cat.pct }}%</span>
-                </div>
+              <div class="type-pill">
+                <span class="type-dot" style="background:#38bdf8;"></span>
+                <span class="type-name">Live SSE Feed</span>
+                <span class="mono type-pct">{{ recordsSseConnected ? 'On' : 'Idle' }}</span>
               </div>
             </div>
             <div v-else class="type-empty">
-              <span>No active pins to distribute.</span>
+              <span>No active records yet — publish one to start the feed.</span>
             </div>
           </div>
         </div>
 
-        <!-- Eviction & Janitor Policy Rules Row -->
+        <!-- Eviction & Cache Policy Rules Row -->
         <div class="policy-rules-row">
           <div class="rule-card">
             <div class="rule-icon rule-icon-evict">
@@ -451,7 +370,7 @@
             </div>
             <div class="rule-content">
               <span class="rule-k">Auto-Eviction Policy</span>
-              <span class="rule-v">FIFO / LRU at {{ pinStats.threshold }}%</span>
+              <span class="rule-v">LRU at 75% of quota</span>
             </div>
           </div>
 
@@ -466,7 +385,7 @@
             </div>
             <div class="rule-content">
               <span class="rule-k">Retention Window</span>
-              <span class="rule-v">30-Day TTL (hourly cycle)</span>
+              <span class="rule-v">7-Day Minimum Guarantee</span>
             </div>
           </div>
 
@@ -481,7 +400,7 @@
             </div>
             <div class="rule-content">
               <span class="rule-k">Max Single Upload</span>
-              <span class="rule-v">{{ status.fileLimit ? status.fileLimit : '1.00 GB' }} per file</span>
+              <span class="rule-v">{{ status.fileLimit.configured || '1.00 GB' }} per blob</span>
             </div>
           </div>
 
@@ -496,50 +415,50 @@
               </svg>
             </div>
             <div class="rule-content">
-              <span class="rule-k">Kubo Datastore GC</span>
-              <span class="rule-v">Auto-GC Active</span>
+              <span class="rule-k">Content Addressing</span>
+              <span class="rule-v">SHA-256 Dedup</span>
             </div>
           </div>
         </div>
         </section>
 
-        <!-- 1/3 Swarm Telemetry Card -->
-        <div class="node-swarm-card" aria-label="Swarm Telemetry">
+        <!-- 1/3 Records Stream Card -->
+        <div class="node-stream-card" aria-label="Records Stream">
           <div class="traffic-card-head">
             <div class="traffic-badge-wrap">
-              <span class="showcase-badge">Swarm</span>
-              <span class="pill pill-ok"><span class="dot" style="background:#3dd68c;box-shadow:0 0 6px #3dd68c;"></span>Online</span>
+              <span class="showcase-badge">Records</span>
+              <span class="pill" :class="recordsSseConnected ? 'pill-ok' : 'pill-mute'"><span class="dot" :style="recordsSseConnected ? 'background:#3dd68c;box-shadow:0 0 6px #3dd68c;' : ''"></span>{{ recordsSseConnected ? 'Live' : 'Idle' }}</span>
             </div>
-            <span class="mono traffic-interval">libp2p Mesh</span>
+            <span class="mono traffic-interval">Server-Sent Events</span>
           </div>
 
           <div class="traffic-rates-block">
             <div class="traffic-rate-item">
-              <span class="traffic-dir-label">PEERS</span>
+              <span class="traffic-dir-label">ACTIVE</span>
               <div class="traffic-rate-val mono text-out">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>{{ status.peerscount }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span>{{ recordsCount || (records || []).length || 0 }}</span>
               </div>
-              <span class="traffic-total-sub mono">Peer connections</span>
+              <span class="traffic-total-sub mono">Signed records</span>
             </div>
 
             <div class="traffic-rate-sep"></div>
 
             <div class="traffic-rate-item">
-              <span class="traffic-dir-label">PINNED</span>
+              <span class="traffic-dir-label">STREAM</span>
               <div class="traffic-rate-val mono text-in">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                <span>{{ pinStats.count }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                <span>{{ recordsSseConnected ? 'Live' : 'Offline' }}</span>
               </div>
-              <span class="traffic-total-sub mono">{{ pinStats.sizeStr }} stored</span>
+              <span class="traffic-total-sub mono">GET /records/stream</span>
             </div>
           </div>
 
-          <!-- Interactive Animated SVG Network Topology Visualizer -->
-          <div class="swarm-mesh-visual">
-            <svg viewBox="0 0 280 110" width="100%" height="90" class="swarm-mesh-svg">
+          <!-- Interactive Animated SVG Stream Visualizer -->
+          <div class="stream-mesh-visual">
+            <svg viewBox="0 0 280 110" width="100%" height="90" class="stream-mesh-svg">
               <defs>
-                <linearGradient id="swarmNetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <linearGradient id="streamNetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.2" />
                   <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.8" />
                   <stop offset="100%" stop-color="#3dd68c" stop-opacity="0.3" />
@@ -555,37 +474,37 @@
               <circle cx="140" cy="55" r="45" fill="none" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4 4" />
               <circle cx="140" cy="55" r="26" fill="none" stroke="rgba(61,214,140,0.08)" />
 
-              <line x1="40" y1="35" x2="95" y2="20" stroke="url(#swarmNetGrad)" stroke-width="1.2" class="swarm-wave-flow" />
-              <line x1="95" y1="20" x2="140" y2="55" stroke="url(#swarmNetGrad)" stroke-width="1.5" />
-              <line x1="140" y1="55" x2="185" y2="25" stroke="url(#swarmNetGrad)" stroke-width="1.5" />
-              <line x1="185" y1="25" x2="240" y2="40" stroke="url(#swarmNetGrad)" stroke-width="1.2" class="swarm-wave-flow" />
+              <line x1="40" y1="35" x2="95" y2="20" stroke="url(#streamNetGrad)" stroke-width="1.2" class="stream-wave-flow" />
+              <line x1="95" y1="20" x2="140" y2="55" stroke="url(#streamNetGrad)" stroke-width="1.5" />
+              <line x1="140" y1="55" x2="185" y2="25" stroke="url(#streamNetGrad)" stroke-width="1.5" />
+              <line x1="185" y1="25" x2="240" y2="40" stroke="url(#streamNetGrad)" stroke-width="1.2" class="stream-wave-flow" />
               <line x1="40" y1="35" x2="80" y2="85" stroke="rgba(56,189,248,0.3)" stroke-dasharray="3 3" />
-              <line x1="80" y1="85" x2="140" y2="55" stroke="url(#swarmNetGrad)" stroke-width="1.2" />
-              <line x1="140" y1="55" x2="200" y2="85" stroke="url(#swarmNetGrad)" stroke-width="1.2" />
+              <line x1="80" y1="85" x2="140" y2="55" stroke="url(#streamNetGrad)" stroke-width="1.2" />
+              <line x1="140" y1="55" x2="200" y2="85" stroke="url(#streamNetGrad)" stroke-width="1.2" />
               <line x1="200" y1="85" x2="240" y2="40" stroke="rgba(61,214,140,0.3)" stroke-dasharray="3 3" />
               <line x1="80" y1="85" x2="200" y2="85" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
 
               <circle cx="140" cy="55" r="9" fill="rgba(61,214,140,0.15)" />
               <circle cx="140" cy="55" r="4.5" fill="#3dd68c" filter="url(#meshGlow)" class="traffic-dot-pulse" />
 
-              <circle cx="40" cy="35" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" />
-              <circle cx="95" cy="20" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 0.5s" />
-              <circle cx="185" cy="25" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 1s" />
-              <circle cx="240" cy="40" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 1.5s" />
-              <circle cx="80" cy="85" r="3" fill="#3dd68c" class="swarm-dot-pulse" style="animation-delay: 0.8s" />
-              <circle cx="200" cy="85" r="3.5" fill="#38bdf8" class="swarm-dot-pulse" style="animation-delay: 1.3s" />
+              <circle cx="40" cy="35" r="3.5" fill="#38bdf8" class="stream-dot-pulse" />
+              <circle cx="95" cy="20" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 0.5s" />
+              <circle cx="185" cy="25" r="3.5" fill="#38bdf8" class="stream-dot-pulse" style="animation-delay: 1s" />
+              <circle cx="240" cy="40" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 1.5s" />
+              <circle cx="80" cy="85" r="3" fill="#3dd68c" class="stream-dot-pulse" style="animation-delay: 0.8s" />
+              <circle cx="200" cy="85" r="3.5" fill="#38bdf8" class="stream-dot-pulse" style="animation-delay: 1.3s" />
             </svg>
           </div>
 
           <!-- Card Footer Meta -->
-          <div class="swarm-card-meta">
+          <div class="stream-card-meta">
             <div class="meta-item">
               <span class="meta-label">Transport</span>
-              <span class="meta-value mono">TCP + QUIC</span>
+              <span class="meta-value mono">HTTP + SSE</span>
             </div>
             <div class="meta-item">
-              <span class="meta-label">Routing</span>
-              <span class="meta-value mono">DHT Client</span>
+              <span class="meta-label">Auth</span>
+              <span class="meta-value mono">Ed25519</span>
             </div>
           </div>
         </div>
@@ -640,29 +559,6 @@
               <span class="primitive-action">Drop &amp; Inspect &rarr;</span>
             </div>
           </div>
-
-          <!-- Card 3: IPFS Swarm & Library -->
-          <div class="primitive-card" :class="{ 'is-active': workspaceTab === 'ipfs' }" @click="setWorkspaceTab('ipfs')">
-            <div class="primitive-card-head">
-              <div class="primitive-icon icon-ipfs">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-              </div>
-              <div class="primitive-badge-group">
-                <span class="pill pill-ok mono">libp2p Swarm</span>
-              </div>
-            </div>
-            <div class="primitive-card-body">
-              <h3>IPFS Swarm</h3>
-              <p>Decentralized immutable file pinning distributed across the global peer-to-peer network with deterministic CIDs.</p>
-            </div>
-            <div class="primitive-card-foot">
-              <div class="primitive-metric">
-                <span class="metric-val mono">{{ pinStats.count }} pins · {{ pinStats.sizeStr }}</span>
-                <span class="metric-lbl">Permanent Pins</span>
-              </div>
-              <span class="primitive-action">View Library &rarr;</span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -688,16 +584,6 @@
           >
             <span>Binary Blobs</span>
             <span class="tab-badge mono">{{ blobsCount || (blobs || []).length || 0 }}</span>
-          </button>
-          <button
-            class="workspace-tab"
-            :class="{ 'is-active': workspaceTab === 'ipfs' }"
-            role="tab"
-            :aria-selected="workspaceTab === 'ipfs'"
-            @click="setWorkspaceTab('ipfs')"
-          >
-            <span>IPFS Library</span>
-            <span class="tab-badge mono">{{ (filteredHistory || []).length }}</span>
           </button>
         </div>
 
@@ -745,27 +631,6 @@
           <button class="icon-btn" type="button" @click="fetchBlobs" title="Refresh blobs">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
-        </div>
-
-        <!-- IPFS Library Toolbar -->
-        <div v-else class="bar-tools">
-          <label class="search-box">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input ref="searchInput" v-model="searchQuery" type="search" placeholder="Filter by name or CID" />
-          </label>
-          <select v-model="typeFilter" class="select-compact">
-            <option value="all">All types</option>
-            <option value="image">Images</option>
-            <option value="video">Videos</option>
-            <option value="audio">Audio</option>
-            <option value="archive">Archives</option>
-            <option value="code">Code</option>
-          </select>
-          <select v-model="statusFilter" class="select-compact">
-            <option value="all">All status</option>
-            <option value="pinned">Pinned</option>
-            <option value="unpinned">Unpinned</option>
-          </select>
         </div>
       </div>
 
@@ -980,184 +845,7 @@
           </table>
         </div>
       </div>
-
-      <!-- IPFS Library View -->
-      <div v-else>
-        <div v-if="(filteredHistory || []).length === 0" class="empty">
-          <div v-if="searchQuery" class="empty-graphic-wrap">
-            <svg viewBox="0 0 120 120" width="96" height="96" class="empty-svg">
-              <defs>
-                <radialGradient id="searchGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
-                  <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
-                </radialGradient>
-              </defs>
-              <circle cx="60" cy="60" r="46" fill="url(#searchGlow)" />
-              <path d="M25 72 L60 90 L95 72 L60 54 Z" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="3 3" />
-              <path d="M36 68 L60 80 L84 68 L60 56 Z" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
-              <circle cx="56" cy="50" r="20" fill="#121218" stroke="#f59e0b" stroke-width="2" />
-              <circle cx="56" cy="50" r="14" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 3" opacity="0.6" />
-              <line x1="70" y1="64" x2="88" y2="82" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" />
-              <circle cx="56" cy="50" r="3" fill="#f59e0b" />
-            </svg>
-          </div>
-          <div v-else class="empty-graphic-wrap">
-            <svg viewBox="0 0 140 140" width="110" height="110" class="empty-svg empty-cube-svg">
-              <defs>
-                <linearGradient id="cubeTop" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.3" />
-                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.12" />
-                </linearGradient>
-                <linearGradient id="cubeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.18" />
-                  <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
-                </linearGradient>
-                <linearGradient id="cubeRight" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2" />
-                  <stop offset="100%" stop-color="#14141c" stop-opacity="0.5" />
-                </linearGradient>
-                <radialGradient id="cubeAura" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="#3dd68c" stop-opacity="0.22" />
-                  <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.08" />
-                  <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0" />
-                </radialGradient>
-                <filter id="cubeGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <circle cx="70" cy="70" r="58" fill="url(#cubeAura)" />
-              <ellipse cx="70" cy="74" rx="55" ry="24" fill="none" stroke="#3dd68c" stroke-width="1" stroke-dasharray="6 8" opacity="0.3" class="orbit-rotate" />
-              <ellipse cx="70" cy="74" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="3 5" opacity="0.25" />
-              
-              <g class="floating-cube">
-                <polygon points="70,30 102,48 70,66 38,48" fill="url(#cubeTop)" stroke="#3dd68c" stroke-width="1.2" />
-                <polygon points="38,48 70,66 70,102 38,84" fill="url(#cubeLeft)" stroke="#3dd68c" stroke-width="1.2" />
-                <polygon points="70,66 102,48 102,84 70,102" fill="url(#cubeRight)" stroke="#38bdf8" stroke-width="1.2" />
-                
-                <circle cx="70" cy="66" r="4" fill="#3dd68c" filter="url(#cubeGlow)" />
-                <line x1="70" y1="48" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
-                <line x1="54" y1="75" x2="70" y2="66" stroke="#3dd68c" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
-                <line x1="86" y1="75" x2="70" y2="66" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2 2" opacity="0.8" />
-
-                <circle cx="34" cy="38" r="2.5" fill="#38bdf8" filter="url(#cubeGlow)" />
-                <circle cx="106" cy="42" r="2" fill="#3dd68c" filter="url(#cubeGlow)" />
-                <circle cx="70" cy="112" r="2" fill="#a78bfa" filter="url(#cubeGlow)" />
-              </g>
-            </svg>
-          </div>
-          <strong>{{ searchQuery ? "No matching pins" : "Library is empty" }}</strong>
-          <p>{{ searchQuery ? "Try another name or CID." : "Upload files, pin from Tools, or integrate with AI agents." }}</p>
-          <div v-if="!searchQuery" class="empty-actions">
-            <a href="https://github.com/besoeasy/Originless/tree/main/examples" target="_blank" rel="noopener" class="btn btn-solid">Open Client Templates</a>
-            <a href="/agent" class="btn">Agent Prompt</a>
-          </div>
-        </div>
-
-        <div v-else class="workspace-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="col-name is-sort" @click="setSort('name')">Name</th>
-                <th class="col-type">Type</th>
-                <th class="col-cid">CID</th>
-                <th class="col-size is-sort" @click="setSort('size')">Size</th>
-                <th class="col-status">Status</th>
-                <th class="col-age is-sort" @click="setSort('date')">Added</th>
-                <th class="col-actions"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="item in filteredHistory"
-                :key="item.cid"
-                :class="{ 'is-open': inspectItem && inspectItem.cid === item.cid }"
-                @click="openInspect(item)"
-              >
-                <td data-col="File">
-                  <div class="file-cell">
-                    <img v-if="item.showThumb" class="file-thumb" :src="item.thumbSrc" alt="" loading="lazy" @error="onThumbError(item.cid)" />
-                    <div v-else class="file-mark">
-                      <svg v-if="item.category === 'image'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                      <svg v-else-if="item.category === 'video'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
-                      <svg v-else-if="item.category === 'audio'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                      <svg v-else-if="item.category === 'archive'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/></svg>
-                      <svg v-else-if="item.category === 'code'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>
-                      <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-                    </div>
-                    <span class="file-name" :title="item.filename || item.cid">{{ item.nameShort }}</span>
-                  </div>
-                </td>
-                <td data-col="Type"><span class="type-tag">{{ item.category }}</span></td>
-                <td data-col="CID">
-                  <a class="cid" :href="item.gatewayUrl" target="_blank" rel="noopener" :title="item.cid" @click.stop>{{ item.cidShort }}</a>
-                </td>
-                <td data-col="Size" class="col-num">{{ item.sizeLabel }}</td>
-                <td data-col="Status">
-                  <span v-if="!item.unpinned" class="pill pill-ok"><span class="dot" style="width:5px;height:5px;box-shadow:none"></span>Pinned</span>
-                  <span v-else class="pill pill-mute">Unpinned</span>
-                </td>
-                <td data-col="Added" class="col-num" :title="item.dateLabel">{{ item.ageLabel }}</td>
-                <td data-col=" " @click.stop>
-                  <div class="row-actions">
-                    <button class="icon-btn" type="button" title="Copy CID" @click="copyText(item.cid, 'CID copied')">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    </button>
-                    <a class="icon-btn" :href="item.gatewayUrl" target="_blank" rel="noopener" title="Open">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </section>
-
-    <!-- IPFS Item Inspector -->
-    <aside v-if="workspaceTab === 'ipfs' && inspectModalOpen && inspectItem" class="inspector">
-      <div class="inspector-head">
-        Details
-        <button class="icon-btn" type="button" @click="closeInspect">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="inspector-body">
-        <div v-if="inspectItem.showThumb || inspectItem.isVideo" class="preview">
-          <img v-if="inspectItem.showThumb" :src="inspectItem.thumbSrc" :alt="inspectItem.filename" @error="onThumbError(inspectItem.cid)" />
-          <video v-else-if="inspectItem.isVideo" :src="inspectItem.thumbSrc" controls></video>
-        </div>
-        <div class="qr"><img :src="inspectQrUrl" alt="QR" @error="$event.target.style.display='none'" /></div>
-        <div class="inspect-name">{{ inspectItem.filename || "Untitled" }}</div>
-        <div class="inspect-meta">
-          {{ inspectItem.sizeLabel }} · {{ inspectItem.unpinned ? "Unpinned" : "Pinned" }} · {{ inspectItem.dateLabel }}
-        </div>
-        <div class="kv">
-          <div class="kv-row">
-            <span class="kv-k">CID</span>
-            <span class="kv-v" :title="inspectItem.cid">{{ inspectItem.cid }}</span>
-            <button class="btn" type="button" @click="copyText(inspectItem.cid, 'CID copied')">Copy</button>
-          </div>
-          <div class="kv-row">
-            <span class="kv-k">Gateway</span>
-            <span class="kv-v" :title="inspectItem.gatewayUrl">{{ inspectItem.gatewayUrl }}</span>
-            <button class="btn" type="button" @click="copyText(inspectItem.gatewayUrl, 'Gateway URL copied')">Copy</button>
-          </div>
-          <div class="kv-row">
-            <span class="kv-k">ipfs://</span>
-            <span class="kv-v" :title="inspectItem.ipfsUrl">{{ inspectItem.ipfsUrl }}</span>
-            <button class="btn" type="button" @click="copyText(inspectItem.ipfsUrl, 'ipfs:// copied')">Copy</button>
-          </div>
-        </div>
-      </div>
-      <div class="inspector-foot">
-        <a class="btn btn-solid" :href="inspectItem.gatewayUrl" target="_blank" rel="noopener">Open</a>
-      </div>
-    </aside>
 
     <!-- Quick Record Inspector -->
     <aside v-if="workspaceTab === 'records' && inspectRecordModalOpen && inspectRecord" class="inspector">

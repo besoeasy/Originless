@@ -1,26 +1,4 @@
 (() => {
-  // Built-in public IPFS gateways for content resolution (Originless decouples HTTP
-  // fetching to public gateways or dedicated Rainbow instances).
-  const PUBLIC_GATEWAY = "https://inbrowser.link/ipfs/";
-  const GATEWAYS = [
-    { label: "inbrowser.link", url: PUBLIC_GATEWAY },
-    { label: "ipfs.io (Official)", url: "https://ipfs.io/ipfs/" },
-  ];
-
-  function migrateSavedGateway(url) {
-    if (!url) return url;
-    if (url === "https://dweb.link/ipfs/" || url === "https://dweb.link/ipfs" || url.includes("/ipfs/")) {
-      // If previously pointed to a local /ipfs/ route, migrate to default public gateway
-      if (url.includes("127.0.0.1") || url.includes("localhost")) {
-        return PUBLIC_GATEWAY;
-      }
-    }
-    if (url === "https://dweb.link/ipfs/" || url === "https://dweb.link/ipfs") {
-      return PUBLIC_GATEWAY;
-    }
-    return url;
-  }
-
   function formatBytes(bytes) {
     if (!bytes || bytes === 0) return "0 B";
     const k = 1024;
@@ -64,155 +42,6 @@
     const diffDay = Math.floor(diffHour / 24);
     if (diffDay < 30) return `${diffDay}d ago`;
     return formatDate(dateStr);
-  }
-
-  function getFileCategory(filename = "", mime = "") {
-    const fn = (filename || "").toLowerCase();
-    if (mime.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico|avif)$/.test(fn)) {
-      return "image";
-    }
-    if (mime.startsWith("video/") || /\.(mp4|webm|mkv|mov|avi|m4v)$/.test(fn)) {
-      return "video";
-    }
-    if (mime.startsWith("audio/") || /\.(mp3|wav|ogg|flac|m4a|aac)$/.test(fn)) {
-      return "audio";
-    }
-    if (/\.(zip|tar|gz|7z|rar|bz2)$/.test(fn) || fn === "folder") {
-      return "archive";
-    }
-    if (/\.(html|htm|js|ts|jsx|tsx|css|json|go|py|rs|c|cpp|md|sh|yml|yaml|sql|wasm)$/.test(fn)) {
-      return "code";
-    }
-    return "file";
-  }
-
-  function itemMime(item) {
-    return (item && (item.type || item.mime)) || "";
-  }
-
-  function itemCategory(item) {
-    if (!item) return "file";
-    return getFileCategory(item.filename, itemMime(item));
-  }
-
-  function shortCid(cid) {
-    if (!cid) return "";
-    if (cid.length <= 18) return cid;
-    return `${cid.slice(0, 8)}…${cid.slice(-8)}`;
-  }
-
-  function shortName(name, cid) {
-    const value = name || cid || "Untitled";
-    if (value.length <= 12) return value;
-    return `${value.slice(0, 4)}....${value.slice(-4)}`;
-  }
-
-  function gatewayUrlFor(gateway, cid, filename) {
-    if (!cid) return "";
-    const base = `${gateway || ""}${cid}`;
-    if (!filename) return base;
-    return `${base}?filename=${encodeURIComponent(filename)}`;
-  }
-
-  function ipfsUrlFor(cid, filename) {
-    if (!cid) return "";
-    if (!filename) return `ipfs://${cid}`;
-    return `ipfs://${cid}?filename=${encodeURIComponent(filename)}`;
-  }
-
-  // Precompute fields so in-DOM templates never call helpers inside v-for.
-  // Vue's browser compiler + v-for can fail to resolve methods like shortCid.
-  function presentItem(item, gateway, brokenThumbs) {
-    if (!item) return item;
-    const category = itemCategory(item);
-    const cid = item.cid || "";
-    const thumbs = brokenThumbs || {};
-    return {
-      ...item,
-      category,
-      cidShort: shortCid(cid),
-      nameShort: shortName(item.filename, cid),
-      sizeLabel: formatBytes(item.size),
-      ageLabel: formatRelative(item.created_at),
-      dateLabel: formatDate(item.created_at),
-      gatewayUrl: gatewayUrlFor(gateway, cid, item.filename),
-      ipfsUrl: ipfsUrlFor(cid, item.filename),
-      thumbSrc: cid ? `${gateway || ""}${cid}` : "",
-      showThumb: category === "image" && !!cid && !thumbs[cid],
-      isVideo: category === "video",
-      isAudio: category === "audio",
-    };
-  }
-
-  function isFolderFileList(files) {
-    if (!files || files.length === 0) return false;
-    if (files.length > 1) return true;
-    const f = files[0];
-    const rel = f.relativePath || f.webkitRelativePath || "";
-    return rel.includes("/");
-  }
-
-  function walkEntry(entry, prefix, out) {
-    return new Promise((resolve, reject) => {
-      if (!entry) {
-        resolve();
-        return;
-      }
-      if (entry.isFile) {
-        entry.file((file) => {
-          const rel = prefix ? `${prefix}${file.name}` : file.name;
-          try {
-            Object.defineProperty(file, "webkitRelativePath", { value: rel });
-          } catch (_) {}
-          file.relativePath = rel;
-          out.push(file);
-          resolve();
-        }, reject);
-        return;
-      }
-      if (entry.isDirectory) {
-        const reader = entry.createReader();
-        const dirPrefix = `${prefix}${entry.name}/`;
-        const next = () => {
-          reader.readEntries(async (ents) => {
-            if (!ents.length) {
-              resolve();
-              return;
-            }
-            try {
-              for (const child of ents) {
-                await walkEntry(child, dirPrefix, out);
-              }
-              next();
-            } catch (err) {
-              reject(err);
-            }
-          }, reject);
-        };
-        next();
-        return;
-      }
-      resolve();
-    });
-  }
-
-  async function filesFromDataTransfer(dt) {
-    const items = dt && dt.items;
-    if (items && items.length && typeof items[0].webkitGetAsEntry === "function") {
-      const entries = [];
-      for (let i = 0; i < items.length; i++) {
-        const entry = items[i].webkitGetAsEntry && items[i].webkitGetAsEntry();
-        if (entry) entries.push(entry);
-      }
-      if (entries.length) {
-        const files = [];
-        for (const entry of entries) {
-          await walkEntry(entry, "", files);
-        }
-        if (files.length) return files;
-      }
-    }
-    return Array.from((dt && dt.files) || []);
   }
 
   function shortHash(hash) {
@@ -291,30 +120,14 @@
 
   function statusDefaults() {
     return {
-      nodeId: "...",
-      fullNodeId: "",
-      bandwidthIn: "0 B",
-      bandwidthOut: "0 B",
-      bandwidthRate: "0 B / 0 B",
-      bandwidthRateIn: "0 B",
-      bandwidthRateOut: "0 B",
-      repoSize: "...",
-      repoObjects: "0",
       version: "...",
       timestamp: "...",
-      peerscount: 0,
-      storageLimit: "Unknown",
-      fileLimit: "Unknown",
-      repoSizeBytes: 0,
-      storageMaxBytes: 0,
-      isHealthy: true,
+      storageLimit: { configured: "Unknown", bytes: 0 },
+      fileLimit: { configured: "Unknown", bytes: 0 },
       blobs: { count: 0, size: 0, sizeStr: "0 B" },
       records: { count: 0 },
+      isHealthy: true,
     };
-  }
-
-  function pinDefaults() {
-    return { count: 0, size: 0, sizeStr: "0 B", threshold: 75 };
   }
 
   function safeGet(key) {
@@ -365,40 +178,20 @@
           formatDate,
           formatUnix,
           formatRelative,
-          shortCid,
           shortHash,
           shortOwner,
           formatExpires,
           isBlobProtected,
-          getFileCategory,
-          fileKind: itemCategory,
         };
       },
       data() {
-        const savedGateway = migrateSavedGateway(safeGet("ol_gateway_url"));
-        if (savedGateway && savedGateway !== safeGet("ol_gateway_url")) {
-          safeSet("ol_gateway_url", savedGateway);
-        }
+        const savedTab = safeGet("ol_workspace_tab");
         return {
           activePage: options.page || "overview",
-          
-          gateways: GATEWAYS.slice(),
-          currentGateway: savedGateway || PUBLIC_GATEWAY,
-          gatewayEnabled: false,
 
           status: statusDefaults(),
-          pinStats: pinDefaults(),
-          
-          history: [],
-          searchQuery: "",
-          statusFilter: "all", 
-          typeFilter: "all",
-          sortBy: "date-desc",
-          
-          activeTab: "pin", // pin, prompt
-          workspaceTab: safeGet("ol_workspace_tab") || "records", // records, blobs, ipfs
-          brokenThumbs: {},
-          anonymizeMedia: safeGet("ol_anonymize_media") !== "false",
+
+          workspaceTab: (savedTab === "blobs") ? "blobs" : "records",
 
           // Quick Records Data
           records: [],
@@ -425,28 +218,6 @@
           lastBlobResult: null,
           inspectBlob: null,
           inspectBlobModalOpen: false,
-          
-          // Single File Upload
-          dragOver: false,
-          isUploading: false,
-          uploadProgress: 0,
-          uploadSpeedStr: "",
-          currentUploadFile: null,
-          lastUploadResult: null,
-
-          // Folder Upload
-          folderFilesCount: 0,
-          folderTotalSize: 0,
-          isUploadingFolder: false,
-          lastFolderResult: null,
-
-          // Agent Prompt Config
-          promptFormat: "plain", // plain, markdown, curl, python
-          
-          // Content Inspection Modal
-          inspectModalOpen: false,
-          inspectItem: null,
-          inspectQrUrl: "",
 
           // Toast Alerts
           toasts: [],
@@ -466,23 +237,16 @@
           }
         },
 
-        gatewayHost() {
-          try {
-            return new URL(this.currentGateway).hostname;
-          } catch (_) {
-            return this.currentGateway;
-          }
-        },
-
         storagePercentage() {
           const st = (this && this.status) || {};
-          if (!st.storageMaxBytes || st.storageMaxBytes === 0) return 0;
-          const pct = (st.repoSizeBytes / st.storageMaxBytes) * 100;
+          const max = (st.storageLimit && st.storageLimit.bytes) || 0;
+          if (!max || max === 0) return 0;
+          const pct = ((this.blobsTotalBytes || 0) / max) * 100;
           return Math.min(100, Math.max(0, Math.round(pct * 10) / 10));
         },
 
         storageGaugeClass() {
-          if (this.storagePercentage >= 90) return "is-danger";
+          if (this.storagePercentage >= 90) return "is-critical";
           if (this.storagePercentage >= 75) return "is-warn";
           return "";
         },
@@ -490,141 +254,142 @@
         nodeGraphics() {
           try {
             const st = (this && this.status) || {};
-            const id = st.fullNodeId || st.nodeId || "12D3KooWOriginlessNode000000000000000000000000000";
-          
-          // FNV-1a 32-bit hash
-          let seed = 2166136261 >>> 0;
-          for (let i = 0; i < id.length; i++) {
-            seed ^= id.charCodeAt(i);
-            seed = Math.imul(seed, 16777619) >>> 0;
-          }
+            // Stable-per-node identity seed derived from the deployment origin.
+            const id = (window.location && window.location.origin) || "originless.local";
 
-          // Mulberry32 deterministic PRNG
-          let prngState = seed;
-          const rand = () => {
-            let t = prngState += 0x6D2B79F5;
-            t = Math.imul(t ^ (t >>> 15), t | 1);
-            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-          };
-
-          const baseHue = Math.floor(rand() * 360);
-          const scheme = Math.floor(rand() * 4);
-          let hue2, hue3, hue4;
-          if (scheme === 0) {
-            hue2 = (baseHue + 40) % 360;
-            hue3 = (baseHue + 80) % 360;
-            hue4 = (baseHue + 320) % 360;
-          } else if (scheme === 1) {
-            hue2 = (baseHue + 150) % 360;
-            hue3 = (baseHue + 210) % 360;
-            hue4 = (baseHue + 180) % 360;
-          } else if (scheme === 2) {
-            hue2 = (baseHue + 120) % 360;
-            hue3 = (baseHue + 240) % 360;
-            hue4 = (baseHue + 60) % 360;
-          } else {
-            hue2 = (baseHue + 90) % 360;
-            hue3 = (baseHue + 180) % 360;
-            hue4 = (baseHue + 270) % 360;
-          }
-
-          const color1 = `hsl(${baseHue}, 88%, 62%)`;
-          const color2 = `hsl(${hue2}, 82%, 58%)`;
-          const color3 = `hsl(${hue3}, 90%, 66%)`;
-          const color4 = `hsl(${hue4}, 75%, 52%)`;
-
-          // 24 perimeter hash / cipher ticks
-          const ticks = [];
-          for (let i = 0; i < 24; i++) {
-            const angle = (i / 24) * 2 * Math.PI;
-            const tickLen = 3 + Math.floor(rand() * 5);
-            const rOuter = 72;
-            const rInner = rOuter - tickLen;
-            const x1 = Math.round((80 + rInner * Math.cos(angle)) * 10) / 10;
-            const y1 = Math.round((80 + rInner * Math.sin(angle)) * 10) / 10;
-            const x2 = Math.round((80 + rOuter * Math.cos(angle)) * 10) / 10;
-            const y2 = Math.round((80 + rOuter * Math.sin(angle)) * 10) / 10;
-            const isMajor = i % 6 === 0;
-            const isMinor = i % 2 === 0;
-            const stroke = isMajor ? color1 : (isMinor ? color2 : "rgba(255,255,255,0.22)");
-            ticks.push({
-              x1, y1, x2, y2,
-              stroke,
-              width: isMajor ? 1.5 : 1,
-              opacity: Math.round((0.35 + rand() * 0.5) * 100) / 100,
-            });
-          }
-
-          // Constellation nodes (7 to 10 vertices)
-          const numNodes = 7 + Math.floor(rand() * 4);
-          const nodes = [];
-          for (let i = 0; i < numNodes; i++) {
-            const angle = (i / numNodes) * 2 * Math.PI + (rand() - 0.5) * 0.4;
-            const r = 36 + Math.floor(rand() * 20);
-            const x = Math.round(80 + r * Math.cos(angle));
-            const y = Math.round(80 + r * Math.sin(angle));
-            const dotR = Math.round((2.2 + rand() * 1.8) * 10) / 10;
-            const fill = i % 2 === 0 ? color1 : (i % 3 === 0 ? color3 : color2);
-            nodes.push({ x, y, r: dotR, fill });
-          }
-
-          // Interconnecting chords
-          const lines = [];
-          for (let i = 0; i < nodes.length; i++) {
-            const next = nodes[(i + 1) % nodes.length];
-            const cross = nodes[(i + 2) % nodes.length];
-            lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: next.x, y2: next.y, cross: false });
-            if (i % 2 === 0) {
-              lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: cross.x, y2: cross.y, cross: true });
+            // FNV-1a 32-bit hash
+            let seed = 2166136261 >>> 0;
+            for (let i = 0; i < id.length; i++) {
+              seed ^= id.charCodeAt(i);
+              seed = Math.imul(seed, 16777619) >>> 0;
             }
-          }
 
-          // Central cryptographic core polygon
-          const coreSides = 3 + Math.floor(rand() * 5); // 3 (triangle), 4 (diamond), 5, 6, 7
-          const coreRotation = rand() * Math.PI;
-          const coreRadius = 13 + Math.floor(rand() * 4);
-          const corePoints = [];
-          for (let i = 0; i < coreSides; i++) {
-            const ang = coreRotation + (i / coreSides) * 2 * Math.PI;
-            const px = Math.round((80 + coreRadius * Math.cos(ang)) * 10) / 10;
-            const py = Math.round((80 + coreRadius * Math.sin(ang)) * 10) / 10;
-            corePoints.push(`${px},${py}`);
-          }
+            // Mulberry32 deterministic PRNG
+            let prngState = seed;
+            const rand = () => {
+              let t = prngState += 0x6D2B79F5;
+              t = Math.imul(t ^ (t >>> 15), t | 1);
+              t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+              return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
 
-          // 5-bar Visual DNA strip
-          const dna = [];
-          for (let i = 0; i < 5; i++) {
-            const dHue = (baseHue + Math.floor(rand() * 180) - 90 + 360) % 360;
-            const dH = 8 + Math.floor(rand() * 10);
-            dna.push({ color: `hsl(${dHue}, 85%, 60%)`, height: dH });
-          }
+            const baseHue = Math.floor(rand() * 360);
+            const scheme = Math.floor(rand() * 4);
+            let hue2, hue3, hue4;
+            if (scheme === 0) {
+              hue2 = (baseHue + 40) % 360;
+              hue3 = (baseHue + 80) % 360;
+              hue4 = (baseHue + 320) % 360;
+            } else if (scheme === 1) {
+              hue2 = (baseHue + 150) % 360;
+              hue3 = (baseHue + 210) % 360;
+              hue4 = (baseHue + 180) % 360;
+            } else if (scheme === 2) {
+              hue2 = (baseHue + 120) % 360;
+              hue3 = (baseHue + 240) % 360;
+              hue4 = (baseHue + 60) % 360;
+            } else {
+              hue2 = (baseHue + 90) % 360;
+              hue3 = (baseHue + 180) % 360;
+              hue4 = (baseHue + 270) % 360;
+            }
 
-          // Deterministic dash arrays for rings
-          const dash1Options = ["8 6 2 6", "10 5 3 5", "12 4 4 4", "6 8"];
-          const dash2Options = ["14 10", "12 8", "16 6", "8 6 2 6"];
-          const ringDash1 = dash1Options[Math.floor(rand() * dash1Options.length)];
-          const ringDash2 = dash2Options[Math.floor(rand() * dash2Options.length)];
+            const color1 = `hsl(${baseHue}, 88%, 62%)`;
+            const color2 = `hsl(${hue2}, 82%, 58%)`;
+            const color3 = `hsl(${hue3}, 90%, 66%)`;
+            const color4 = `hsl(${hue4}, 75%, 52%)`;
 
-          const hashHex = seed.toString(16).padStart(8, "0").toUpperCase();
+            // 24 perimeter hash / cipher ticks
+            const ticks = [];
+            for (let i = 0; i < 24; i++) {
+              const angle = (i / 24) * 2 * Math.PI;
+              const tickLen = 3 + Math.floor(rand() * 5);
+              const rOuter = 72;
+              const rInner = rOuter - tickLen;
+              const x1 = Math.round((80 + rInner * Math.cos(angle)) * 10) / 10;
+              const y1 = Math.round((80 + rInner * Math.sin(angle)) * 10) / 10;
+              const x2 = Math.round((80 + rOuter * Math.cos(angle)) * 10) / 10;
+              const y2 = Math.round((80 + rOuter * Math.sin(angle)) * 10) / 10;
+              const isMajor = i % 6 === 0;
+              const isMinor = i % 2 === 0;
+              const stroke = isMajor ? color1 : (isMinor ? color2 : "rgba(255,255,255,0.22)");
+              ticks.push({
+                x1, y1, x2, y2,
+                stroke,
+                width: isMajor ? 1.5 : 1,
+                opacity: Math.round((0.35 + rand() * 0.5) * 100) / 100,
+              });
+            }
 
-          return {
-            hashHex,
-            color1,
-            color2,
-            color3,
-            color4,
-            glowStyle: {
-              background: `radial-gradient(circle, ${color1}2e 0%, ${color2}15 48%, transparent 70%)`
-            },
-            ticks,
-            nodes,
-            lines,
-            corePolygon: corePoints.join(" "),
-            dna,
-            ringDash1,
-            ringDash2,
-          };
+            // Constellation nodes (7 to 10 vertices)
+            const numNodes = 7 + Math.floor(rand() * 4);
+            const nodes = [];
+            for (let i = 0; i < numNodes; i++) {
+              const angle = (i / numNodes) * 2 * Math.PI + (rand() - 0.5) * 0.4;
+              const r = 36 + Math.floor(rand() * 20);
+              const x = Math.round(80 + r * Math.cos(angle));
+              const y = Math.round(80 + r * Math.sin(angle));
+              const dotR = Math.round((2.2 + rand() * 1.8) * 10) / 10;
+              const fill = i % 2 === 0 ? color1 : (i % 3 === 0 ? color3 : color2);
+              nodes.push({ x, y, r: dotR, fill });
+            }
+
+            // Interconnecting chords
+            const lines = [];
+            for (let i = 0; i < nodes.length; i++) {
+              const next = nodes[(i + 1) % nodes.length];
+              const cross = nodes[(i + 2) % nodes.length];
+              lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: next.x, y2: next.y, cross: false });
+              if (i % 2 === 0) {
+                lines.push({ x1: nodes[i].x, y1: nodes[i].y, x2: cross.x, y2: cross.y, cross: true });
+              }
+            }
+
+            // Central cryptographic core polygon
+            const coreSides = 3 + Math.floor(rand() * 5);
+            const coreRotation = rand() * Math.PI;
+            const coreRadius = 13 + Math.floor(rand() * 4);
+            const corePoints = [];
+            for (let i = 0; i < coreSides; i++) {
+              const ang = coreRotation + (i / coreSides) * 2 * Math.PI;
+              const px = Math.round((80 + coreRadius * Math.cos(ang)) * 10) / 10;
+              const py = Math.round((80 + coreRadius * Math.sin(ang)) * 10) / 10;
+              corePoints.push(`${px},${py}`);
+            }
+
+            // 5-bar Visual DNA strip
+            const dna = [];
+            for (let i = 0; i < 5; i++) {
+              const dHue = (baseHue + Math.floor(rand() * 180) - 90 + 360) % 360;
+              const dH = 8 + Math.floor(rand() * 10);
+              dna.push({ color: `hsl(${dHue}, 85%, 60%)`, height: dH });
+            }
+
+            // Deterministic dash arrays for rings
+            const dash1Options = ["8 6 2 6", "10 5 3 5", "12 4 4 4", "6 8"];
+            const dash2Options = ["14 10", "12 8", "16 6", "8 6 2 6"];
+            const ringDash1 = dash1Options[Math.floor(rand() * dash1Options.length)];
+            const ringDash2 = dash2Options[Math.floor(rand() * dash2Options.length)];
+
+            const hashHex = seed.toString(16).padStart(8, "0").toUpperCase();
+
+            return {
+              hashHex,
+              color1,
+              color2,
+              color3,
+              color4,
+              glowStyle: {
+                background: `radial-gradient(circle, ${color1}2e 0%, ${color2}15 48%, transparent 70%)`
+              },
+              ticks,
+              nodes,
+              lines,
+              corePolygon: corePoints.join(" "),
+              dna,
+              ringDash1,
+              ringDash2,
+            };
           } catch (_) {
             return fallbackNodeGraphics();
           }
@@ -632,120 +397,26 @@
 
         storageBreakdown() {
           const st = (this && this.status) || {};
-          const ps = (this && this.pinStats) || {};
-          const repoBytes = st.repoSizeBytes || 0;
-          const maxBytes = st.storageMaxBytes || (100 * 1024 * 1024 * 1024);
-          const pinnedBytes = ps.size || 0;
-          const overheadBytes = Math.max(0, repoBytes - pinnedBytes);
-          const thresholdPct = ps.threshold || 75;
+          const maxBytes = (st.storageLimit && st.storageLimit.bytes) || (100 * 1024 * 1024 * 1024);
+          const usedBytes = this.blobsTotalBytes || 0;
+          const thresholdPct = 75;
           const thresholdBytes = maxBytes * (thresholdPct / 100);
-          const headroomBytes = Math.max(0, thresholdBytes - repoBytes);
+          const headroomBytes = Math.max(0, thresholdBytes - usedBytes);
 
-          // Scaled for visual representation on a 100% bar
-          const pinnedPct = maxBytes > 0 ? (pinnedBytes / maxBytes) * 100 : 0;
-          const overheadPct = maxBytes > 0 ? (overheadBytes / maxBytes) * 100 : 0;
-          const visualPinnedPct = pinnedBytes > 0 ? Math.max(1.8, pinnedPct) : 0;
-          const visualOverheadPct = overheadBytes > 0 ? Math.max(1.2, overheadPct) : 0;
+          const usedPct = maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0;
+          const visualUsedPct = usedBytes > 0 ? Math.max(1.8, usedPct) : 0;
 
-          const isOverThreshold = repoBytes >= thresholdBytes;
+          const isOverThreshold = usedBytes >= thresholdBytes;
 
           return {
-            pinnedBytes,
-            overheadBytes,
+            usedBytes,
             headroomBytes,
-            pinnedStr: formatBytes(pinnedBytes),
-            overheadStr: formatBytes(overheadBytes),
+            usedStr: formatBytes(usedBytes),
             headroomStr: formatBytes(headroomBytes),
-            pinnedPct: Math.round(visualPinnedPct * 10) / 10,
-            overheadPct: Math.round(visualOverheadPct * 10) / 10,
+            usedPct: Math.round(visualUsedPct * 10) / 10,
             statusText: isOverThreshold ? "Evicting Over Quota" : "Operating in Safe Zone",
             isOverThreshold,
           };
-        },
-
-        categoryDistribution() {
-          const colors = {
-            image: "#3dd68c",
-            video: "#38bdf8",
-            audio: "#a78bfa",
-            archive: "#f59e0b",
-            code: "#ec4899",
-            file: "#94a3b8",
-          };
-          const labels = {
-            image: "Images",
-            video: "Videos",
-            audio: "Audio",
-            archive: "Archives",
-            code: "Code",
-            file: "Files",
-          };
-
-          const catTotals = {};
-          let totalPinned = 0;
-
-          for (const item of (this.history || [])) {
-            if (item.unpinned) continue;
-            const cat = itemCategory(item);
-            catTotals[cat] = (catTotals[cat] || 0) + (item.size || 0);
-            totalPinned += (item.size || 0);
-          }
-
-          if (totalPinned === 0) return [];
-
-          return Object.keys(catTotals).map((cat) => ({
-            category: cat,
-            label: labels[cat] || "Other",
-            bytes: catTotals[cat],
-            sizeStr: formatBytes(catTotals[cat]),
-            pct: Math.round((catTotals[cat] / totalPinned) * 100),
-            color: colors[cat] || colors.file,
-          })).sort((a, b) => b.bytes - a.bytes);
-        },
-
-        filteredHistory() {
-          let list = [...(this.history || [])];
-          
-          // Search query filter
-          if (this.searchQuery.trim()) {
-            const q = this.searchQuery.toLowerCase().trim();
-            list = list.filter((item) => 
-              (item.filename || "").toLowerCase().includes(q) ||
-              (item.cid || "").toLowerCase().includes(q)
-            );
-          }
-
-          // Status filter
-          if (this.statusFilter === "pinned") {
-            list = list.filter(item => !item.unpinned);
-          } else if (this.statusFilter === "unpinned") {
-            list = list.filter(item => item.unpinned);
-          }
-
-          // Type filter
-          if (this.typeFilter !== "all") {
-            list = list.filter(item => {
-              const type = getFileCategory(item.filename, item.type);
-              return type === this.typeFilter;
-            });
-          }
-
-          // Sorting
-          if (this.sortBy === "date-desc") {
-            list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-          } else if (this.sortBy === "date-asc") {
-            list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          } else if (this.sortBy === "size-desc") {
-            list.sort((a, b) => (b.size || 0) - (a.size || 0));
-          } else if (this.sortBy === "size-asc") {
-            list.sort((a, b) => (a.size || 0) - (b.size || 0));
-          } else if (this.sortBy === "name-asc") {
-            list.sort((a, b) => (a.filename || "").localeCompare(b.filename || ""));
-          } else if (this.sortBy === "name-desc") {
-            list.sort((a, b) => (b.filename || "").localeCompare(a.filename || ""));
-          }
-
-          return list.map((row) => presentItem(row, this.currentGateway, this.brokenThumbs));
         },
 
         filteredRecords() {
@@ -772,116 +443,60 @@
           return list;
         },
 
-        lastPinKind() {
-          if (!this.lastUploadResult) return "";
-          return itemCategory(this.lastUploadResult);
-        },
-
         generatedAgentPrompt() {
           const origin = this.currentOrigin;
-          const gw = PUBLIC_GATEWAY;
 
           if (this.promptFormat === "markdown") {
-            return `### 🌐 Originless Decentralized Node Integration
+            return `### 🌐 Originless Node Integration
 - **Node Origin**: \`${origin}\`
-- **Public IPFS Gateway**: \`${gw}\` (use this, not dweb.link)
-- **Auth**: None (Public P2P multi-hash swarm)
+- **Auth**: None (public primitives, signed records verified via Ed25519)
 
 #### API Endpoints
-- **Upload Single File**: \`POST ${origin}/upload\` (Multipart field: \`file\`)
-- **Upload Directory / DApp**: \`POST ${origin}/uploadfolder\` (Multipart field: \`file\`, relative paths)
-- **Signed Records**: \`POST ${origin}/records\` (Ed25519 authenticated state)
-- **Binary Blobs**: \`POST ${origin}/up\` (SHA-256 content-addressed)
-- **Node Health Probe**: \`GET ${origin}/health\`
+- **Signed Records**: \`POST ${origin}/records\` (Ed25519 signed state, auto-expiring TTL)
+- **Record Stream**: \`GET ${origin}/records/stream\` (Server-Sent Events)
+- **Binary Blobs**: \`POST ${origin}/up\` (SHA-256 content-addressed .bin only)
 - **Node Telemetry**: \`GET ${origin}/status\`
 
-#### Resolved Public URLs
-- Standard File: \`${gw}{cid}\`
-- Static Website Root: \`${gw}{cid}/\`
-- Native Multi-Hash: \`ipfs://{cid}\`
-
-#### Make This a Skill
-Make this a skill.
-
-Whenever you need files uploaded, use this Originless node.
-
-#### Skill Verification
-To confirm you have understood this skill:
-1. Create a simple HTML page that says \`Hello from <your agent name>\`.
-2. Upload it to this node.
-3. Send the user the link to view it: \`${gw}{cid}\`.`;
+#### Skills
+Make this a skill. Whenever you need to publish records or store binary blobs, use this Originless node.`;
           }
 
           if (this.promptFormat === "curl") {
-            return `# 1. Upload a single binary or file
-curl -X POST -F "file=@document.pdf" ${origin}/upload
+            return `# 1. Publish a signed JSON record
+curl -X POST ${origin}/records -H "Content-Type: application/json" -d '{"owner":"ed25519:...","collection":"notes","created_at":...,"expires_at":...,"data":{...},"sig":"..."}'
 
-# 2. Upload full Vite/React dist static build folder
-curl -X POST \\
-  -F "file=@dist/index.html;filename=index.html" \\
-  -F "file=@dist/assets/app.js;filename=assets/app.js" \\
-  ${origin}/uploadfolder
-
-# 3. Store a signed record
-curl -X POST ${origin}/records -H "Content-Type: application/json" -d '{"owner":"ed25519:...","collection":"notes",...}'
-
-# 4. Store a .bin blob
+# 2. Store a .bin blob (content-addressed by SHA-256)
 curl -X POST -F "file=@data.bin" ${origin}/up
 
-# 5. Check node telemetry & swarm status
-curl ${origin}/status
-
-# Fetch the CID via a gateway like Rainbow (${gw}{cid})`;
+# 3. Check node telemetry
+curl ${origin}/status`;
           }
 
           if (this.promptFormat === "python") {
             return `import requests
 
 ORIGIN = "${origin}"
-GATEWAY = "${gw}"
 
-# 1. Upload a file
-with open("sample.png", "rb") as f:
-    r = requests.post(f"{ORIGIN}/upload", files={"file": f})
+# 1. Store a .bin blob
+with open("data.bin", "rb") as f:
+    r = requests.post(f"{ORIGIN}/up", files={"file": f})
     data = r.json()
-    cid = data["cid"]
-    print(f"Pinned: {GATEWAY}{cid}")`;
+    print(data["hash"])  # sha256 content address`;
           }
 
-          return `Publish files with Originless. Pin them to IPFS on this node, then share the CID through a gateway.
-
-This is not limited to websites. Use it for a music file, a generated index.html report, a photo, an image gallery, a video, a PDF, a folder of mixed assets, or a full dist/ site.
+          return `Publish records and binary blobs with Originless.
 
 Repo: https://github.com/besoeasy/Originless
 This Originless node: ${origin}
-Public IPFS gateway: ${gw}
 
-Use this node for all uploads. Do not invent another host or API key. There is no auth.
-
+Use this node for all record and blob operations. There is no auth.
 Endpoints:
-- POST ${origin}/upload — one file, exact bytes. Multipart field "file".
-- POST ${origin}/uploadfolder — a folder (gallery, album, report, site). Multipart field name is "file" for each file; set filename to the relative path so links stay intact.
-- POST ${origin}/records — signed JSON record (Ed25519 auth).
-- POST ${origin}/up — content-addressed .bin blob.
-- GET ${origin}/health — liveness check.
-
-The JSON response includes "cid". That CID is the content address.
-
-After upload, fetch via a gateway (e.g. Rainbow or public gateway):
-- ${gw}{cid}            (single file)
-- ${gw}{cid}/           (folder; index.html at the root is served automatically)
-- ipfs://{cid}
-
-Keep relative paths inside folders. Never wrap the CID in ${origin}/upload or a local file path.
+- POST ${origin}/records — a signed JSON record (Ed25519 signature verification).
+- POST ${origin}/up — a content-addressed .bin blob (SHA-256), single file part "file".
+- GET ${origin}/records/stream — live Server-Sent Events feed of new records.
 
 Make this a skill.
-
-Whenever you need files uploaded, use this Originless node.
-
-To confirm you have understood this skill, complete this check:
-1. Create a simple HTML page that says "Hello from <your agent name>".
-2. Upload it to this node.
-3. Send the user the link to view it: ${gw}{cid}.`;
+Whenever you need to publish records or store blobs, use this Originless node.`;
         },
       },
 
@@ -904,320 +519,9 @@ To confirm you have understood this skill, complete this check:
           }
         },
 
-        onGatewayChange() {
-          safeSet("ol_gateway_url", this.currentGateway);
-          const gwName = new URL(this.currentGateway).hostname;
-          this.showToast(`Active Gateway set to ${gwName}`, "success");
-        },
-
-        setSort(field) {
-          const desc = field + "-desc";
-          const asc = field + "-asc";
-          this.sortBy = this.sortBy === desc ? asc : desc;
-        },
-
-        showThumb(item) {
-          if (!item || !item.cid) return false;
-          if (this.brokenThumbs[item.cid]) return false;
-          return itemCategory(item) === "image";
-        },
-
-        isVideoItem(item) {
-          return itemCategory(item) === "video";
-        },
-
-        isAudioItem(item) {
-          return itemCategory(item) === "audio";
-        },
-
-        thumbUrl(item) {
-          if (!item || !item.cid) return "";
-          return `${this.currentGateway}${item.cid}`;
-        },
-
-        onThumbError(cid) {
-          if (!cid || this.brokenThumbs[cid]) return;
-          this.brokenThumbs = { ...this.brokenThumbs, [cid]: true };
-        },
-
-        persistAnonymize() {
-          safeSet("ol_anonymize_media", this.anonymizeMedia ? "true" : "false");
-        },
-
-        isImageFile(file) {
-          if (!file) return false;
-          if (file.type && file.type.startsWith("image/")) return true;
-          return /\.(jpe?g|png|gif|webp)$/i.test(file.name || "");
-        },
-
-        uploadEndpoint(file) {
-          return "/upload";
-        },
-
-        getGatewayUrl(cid, filename) {
-          return gatewayUrlFor(this.currentGateway, cid, filename);
-        },
-
-        getIpfsUrl(cid, filename) {
-          return ipfsUrlFor(cid, filename);
-        },
-
-        async fetchStatus() {
-          try {
-            const res = await fetch("/status");
-            const data = await res.json();
-            if (data.status === "success") {
-              const fullId = data.node?.id || "";
-              const shortId = fullId ? `${fullId.slice(0, 8)}...${fullId.slice(-8)}` : "...";
-              
-              this.status = {
-                nodeId: shortId,
-                fullNodeId: fullId,
-                bandwidthIn: formatBytes(data.bandwidth?.totalIn || 0),
-                bandwidthOut: formatBytes(data.bandwidth?.totalOut || 0),
-                bandwidthRateIn: formatBytes(data.bandwidth?.rateIn || 0) + "/s",
-                bandwidthRateOut: formatBytes(data.bandwidth?.rateOut || 0) + "/s",
-                bandwidthRate: `↓ ${formatBytes(data.bandwidth?.rateIn || 0)}/s  ↑ ${formatBytes(data.bandwidth?.rateOut || 0)}/s`,
-                repoSize: `${formatBytes(data.repository?.size || 0)} / ${formatBytes(data.repository?.storageMax || 0)}`,
-                repoObjects: `${data.repository?.numObjects || 0}`,
-                version: data.node?.agentVersion || "IPFS Kubo",
-                timestamp: new Date(data.timestamp).toLocaleTimeString("en-US", { hour12: false }),
-                peerscount: data.peers?.count || 0,
-                storageLimit: data.storageLimit?.configured || "Unknown",
-                fileLimit: data.fileLimit?.bytes ? formatBytes(data.fileLimit.bytes) : "Unknown",
-                repoSizeBytes: data.repository?.size || 0,
-                storageMaxBytes: data.repository?.storageMax || 0,
-                isHealthy: true,
-                blobs: data.blobs || { count: 0, size: 0, sizeStr: "0 B" },
-                records: data.records || { count: 0 },
-              };
-
-              if (data.blobs?.count !== undefined) {
-                this.blobsCount = data.blobs.count;
-                this.blobsTotalBytes = data.blobs.size || 0;
-                this.blobsTotalBytesStr = data.blobs.sizeStr || formatBytes(this.blobsTotalBytes);
-              }
-              if (data.records?.count !== undefined) {
-                this.recordsCount = data.records.count;
-              }
-
-              this.gatewayEnabled = false;
-              this.gateways = GATEWAYS.slice();
-              if (this.currentGateway.includes("127.0.0.1") || this.currentGateway.includes("localhost")) {
-                this.currentGateway = PUBLIC_GATEWAY;
-                safeSet("ol_gateway_url", this.currentGateway);
-              }
-            }
-          } catch (err) {
-            console.error("Fetch status error:", err);
-            this.status.isHealthy = false;
-          }
-        },
-
-        async fetchHistory() {
-          try {
-            const res = await fetch("/history?limit=100");
-            const data = await res.json();
-            if (data.status === "success" && data.uploads) {
-              this.history = data.uploads;
-            }
-          } catch (err) {
-            console.error("Fetch history error:", err);
-          }
-        },
-
-        async fetchPinStats() {
-          try {
-            const res = await fetch("/pins");
-            const data = await res.json();
-            if (data.status === "success") {
-              this.pinStats = {
-                count: data.pinnedCount,
-                size: data.pinnedSize,
-                sizeStr: data.pinnedSizeStr,
-                threshold: data.threshold,
-              };
-            }
-          } catch (err) {
-            console.error("Fetch pin stats error:", err);
-          }
-        },
-
-        // Single File Upload
-        triggerFileInput() {
-          this.$refs.fileInput.click();
-        },
-
-        handleFileSelect(event) {
-          const files = Array.from(event.target.files || []);
-          if (!files.length) return;
-          if (isFolderFileList(files)) {
-            this.uploadFolder(files);
-          } else {
-            this.uploadSingleFile(files[0]);
-          }
-        },
-
-        async handleDrop(event) {
-          this.dragOver = false;
-          try {
-            const files = await filesFromDataTransfer(event.dataTransfer);
-            if (!files.length) return;
-            this.activeTab = "pin";
-            if (isFolderFileList(files)) {
-              await this.uploadFolder(files);
-            } else {
-              await this.uploadSingleFile(files[0]);
-            }
-          } catch (err) {
-            console.error("Drop error:", err);
-            this.showToast(err.message || "Drop failed", "error");
-          }
-        },
-
-        async uploadSingleFile(file) {
-          this.currentUploadFile = file;
-          this.isUploading = true;
-          this.uploadProgress = 15;
-          this.lastUploadResult = null;
-          this.lastFolderResult = null;
-
-          const formData = new FormData();
-          formData.append("file", file, file.name);
-          const endpoint = this.uploadEndpoint(file);
-
-          try {
-            this.uploadProgress = 50;
-            const res = await fetch(endpoint, {
-              method: "POST",
-              body: formData,
-            });
-
-            this.uploadProgress = 90;
-            const data = await res.json();
-
-            if (res.ok && data.status === "success") {
-              this.uploadProgress = 100;
-              this.lastUploadResult = data;
-              const extra = data.anonymized ? " (EXIF stripped)" : "";
-              this.showToast(`Pinned "${data.filename}" to Swarm!${extra}`, "success");
-              this.fetchHistory();
-              this.fetchPinStats();
-              this.fetchStatus();
-            } else {
-              throw new Error(data.message || data.error || "Upload failed");
-            }
-          } catch (err) {
-            console.error("Upload error:", err);
-            this.showToast(err.message, "error");
-          } finally {
-            this.isUploading = false;
-            if (this.$refs.fileInput) {
-              this.$refs.fileInput.value = "";
-            }
-          }
-        },
-
-        // Folder Upload
-        triggerFolderInput() {
-          this.$refs.folderInput.click();
-        },
-
-        handleFolderSelect(event) {
-          const files = event.target.files;
-          if (files && files.length > 0) {
-            this.uploadFolder(files);
-          }
-        },
-
-        async uploadFolder(files) {
-          this.isUploadingFolder = true;
-          this.folderFilesCount = files.length;
-          let totalBytes = 0;
-          const formData = new FormData();
-
-          for (let i = 0; i < files.length; i++) {
-            const f = files[i];
-            totalBytes += f.size;
-            const relativePath = f.relativePath || f.webkitRelativePath || f.name;
-            formData.append("file", f, relativePath);
-          }
-          this.folderTotalSize = totalBytes;
-          this.lastFolderResult = null;
-          this.lastUploadResult = null;
-
-          try {
-            const res = await fetch("/uploadfolder", {
-              method: "POST",
-              body: formData,
-            });
-            const data = await res.json();
-
-            if (res.ok && data.status === "success") {
-              this.lastFolderResult = data;
-              this.showToast(`Folder pinned (${data.files} files)!`, "success");
-              this.fetchHistory();
-              this.fetchPinStats();
-              this.fetchStatus();
-            } else {
-              throw new Error(data.message || data.error || "Folder upload failed");
-            }
-          } catch (err) {
-            console.error("Folder upload error:", err);
-            this.showToast(err.message, "error");
-          } finally {
-            this.isUploadingFolder = false;
-            if (this.$refs.folderInput) {
-              this.$refs.folderInput.value = "";
-            }
-          }
-        },
-
-        // Inspection & QR Modal
-        openInspect(item) {
-          this.inspectItem = presentItem(item, this.currentGateway, this.brokenThumbs);
-          const url = this.inspectItem.gatewayUrl;
-          // Standard high-res QR code link for instant mobile sharing
-          this.inspectQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
-          this.inspectModalOpen = true;
-        },
-
-        closeInspect() {
-          this.inspectModalOpen = false;
-          this.inspectItem = null;
-        },
-
-        focusSearch() {
-          if (this.activePage !== "overview") return;
-          const el = this.$refs.searchInput;
-          if (el) el.focus({ preventScroll: true });
-        },
-
-        onGlobalKey(e) {
-          const tag = e.target && e.target.tagName;
-          const typing =
-            tag === "INPUT" ||
-            tag === "TEXTAREA" ||
-            tag === "SELECT" ||
-            (e.target && e.target.isContentEditable);
-          if (e.metaKey || e.ctrlKey) {
-            if (e.key === "k" || e.key === "K") {
-              e.preventDefault();
-              this.focusSearch();
-            }
-            return;
-          }
-          if (!typing && e.key === "/") {
-            e.preventDefault();
-            this.focusSearch();
-          }
-        },
-
         setWorkspaceTab(tab) {
           this.workspaceTab = tab;
           safeSet("ol_workspace_tab", tab);
-          this.inspectItem = null;
-          this.inspectModalOpen = false;
           this.inspectRecord = null;
           this.inspectRecordModalOpen = false;
           this.inspectBlob = null;
@@ -1229,8 +533,36 @@ To confirm you have understood this skill, complete this check:
             }
           } else if (tab === "blobs") {
             this.fetchBlobs();
-          } else if (tab === "ipfs") {
-            this.fetchHistory();
+          }
+        },
+
+        async fetchStatus() {
+          try {
+            const res = await fetch("/status");
+            const data = await res.json();
+            if (data.status === "success") {
+              this.status = {
+                version: data.version || "0.1.0",
+                timestamp: new Date(data.timestamp).toLocaleTimeString("en-US", { hour12: false }),
+                storageLimit: data.storageLimit || { configured: "Unknown", bytes: 0 },
+                fileLimit: data.fileLimit || { configured: "Unknown", bytes: 0 },
+                blobs: data.blobs || { count: 0, size: 0, sizeStr: "0 B" },
+                records: data.records || { count: 0 },
+                isHealthy: true,
+              };
+
+              if (data.blobs?.count !== undefined) {
+                this.blobsCount = data.blobs.count;
+                this.blobsTotalBytes = data.blobs.size || 0;
+                this.blobsTotalBytesStr = data.blobs.sizeStr || formatBytes(this.blobsTotalBytes);
+              }
+              if (data.records?.count !== undefined) {
+                this.recordsCount = data.records.count;
+              }
+            }
+          } catch (err) {
+            console.error("Fetch status error:", err);
+            this.status.isHealthy = false;
           }
         },
 
@@ -1456,27 +788,18 @@ To confirm you have understood this skill, complete this check:
 
       mounted() {
         this.fetchStatus();
-        this.fetchPinStats();
         this.fetchRecords();
         this.connectRecordsSSE();
         this.fetchBlobs();
-        if (this.activePage === "overview") {
-          this.fetchHistory();
-        }
-
-        window.addEventListener("keydown", this.onGlobalKey);
 
         // Live polling
         this._statusTimer = setInterval(() => this.fetchStatus(), 8000);
-        this._pinsTimer = setInterval(() => this.fetchPinStats(), 25000);
         this._blobsTimer = setInterval(() => this.fetchBlobs(), 15000);
-        this._recordsTimer = setInterval(() => this.fetchRecords(), 15000);
+        this._recordsTimer = setInterval(() => this.fetchRecords(), 30000);
       },
 
       beforeUnmount() {
-        window.removeEventListener("keydown", this.onGlobalKey);
         clearInterval(this._statusTimer);
-        clearInterval(this._pinsTimer);
         clearInterval(this._blobsTimer);
         clearInterval(this._recordsTimer);
         if (this.recordsEventSource) {
@@ -1487,15 +810,10 @@ To confirm you have understood this skill, complete this check:
   }
 
   window.Originless = {
-    GATEWAYS,
-    PUBLIC_GATEWAY,
     formatBytes,
     formatDate,
     formatUnix,
     formatRelative,
-    getFileCategory,
-    itemCategory,
-    shortCid,
     createOriginlessApp,
   };
 })();
