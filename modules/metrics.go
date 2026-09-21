@@ -134,10 +134,6 @@ func (m *Metrics) Handler(janitor *Manager, ipfs *Client) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 
 		var sb strings.Builder
-		sb.WriteString("# HELP originless_build_info Originless build information.\n")
-		sb.WriteString("# TYPE originless_build_info gauge\n")
-		fmt.Fprintf(&sb, "originless_build_info{version=%q} 1\n", AppVersion)
-
 		sb.WriteString("# HELP originless_http_requests_total Total HTTP requests by path.\n")
 		sb.WriteString("# TYPE originless_http_requests_total counter\n")
 		m.mu.Lock()

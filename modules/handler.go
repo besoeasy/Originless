@@ -98,7 +98,6 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 			"configured": FormatBytes(FileLimit),
 			"bytes":      FileLimit,
 		},
-		"appVersion": AppVersion,
 	}
 
 	if st := h.recordStore(); st != nil {

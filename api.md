@@ -77,7 +77,6 @@ curl http://localhost:3232/status
 | `peers.count` | Connected swarm peers |
 | `storageLimit` | Configured `STORAGE_MAX` and current repo size |
 | `fileLimit` | Per-upload cap (`configured` string, `bytes` integer) |
-| `appVersion` | Originless version string |
 
 ```json
 {
@@ -88,8 +87,7 @@ curl http://localhost:3232/status
   "node": { "id": "12D3KooW...", "agentVersion": "kubo/0.34.0" },
   "peers": { "count": 140 },
   "storageLimit": { "configured": "100GB", "current": "1.00 MB" },
-  "fileLimit": { "configured": "1.00 GB", "bytes": 1073741824 },
-  "appVersion": "1.0.4"
+  "fileLimit": { "configured": "1.00 GB", "bytes": 1073741824 }
 }
 ```
 
