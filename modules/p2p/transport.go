@@ -183,6 +183,12 @@ func (t *Transport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	remoteNodeID := r.Header.Get("Originless-Node-ID")
+	if remoteNodeID != "" && remoteNodeID == t.nodeID {
+		http.Error(w, "Self connection", http.StatusBadRequest)
+		return
+	}
+
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
 		http.Error(w, "Webserver doesn't support hijacking", http.StatusInternalServerError)
@@ -208,7 +214,12 @@ func (t *Transport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remoteAddr := conn.RemoteAddr().String()
+	sessionID := remoteAddr
+	if remoteNodeID != "" {
+		sessionID = remoteNodeID
+	}
 	session := newPeerSession(conn, remoteAddr, t.engine, t, false)
+	session.id = sessionID
 	if !t.registerSession(session) {
 		_ = conn.Close()
 		return
@@ -256,18 +267,38 @@ func (t *Transport) DialPeer(addr PeerAddress) {
 	}
 
 	// Read until end of headers (\r\n\r\n)
+	var remoteNodeID string
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
 			_ = conn.Close()
 			return
 		}
-		if strings.TrimSpace(line) == "" {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
 			break
+		}
+		if strings.HasPrefix(strings.ToLower(trimmed), "originless-node-id:") {
+			parts := strings.SplitN(trimmed, ":", 2)
+			if len(parts) == 2 {
+				remoteNodeID = strings.TrimSpace(parts[1])
+			}
 		}
 	}
 
+	if remoteNodeID != "" && remoteNodeID == t.nodeID {
+		// Self connection
+		_ = conn.Close()
+		return
+	}
+
+	sessionID := peerEndpoint
+	if remoteNodeID != "" {
+		sessionID = remoteNodeID
+	}
+
 	session := newPeerSession(conn, peerEndpoint, t.engine, t, true)
+	session.id = sessionID
 	if !t.registerSession(session) {
 		_ = conn.Close()
 		return
@@ -281,6 +312,20 @@ func (t *Transport) sendHello(session *PeerSession) {
 	evCount, _ := t.engine.store.GetRecordCount()
 	bCount, _ := t.engine.store.GetBlobCount()
 
+	var peers []PeerAddress
+	t.mu.RLock()
+	for _, s := range t.sessions {
+		if s.id != session.id && s.remoteAddr != "" {
+			if host, portStr, err := net.SplitHostPort(s.remoteAddr); err == nil {
+				var p int
+				if _, err := fmt.Sscanf(portStr, "%d", &p); err == nil && p > 0 {
+					peers = append(peers, PeerAddress{IP: host, Port: p})
+				}
+			}
+		}
+	}
+	t.mu.RUnlock()
+
 	hello := HelloPayload{
 		NodeID:     t.nodeID,
 		NetworkID:  t.networkID,
@@ -288,6 +333,7 @@ func (t *Transport) sendHello(session *PeerSession) {
 		EventCount: evCount,
 		BlobCount:  int(bCount),
 		ListenPort: t.listenPort,
+		Peers:      peers,
 	}
 	data, _ := json.Marshal(hello)
 	_ = session.Send(MsgHello, data)

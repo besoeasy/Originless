@@ -230,6 +230,13 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		}
 		session.SetRemoteHello(hello)
 
+		// Peer Exchange (PEX): dial shared peers
+		if len(hello.Peers) > 0 && session.transport != nil {
+			for _, peerAddr := range hello.Peers {
+				go session.transport.DialPeer(peerAddr)
+			}
+		}
+
 		// Start reconciliation: send our Event & Blob Bloom filters
 		go se.startReconciliation(session)
 

@@ -13,6 +13,8 @@ var (
 		"router.bittorrent.com:6881",
 		"dht.transmissionbt.com:6881",
 		"router.utorrent.com:6881",
+		"dht.libtorrent.org:25401",
+		"dht.aelitis.com:6881",
 	}
 
 	DefaultP2PPath        = "/p2p"

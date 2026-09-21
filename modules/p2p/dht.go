@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/binary"
@@ -24,18 +25,21 @@ func (pa PeerAddress) String() string {
 
 // Discovery coordinates BitTorrent Mainline DHT and Local Service Discovery (LSD).
 type Discovery struct {
-	networkID       string
-	infoHash        [20]byte
-	nodeID          [20]byte
-	listenPort      int
-	udpConn         *net.UDPConn
-	lsdConn         *net.UDPConn
-	onPeer          func(PeerAddress)
-	mu              sync.Mutex
-	knownPeers      map[string]time.Time
-	stopChan        chan struct{}
-	wg              sync.WaitGroup
-	bootstrapNodes  []string
+	networkID      string
+	infoHash       [20]byte
+	nodeID         [20]byte
+	listenPort     int
+	udpConn        *net.UDPConn
+	lsdConn        *net.UDPConn
+	onPeer         func(PeerAddress)
+	mu             sync.Mutex
+	knownPeers     map[string]time.Time
+	seenDHTNodes   map[string]bool
+	externalIP     string
+	natMapper      *NATPortMapper
+	stopChan       chan struct{}
+	wg             sync.WaitGroup
+	bootstrapNodes []string
 }
 
 // NewDiscovery creates a new P2P discovery service for the given network ID.
@@ -71,6 +75,8 @@ func NewDiscovery(networkID string, listenPort int, onPeer func(PeerAddress)) (*
 		udpConn:        udpConn,
 		onPeer:         onPeer,
 		knownPeers:     make(map[string]time.Time),
+		seenDHTNodes:   make(map[string]bool),
+		natMapper:      NewNATPortMapper(listenPort),
 		stopChan:       make(chan struct{}),
 		bootstrapNodes: DefaultDHTBootstrapRouters,
 	}, nil
@@ -78,10 +84,12 @@ func NewDiscovery(networkID string, listenPort int, onPeer func(PeerAddress)) (*
 
 // Start launches background discovery workers.
 func (d *Discovery) Start() {
-	d.wg.Add(3)
+	d.wg.Add(4)
 	go d.readLoop()
 	go d.dhtPollLoop()
 	go d.lsdLoop()
+	go d.localProbeLoop()
+	go d.natMapper.TryPortMapping(context.Background())
 }
 
 // Stop terminates all discovery routines.
@@ -155,6 +163,19 @@ func (d *Discovery) handleKRPCResponse(data []byte, from *net.UDPAddr) {
 		return
 	}
 
+	// Extract our external IP as observed by the DHT node (BEP 5 / BEP 42)
+	if ipBytes, ok := dict["ip"].(string); ok && len(ipBytes) >= 4 {
+		extIP := net.IP([]byte(ipBytes[:4]))
+		if extIP.To4() != nil && !extIP.IsLoopback() && !extIP.IsPrivate() {
+			d.mu.Lock()
+			if d.externalIP != extIP.String() {
+				d.externalIP = extIP.String()
+				log.Printf("[P2P-DHT] Observed public IP: %s", d.externalIP)
+			}
+			d.mu.Unlock()
+		}
+	}
+
 	// 1. Check for peer values (compact peer addresses: 6 bytes each)
 	if rawVals, exists := rDict["values"]; exists {
 		if list, ok := rawVals.([]any); ok {
@@ -162,7 +183,12 @@ func (d *Discovery) handleKRPCResponse(data []byte, from *net.UDPAddr) {
 				if peerBytes, ok := item.(string); ok && len(peerBytes) == 6 {
 					ip := net.IP([]byte(peerBytes[0:4]))
 					port := binary.BigEndian.Uint16([]byte(peerBytes[4:6]))
-					d.registerPeer(PeerAddress{IP: ip.String(), Port: int(port)})
+					d.mu.Lock()
+					isSelf := (ip.String() == d.externalIP && int(port) == d.listenPort)
+					d.mu.Unlock()
+					if !isSelf {
+						d.registerPeer(PeerAddress{IP: ip.String(), Port: int(port)})
+					}
 				}
 			}
 		}
@@ -176,12 +202,47 @@ func (d *Discovery) handleKRPCResponse(data []byte, from *net.UDPAddr) {
 				// Node ID: bytes 0..20, IP: bytes 20..24, Port: bytes 24..26
 				ip := net.IP(nodesBytes[i+20 : i+24])
 				port := binary.BigEndian.Uint16(nodesBytes[i+24 : i+26])
+				nodeKey := fmt.Sprintf("%s:%d", ip.String(), port)
+
+				d.mu.Lock()
+				if d.seenDHTNodes[nodeKey] || len(d.seenDHTNodes) > 256 {
+					d.mu.Unlock()
+					continue
+				}
+				d.seenDHTNodes[nodeKey] = true
+				d.mu.Unlock()
+
 				nodeAddr := &net.UDPAddr{IP: ip, Port: int(port)}
 				// Query this closer node for our info_hash
 				d.queryGetPeers(nodeAddr)
 			}
 		}
 	}
+
+	// 3. Check for token in get_peers reply and announce our node
+	if tokenStr, ok := rDict["token"].(string); ok && tokenStr != "" {
+		d.queryAnnouncePeer(from, tokenStr)
+	}
+}
+
+// queryAnnouncePeer registers our node in the Mainline DHT for this info_hash.
+func (d *Discovery) queryAnnouncePeer(addr *net.UDPAddr, token string) {
+	query := map[string]any{
+		"t": "ap",
+		"y": "q",
+		"q": "announce_peer",
+		"a": map[string]any{
+			"id":        string(d.nodeID[:]),
+			"info_hash": string(d.infoHash[:]),
+			"port":      d.listenPort,
+			"token":     token,
+		},
+	}
+	data, err := BencodeEncode(query)
+	if err != nil {
+		return
+	}
+	_, _ = d.udpConn.WriteToUDP(data, addr)
 }
 
 // queryGetPeers sends a get_peers KRPC query to a DHT node.
@@ -245,6 +306,10 @@ func (d *Discovery) dhtPollLoop() {
 }
 
 func (d *Discovery) pollRouters() {
+	d.mu.Lock()
+	d.seenDHTNodes = make(map[string]bool)
+	d.mu.Unlock()
+
 	for _, r := range d.bootstrapNodes {
 		d.queryFindNode(r)
 	}
@@ -281,12 +346,102 @@ func (d *Discovery) lsdLoop() {
 }
 
 func (d *Discovery) sendLSDAnnouncement() {
-	bAddr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:3234")
-	if err != nil {
-		return
-	}
 	msg := fmt.Sprintf("ORIGINLESS %s %d %x", d.networkID, d.listenPort, d.nodeID[:4])
-	_, _ = d.udpConn.WriteToUDP([]byte(msg), bAddr)
+	data := []byte(msg)
+
+	// 1. Broadcast to 255.255.255.255:3234
+	if bAddr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:3234"); err == nil {
+		_, _ = d.udpConn.WriteToUDP(data, bAddr)
+	}
+
+	// 2. Multicast to standard BEP 14 group 239.192.152.143:3234
+	if mAddr, err := net.ResolveUDPAddr("udp4", "239.192.152.143:3234"); err == nil {
+		_, _ = d.udpConn.WriteToUDP(data, mAddr)
+	}
+
+	// 3. Subnet broadcast on all active non-loopback interfaces
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, ifi := range ifaces {
+			if ifi.Flags&net.FlagUp == 0 || ifi.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := ifi.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, a := range addrs {
+				if ipNet, ok := a.(*net.IPNet); ok && ipNet.IP.To4() != nil {
+					ip := ipNet.IP.To4()
+					mask := ipNet.Mask
+					if len(mask) == 4 {
+						bcast := net.IPv4(
+							ip[0]|^mask[0],
+							ip[1]|^mask[1],
+							ip[2]|^mask[2],
+							ip[3]|^mask[3],
+						)
+						subAddr := &net.UDPAddr{IP: bcast, Port: 3234}
+						_, _ = d.udpConn.WriteToUDP(data, subAddr)
+					}
+				}
+			}
+		}
+	}
+
+	// 4. Broadcast to physical LAN subnets discovered via container host
+	for _, host := range []string{"host.containers.internal", "host.docker.internal"} {
+		if ips, err := net.LookupIP(host); err == nil {
+			for _, ip := range ips {
+				if ipv4 := ip.To4(); ipv4 != nil && !ipv4.IsLoopback() {
+					lanBcast := net.IPv4(ipv4[0], ipv4[1], ipv4[2], 255)
+					subAddr := &net.UDPAddr{IP: lanBcast, Port: 3234}
+					_, _ = d.udpConn.WriteToUDP(data, subAddr)
+				}
+			}
+		}
+	}
+}
+
+// localProbeLoop periodically checks local container host and localhost fallback endpoints.
+func (d *Discovery) localProbeLoop() {
+	defer d.wg.Done()
+
+	d.probeCandidates()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-d.stopChan:
+			return
+		case <-ticker.C:
+			d.probeCandidates()
+		}
+	}
+}
+
+func (d *Discovery) probeCandidates() {
+	candidates := []string{
+		"host.containers.internal",
+		"host.docker.internal",
+		"127.0.0.1",
+	}
+
+	for _, host := range candidates {
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			continue
+		}
+		for _, ip := range ips {
+			ipv4 := ip.To4()
+			if ipv4 == nil {
+				continue
+			}
+			d.registerPeer(PeerAddress{IP: ipv4.String(), Port: 3232})
+		}
+	}
 }
 
 func (d *Discovery) lsdReadLoop(conn *net.UDPConn) {

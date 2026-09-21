@@ -23,7 +23,7 @@ RUN mkdir -p /data && \
 
 USER originless
 
-EXPOSE 3232
+EXPOSE 3232/tcp 3232/udp 3234/udp
 
 VOLUME ["/data"]
 

@@ -39,8 +39,9 @@ type HelloPayload struct {
 	NetworkID  string `json:"network_id"`
 	Version    string `json:"version"`
 	EventCount int64  `json:"event_count"`
-	BlobCount  int    `json:"blob_count"`
-	ListenPort int    `json:"listen_port"`
+	BlobCount  int           `json:"blob_count"`
+	ListenPort int           `json:"listen_port"`
+	Peers      []PeerAddress `json:"peers,omitempty"`
 }
 
 // MissingEventsPayload contains event IDs that a peer needs to receive.
