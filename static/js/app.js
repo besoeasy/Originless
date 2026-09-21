@@ -116,6 +116,17 @@
     return `${Math.round(days * 10) / 10}d`;
   }
 
+  // Linked-blob reference: record data may carry "_blob": "<sha256>".
+  // Returns the normalized hash or "" when the record links no blob.
+  function recordBlobHash(rec) {
+    const d = rec && rec.data;
+    if (!d || typeof d !== "object" || Array.isArray(d)) return "";
+    const h = d._blob;
+    if (typeof h !== "string") return "";
+    const clean = h.trim().toLowerCase();
+    return /^[0-9a-f]{64}$/.test(clean) ? clean : "";
+  }
+
   function canonicalJSON(obj) {
     if (obj === null || typeof obj !== "object") {
       return JSON.stringify(obj);
@@ -217,6 +228,7 @@
           formatExpires,
           isBlobProtected,
           blobRetentionLabel,
+          recordBlobHash,
         };
       },
       data() {

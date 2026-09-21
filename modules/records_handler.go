@@ -48,6 +48,16 @@ func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Linked blob must already be stored (upload first, then reference).
+	if blobHash, _ := RecordBlobHash(rec.Data); blobHash != "" {
+		if _, err := st.GetBlob(blobHash); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"status": "error", "error": "referenced blob not found", "hash": blobHash,
+			})
+			return
+		}
+	}
+
 	// Idempotent: same payload -> same ID -> return existing.
 	if existing, err := st.GetRecord(rec.ID); err == nil && existing != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -188,6 +198,31 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("include_expired") != "true" && rec.ExpiresAt <= time.Now().Unix() {
 		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "expired"})
 		return
+	}
+	// ?resolve=blob inlines the linked blob's metadata so clients fetch
+	// record + attachment in one round trip.
+	if r.URL.Query().Get("resolve") == "blob" {
+		if h, _ := RecordBlobHash(rec.Data); h != "" {
+			if meta, err := st.GetBlob(h); err == nil {
+				writeJSON(w, http.StatusOK, map[string]any{
+					"status": "success",
+					"record": rec,
+					"blob": map[string]any{
+						"hash":           meta.Hash,
+						"size":           meta.Size,
+						"sizeStr":        FormatBytes(meta.Size),
+						"url":            "/down/" + meta.Hash,
+						"retained_until": meta.RetainedUntil.UTC().Format(time.RFC3339),
+						"protected":      meta.Protected,
+					},
+				})
+				return
+			}
+			writeJSON(w, http.StatusOK, map[string]any{
+				"status": "success", "record": rec, "blob": nil,
+			})
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "record": rec})
 }

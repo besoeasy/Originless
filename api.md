@@ -232,7 +232,9 @@ curl -X POST http://localhost:3232/records \
 { "status": "success", "id": "8f2c...1a", "stored_at": "2026-09-21T02:00:00Z" }
 ```
 
-Errors: `400` schema/TTL failure, `401` bad signature, `413` over 8 KB.
+Errors: `400` schema/TTL failure (`referenced blob not found` when `data._blob` points at an unknown hash), `401` bad signature, `413` over 8 KB.
+
+**Linking a blob** — `data` may carry `"_blob": "<64 hex sha256>"` to attach the record to a stored binary (upload via `POST /up` first; the hash is covered by the record signature, so the link is tamper-proof). Blobs linked from live records are exempt from janitor eviction. Clients that want the link queryable should also add a `blob:<hash>` label.
 
 ---
 
@@ -344,6 +346,14 @@ curl http://localhost:3232/records/8f2c...1a
 
 **200:** `{ "status": "success", "record": { … } }` · **404:** unknown or expired ID.
 
+`?resolve=blob` inlines the record's linked blob in one round trip (record must carry `data._blob`):
+
+```bash
+curl "http://localhost:3232/records/8f2c...1a?resolve=blob"
+```
+
+**200:** `{ "status": "success", "record": { … }, "blob": { "hash": "…", "size": 4096, "sizeStr": "4.00 KB", "url": "/down/…", "retained_until": "2027-09-21T02:00:00Z", "protected": true } }` — `blob` is `null` when the linked blob is gone.
+
 ---
 
 ## `POST /up`
@@ -353,7 +363,7 @@ Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted
 - **Content-Type:** `multipart/form-data`
 - **Field name:** `file` (filename must end in `.bin`, case-insensitive)
 - Saved as `<sha256>.bin` under `/data/blobs`
-- Retention: size-weighted guarantee of **30 days at 512 MiB** up to **1 year at size 0** (`retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`); after expiry, LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota)
+- Retention: size-weighted guarantee of **30 days at 512 MiB** up to **1 year at size 0** (`retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`); after expiry, LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota). Blobs linked via `_blob` from live records are never evicted.
 
 ```bash
 curl -X POST -F "file=@save.bin" http://localhost:3232/up

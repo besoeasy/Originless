@@ -112,6 +112,7 @@ Direct binary blob storage without IPFS DAG chunking overhead. Ideal for game sa
 - **Deduplication**: Uploading identical bytes calculates the same hash and touches recency without wasting disk space.
 - **Size-Weighted Retention**: New blobs are protected from eviction for `30 days` at `512 MiB` up to `1 year` at size `0`, following `retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`.
 - **Automated LRU Eviction**: Pruned least-recently-used only when total storage exceeds quota (`STORAGE_MAX`).
+- **Record Linkage**: Records attach a blob via `"_blob": "<sha256>"` in `data` — validated on publish, exempt from eviction while the record lives, resolvable via `GET /records/{id}?resolve=blob`.
 - **Immutable Caching**: Served with `ETag` and `Cache-Control: public, max-age=86400, immutable`.
 
 ```bash

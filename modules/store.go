@@ -382,6 +382,28 @@ func (s *Store) GetBlobsByLRU(limit, offset int) ([]BlobRow, error) {
 	return out, rows.Err()
 }
 
+// GetReferencedBlobHashes returns the set of blob hashes linked via
+// "_blob" from live (unexpired) records. The janitor exempts these from
+// eviction so a stored record never dangles off an evicted blob.
+func (s *Store) GetReferencedBlobHashes(nowUnix int64) (map[string]bool, error) {
+	rows, err := s.db.Query(`SELECT data FROM records WHERE expires_at > ?`, nowUnix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]bool)
+	for rows.Next() {
+		var dataStr string
+		if err := rows.Scan(&dataStr); err != nil {
+			return nil, err
+		}
+		if h, err := RecordBlobHash(json.RawMessage(dataStr)); err == nil && h != "" {
+			out[h] = true
+		}
+	}
+	return out, rows.Err()
+}
+
 // ListBlobHashes returns every tracked hash (for startup reconciliation).
 func (s *Store) ListBlobHashes() ([]string, error) {
 	rows, err := s.db.Query(`SELECT hash FROM blobs`)

@@ -157,6 +157,15 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 		return nil, fmt.Errorf("data must be a JSON object")
 	}
 
+	// Optional blob linkage: data may carry "_blob": "<sha256 hex>" to
+	// attach this record to a stored binary blob. The hash is covered by
+	// the signature (it is part of the canonical data in the record ID),
+	// so the link is tamper-proof. Existence is enforced by the caller
+	// against the store; here we only check the shape.
+	if _, err := RecordBlobHash(canonical); err != nil {
+		return nil, err
+	}
+
 	idHex, idBytes := computeRecordID(owner, collection, created, expires, canonical, in.Labels)
 	if !ed25519.Verify(pub, idBytes, sig) {
 		return nil, fmt.Errorf("bad sig")
@@ -173,6 +182,29 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 		Sig:        sigHex,
 		Size:       int64(len(raw)),
 	}, nil
+}
+
+// RecordBlobHash extracts the optional "_blob" linkage from record data.
+// Returns "" when the record links no blob. A present-but-malformed value
+// is an error; callers check existence against the blob store.
+func RecordBlobHash(data json.RawMessage) (string, error) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return "", nil // shape validated elsewhere; nothing to extract
+	}
+	raw, ok := obj["_blob"]
+	if !ok || string(bytes.TrimSpace(raw)) == "null" {
+		return "", nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return "", fmt.Errorf("invalid _blob: must be a sha256 hex string")
+	}
+	h, err := NormalizeBlobHash(s)
+	if err != nil {
+		return "", fmt.Errorf("invalid _blob: %v", err)
+	}
+	return h, nil
 }
 
 func parseOwnerPubkey(owner string) (ed25519.PublicKey, error) {

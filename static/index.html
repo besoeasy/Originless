@@ -879,6 +879,11 @@
             <span class="kv-v mono" :title="inspectRecord.sig">{{ inspectRecord.sig }}</span>
             <button class="btn" type="button" @click="copyText(inspectRecord.sig, 'Signature copied')">Copy</button>
           </div>
+          <div class="kv-row" v-if="recordBlobHash(inspectRecord)">
+            <span class="kv-k">Linked Blob</span>
+            <span class="kv-v mono" :title="recordBlobHash(inspectRecord)">{{ recordBlobHash(inspectRecord) }}</span>
+            <a class="btn" :href="'/down/' + recordBlobHash(inspectRecord)" target="_blank" download style="text-decoration: none;">Fetch</a>
+          </div>
           <div class="kv-row" v-if="inspectRecord.labels && inspectRecord.labels.length > 0">
             <span class="kv-k">Labels</span>
             <div class="labels-cell" style="justify-content: flex-end;">

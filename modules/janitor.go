@@ -76,8 +76,9 @@ func (m *Manager) CheckBlobThreshold() error {
 }
 
 // EvictBlobsLRU deletes blobs LRU-first, never touching blobs still inside
-// their size-weighted retention (30 days at 512 MiB .. 1 year at size 0).
-// Stops once total usage drops to target.
+// their size-weighted retention (30 days at 512 MiB .. 1 year at size 0)
+// or linked via "_blob" from a live record. Stops once total usage drops
+// to target.
 func (m *Manager) EvictBlobsLRU() error {
 	if m == nil || m.store == nil {
 		return nil
@@ -95,6 +96,15 @@ func (m *Manager) EvictBlobsLRU() error {
 	// the table so they must not advance the page cursor.
 	offset := 0
 	now := time.Now()
+	// Blobs linked via "_blob" from live records are exempt: evicting
+	// them would dangle a stored record. Fetched once per pass; a
+	// concurrent publish may reference a blob mid-pass, in which case it
+	// is picked up on the next janitor tick.
+	referenced, err := m.store.GetReferencedBlobHashes(now.Unix())
+	if err != nil {
+		log.Printf("[janitor] failed to list referenced blobs (proceeding without exemptions): %v", err)
+		referenced = nil
+	}
 	for total > target {
 		candidates, err := m.store.GetBlobsByLRU(pageSize, offset)
 		if err != nil {
@@ -107,6 +117,11 @@ func (m *Manager) EvictBlobsLRU() error {
 		for _, b := range candidates {
 			if total <= target {
 				break
+			}
+			if referenced[b.Hash] {
+				offset++
+				protected++
+				continue
 			}
 			if !BlobRetentionExpired(b.CreatedAt, b.Size, now) {
 				offset++
@@ -132,7 +147,7 @@ func (m *Manager) EvictBlobsLRU() error {
 			log.Printf("[janitor] evicted blob %s (%s, retention %s)", b.Hash, FormatBytes(b.Size), BlobRetentionForSize(b.Size))
 		}
 		if total > target && len(candidates) < pageSize {
-			log.Printf("[janitor] %d blobs still inside retention, usage %s above target %s",
+			log.Printf("[janitor] %d blobs still protected (retention or live reference), usage %s above target %s",
 				protected, FormatBytes(total), FormatBytes(target))
 			break
 		}
