@@ -1,16 +1,17 @@
 name: Release
 
-# Manual date-based release: Actions tab -> Release -> Run workflow.
-# Optionally pass a custom tag (e.g. 2026.09.17). Otherwise today's
-# UTC date is used (YYYY.MM.DD), auto-suffixed (.1, .2, ...) if taken.
+# Version-based release: triggered by git tag push (v*) or manual dispatch.
 # Publishes GitHub Release, builds & pushes multi-arch container to GHCR
-# (ghcr.io/besoeasy/originless:latest and :TAG), and keeps retention to 60.
+# (ghcr.io/besoeasy/originless:latest, :vX.Y.Z, and :X.Y.Z).
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Custom release tag (default: YYYY.MM.DD)"
+        description: "Release version tag (e.g. v1.0.5, default: auto-bump patch)"
         required: false
         default: ""
 
@@ -19,7 +20,6 @@ permissions:
   packages: write
   id-token: write
 
-# Serialize releases so two runs never claim the same date tag.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -32,10 +32,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out main
+      - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
 
       - name: Set up Go
@@ -44,9 +43,10 @@ jobs:
           go-version: "1.24"
           cache: true
 
-      - name: Syntax check
+      - name: Syntax and test check
         run: |
           go vet ./...
+          go test ./...
           go build -v .
 
       - name: Resolve release tag
@@ -57,17 +57,35 @@ jobs:
           set -e
           if [ -n "$INPUT_TAG" ]; then
             TAG="$INPUT_TAG"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
           else
-            TAG="$(date -u +%Y.%m.%d)"
+            # Extract version from Go project source (modules/handler.go)
+            CODE_VER=$(grep -E '^\s*var Version\s*=\s*' modules/handler.go 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true)
+            if [ -n "$CODE_VER" ] && [ "$CODE_VER" != "dev" ]; then
+              TAG="v${CODE_VER#v}"
+            else
+              LATEST=$(git tag -l "v*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+              if [ -z "$LATEST" ]; then
+                TAG="v1.0.0"
+              else
+                BASE="${LATEST#v}"
+                MAJOR=$(echo "$BASE" | cut -d. -f1)
+                MINOR=$(echo "$BASE" | cut -d. -f2)
+                PATCH=$(echo "$BASE" | cut -d. -f3)
+                NEXT_PATCH=$((PATCH + 1))
+                TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}"
+              fi
+            fi
           fi
-          base="$TAG"
-          n=1
-          while git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; do
-            n=$((n + 1))
-            TAG="${base}.${n}"
-          done
+
+          if [[ "$TAG" != v* ]]; then
+            TAG="v$TAG"
+          fi
+          VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: $TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG (version: $VERSION)"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
@@ -95,6 +113,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=${{ steps.tag.outputs.version }}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -122,34 +141,20 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -e
-          git fetch origin main --tags
-          SHA="$(git rev-parse origin/main)"
-          PREV="$(git describe --tags --abbrev=0 "$SHA" 2>/dev/null || true)"
+          git fetch origin --tags
+          SHA="${{ github.sha }}"
+          if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
+            SHA="$(git rev-parse HEAD)"
+          fi
+          PREV=$(git tag -l "v*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | grep -v "^${TAG}$" | sort -V | tail -n 1)
           if [ -n "$PREV" ]; then
-            NOTES="$(git log --format='- %h %s' "${PREV}..${SHA}")"
+            NOTES=$(git log --format='- %h %s' "${PREV}..HEAD")
           else
-            NOTES="$(git log --format='- %h %s' -10 "$SHA")"
+            NOTES=$(git log --format='- %h %s' -10 HEAD)
           fi
-          gh release create "$TAG" --target "$SHA" --title "$TAG" --notes "$NOTES"
-
-      - name: Prune old releases (keep newest $KEEP)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KEEP: 60
-        run: |
-          set -e
-          [[ "$KEEP" =~ ^[0-9]+$ ]] || { echo "Invalid KEEP: $KEEP" >&2; exit 1; }
-          mapfile -t OLD < <(gh release list --limit 1000 --json tagName,createdAt,isDraft \
-            --jq --argjson keep "$KEEP" '
-              map(select(.isDraft | not))
-              | sort_by(.createdAt)
-              | if length > $keep then .[0:(length - $keep)][].tagName else empty end') || true
-          if [ "${#OLD[@]}" -eq 0 ]; then
-            echo "Release count within retention ($KEEP); nothing to prune."
-            exit 0
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists."
+          else
+            gh release create "$TAG" --target "$SHA" --title "$TAG" --generate-notes || \
+            gh release create "$TAG" --target "$SHA" --title "$TAG" --notes "$NOTES"
           fi
-          echo "Pruning ${#OLD[@]} release(s) older than newest $KEEP:"
-          printf '  %s\n' "${OLD[@]}"
-          for t in "${OLD[@]}"; do
-            gh release delete "$t" --yes --cleanup-tag
-          done
