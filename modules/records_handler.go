@@ -1,0 +1,202 @@
+package modules
+
+import (
+	"database/sql"
+	"errors"
+	"io"
+	"net/http"
+	"strconv"
+	"time"
+)
+
+// PublishRecord verifies a signed record and stores it (append-only, idempotent).
+func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
+	st := h.recordStore()
+	if st == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"status": "error", "error": "records store unavailable",
+		})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRecordSize+1024)
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"status": "error", "error": "cannot read body",
+		})
+		return
+	}
+	if len(raw) > MaxRecordSize {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
+			"status": "error", "error": "record too large", "maxSize": MaxRecordSize,
+		})
+		return
+	}
+
+	rec, err := ValidateRecordBody(raw, time.Now().Unix())
+	if err != nil {
+		status := http.StatusBadRequest
+		msg := err.Error()
+		switch {
+		case contains(msg, "too large"):
+			status = http.StatusRequestEntityTooLarge
+		case contains(msg, "bad sig"):
+			status = http.StatusUnauthorized
+		}
+		writeJSON(w, status, map[string]any{"status": "error", "error": msg})
+		return
+	}
+
+	// Idempotent: same payload -> same ID -> return existing.
+	if existing, err := st.GetRecord(rec.ID); err == nil && existing != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status": "success", "id": existing.ID, "stored_at": existing.StoredAt, "duplicate": true,
+		})
+		return
+	}
+
+	created, err := st.InsertRecord(rec)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"status": "error", "error": "failed to store record",
+		})
+		return
+	}
+	_ = created
+
+	stored, err := st.GetRecord(rec.ID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{"status": "success", "id": rec.ID})
+		return
+	}
+	code := http.StatusCreated
+	writeJSON(w, code, map[string]any{
+		"status": "success", "id": stored.ID, "stored_at": stored.StoredAt,
+	})
+}
+
+// ListRecords: GET /records?owner=&collection=&label=&since=&until=&search=&limit=&cursor=&include_expired=
+func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
+	st := h.recordStore()
+	if st == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"status": "error", "error": "records store unavailable",
+		})
+		return
+	}
+
+	q := r.URL.Query()
+	limit := 50
+	if v := q.Get("limit"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 && p <= 100 {
+			limit = p
+		} else if err == nil && (p <= 0 || p > 100) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"status": "error", "error": "limit must be 1..100",
+			})
+			return
+		}
+	}
+	cursor := 0
+	if v := q.Get("cursor"); v != "" {
+		if p, err := strconv.Atoi(v); err != nil || p < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{
+				"status": "error", "error": "invalid cursor",
+			})
+			return
+		} else {
+			cursor = p
+		}
+	}
+
+	var since, until int64
+	if v := q.Get("since"); v != "" {
+		p, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || p < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "invalid since"})
+			return
+		}
+		since = p
+	}
+	if v := q.Get("until"); v != "" {
+		p, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || p < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "invalid until"})
+			return
+		}
+		until = p
+	}
+
+	f := RecordFilter{
+		Owner:          q.Get("owner"),
+		Collection:     q.Get("collection"),
+		Label:          q.Get("label"),
+		Since:          since,
+		Until:          until,
+		Search:         q.Get("search"),
+		Limit:          limit,
+		Offset:         cursor,
+		IncludeExpired: q.Get("include_expired") == "true",
+		Now:            time.Now().Unix(),
+	}
+
+	records, err := st.QueryRecords(f)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"status": "error", "error": "query failed",
+		})
+		return
+	}
+
+	next := ""
+	if len(records) == limit {
+		next = strconv.Itoa(cursor + len(records))
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "success", "records": records,
+		"limit": limit, "cursor": strconv.Itoa(cursor), "next_cursor": next,
+	})
+}
+
+// GetRecordByID: GET /records/{id}
+func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
+	st := h.recordStore()
+	if st == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"status": "error", "error": "records store unavailable",
+		})
+		return
+	}
+	id := r.PathValue("id")
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "missing id"})
+		return
+	}
+	rec, err := st.GetRecord(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "not found"})
+			return
+		}
+		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "not found"})
+		return
+	}
+	if r.URL.Query().Get("include_expired") != "true" && rec.ExpiresAt <= time.Now().Unix() {
+		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "expired"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "record": rec})
+}
+
+func contains(s, sub string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}

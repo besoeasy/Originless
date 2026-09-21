@@ -17,6 +17,12 @@ func NewRouter(ipfsClient *Client, janitorManager *Manager, uiFS fs.FS, examples
 	mux.HandleFunc("POST /uploadfolder", handler.UploadFolder)
 	mux.HandleFunc("GET /history", handler.History)
 	mux.HandleFunc("GET /pins", handler.PinStats)
+	mux.HandleFunc("POST /records", handler.PublishRecord)
+	mux.HandleFunc("GET /records", handler.ListRecords)
+	mux.HandleFunc("GET /records/{id}", handler.GetRecordByID)
+	mux.HandleFunc("POST /up", handler.Up)
+	mux.HandleFunc("GET /down/{hash}", handler.Down)
+	mux.HandleFunc("HEAD /down/{hash}", handler.Down)
 	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, ipfsClient))
 
 	// Path-gateway requests at /ipfs and /ipns are dispatched by the wrapper

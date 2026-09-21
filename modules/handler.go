@@ -18,6 +18,7 @@ type Handler struct {
 	examplesFS fs.FS
 	semaphore  chan struct{}
 	gateway    *httputil.ReverseProxy
+	store      *Store
 }
 
 func NewHandler(ipfsClient *Client, janitorManager *Manager, metrics *Metrics, examplesFS fs.FS) *Handler {
@@ -28,10 +29,28 @@ func NewHandler(ipfsClient *Client, janitorManager *Manager, metrics *Metrics, e
 		examplesFS: examplesFS,
 		semaphore:  make(chan struct{}, MaxConcurrentOps),
 	}
+	if janitorManager != nil {
+		h.store = janitorManager.Store()
+	}
 	if GatewayEnabled {
 		h.gateway = NewGatewayProxy(IPFSGateway)
 	}
 	return h
+}
+
+// SetStore allows tests / embedding to provide a DB without changing signatures.
+func (h *Handler) SetStore(s *Store) {
+	h.store = s
+}
+
+func (h *Handler) recordStore() *Store {
+	if h.store != nil {
+		return h.store
+	}
+	if h.janitor != nil {
+		return h.janitor.Store()
+	}
+	return nil
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

@@ -86,6 +86,10 @@ func gatewayMetricPath(path string) string {
 		return "/ipfs"
 	case path == "/ipns" || strings.HasPrefix(path, "/ipns/"):
 		return "/ipns"
+	case path == "/down" || strings.HasPrefix(path, "/down/"):
+		return "/down"
+	case path == "/records" || strings.HasPrefix(path, "/records/"):
+		return "/records"
 	default:
 		return path
 	}

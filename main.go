@@ -50,6 +50,10 @@ func main() {
 		log.Fatalf("failed to create data directory: %v", err)
 	}
 
+	if err := os.MkdirAll(modules.BlobDir, 0o755); err != nil {
+		log.Fatalf("failed to create blob directory: %v", err)
+	}
+
 	dbPath := filepath.Join(dataDir, "originless.db")
 	database, err := modules.NewStore(dbPath)
 	if err != nil {
@@ -62,6 +66,9 @@ func main() {
 
 	log.Printf("[STARTUP] running janitor reconciliation...")
 	janitorMgr.Reconcile()
+	if err := janitorMgr.ReconcileBlobs(); err != nil {
+		log.Printf("[STARTUP] blob reconciliation skipped: %v", err)
+	}
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
