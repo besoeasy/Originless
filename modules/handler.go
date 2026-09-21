@@ -8,7 +8,7 @@ import (
 
 // Version is the Originless server build version reported by /status.
 // Overridable at compile time via -ldflags="-X github.com/besoeasy/originless/modules.Version=...".
-var Version = "1.0.5"
+var Version = "1.0.0"
 
 // P2PBroadcaster defines the interface for gossip broadcasting to P2P swarms.
 type P2PBroadcaster interface {
