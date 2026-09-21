@@ -5,7 +5,7 @@
 # Originless
 
 **The all-in-one backend for the open web.**  
-Records, binary blobs, and decentralized files — client-controlled, operator-safe, and zero-auth.  
+Records, binary blobs, real-time SSE streams, and decentralized files — client-controlled, operator-safe, and zero-auth.  
 No accounts. No API keys. No copyright strikes. One Docker container.
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
@@ -40,18 +40,19 @@ Traditional backends force you to become a babysitter: managing user tables, has
          │                           │                           │
          ▼                           ▼                           ▼
   Quick Records               Binary Blobs                IPFS Swarm
-  (/records)                  (/up, /down)                (/upload)
+  (/records, /records/stream) (/up, /down)                (/upload)
   ─────────────────────       ─────────────────────       ─────────────────────
   • Multiplayer Games         • Game Save Buffers         • Encrypted Backups
   • Ephemeral Chat Rooms      • Serialized State          • Static Sites / DApps
-  • Push Notifications        • Raw Binary Caches         • Media Attachments
-  • Web3 & Crypto Profiles    • Fast SHA-256 Dedupe       • Global P2P Bitswap
-  • AI Agent Memory           • LRU Auto-Eviction         • Pinned on Port 4001
+  • Real-Time SSE Streams     • Raw Binary Caches         • Media Attachments
+  • Push Notifications        • Fast SHA-256 Dedupe       • Global P2P Bitswap
+  • Web3 & Crypto Profiles    • 7-Day Retention Window    • Swarm Port 4001
+  • AI Agent Memory           • LRU Auto-Eviction         • Rainbow Gateway Ready
 ```
 
 ---
 
-### 1. ⚡ Quick Records (`/records`) — The Universal State Engine
+### 1. ⚡ Quick Records (`/records`, `/records/stream`) — The Universal State Engine
 
 A fast, cryptographic document store for structured JSON data. Replaces traditional user tables and database servers across:
 
@@ -90,6 +91,15 @@ curl -N "http://localhost:3232/records/stream?collection=gamesaves&label=slot:1"
 
 # Fetch record by its server-computed hash ID
 curl "http://localhost:3232/records/8f2c...1a"
+```
+
+```javascript
+// Browser or Node.js real-time event subscriber (zero polling)
+const stream = new EventSource("http://localhost:3232/records/stream?collection=gamesaves&label=slot:1");
+stream.onmessage = (event) => {
+  const record = JSON.parse(event.data);
+  console.log("Live save update from", record.owner, record.data);
+};
 ```
 
 ---
@@ -142,14 +152,14 @@ Instead of juggling a dozen different SaaS subscriptions, cloud accounts, API ke
 | Category | Traditional Services | Originless Replacement | Key Advantage |
 | :------- | :------------------- | :--------------------- | :------------ |
 | **CLI File Drop** | **[0x0.st](https://0x0.st/)**, **[file.io](https://www.file.io/)** | `POST /up` & `POST /upload` | Unlimited self-hosted storage, SHA-256 deduplication, automated LRU pruning |
-| **Push Alerts & Signals** | **[ntfy.sh](https://ntfy.sh/)**, **Pushover** | `POST /records` & `GET /records` | Cryptographically signed (Ed25519), label-indexed topics, auto-expiring TTL |
+| **Push Alerts & Signals** | **[ntfy.sh](https://ntfy.sh/)**, **Pushover** | `POST /records` & `GET /records/stream` | Cryptographically signed (Ed25519), label-indexed topics, real-time SSE push alerts |
 | **Code & Text Pastes** | **[Pastebin](https://pastebin.com/)**, **[PrivateBin](https://privatebin.info/)**, **[GitHub Gist](https://gist.github.com/)** | `POST /upload` + client templates | Content-addressed CIDs, client-side encryption, tamper-proof, no account needed |
 | **Expiring Transfers** | **[WeTransfer](https://wetransfer.com/)**, **[Wormhole](https://wormhole.app/)** | `POST /up` (7-day retention + LRU) | Direct content-addressed hash links, client-side encryptable, zero tracking or ads |
 | **Object Storage & Buckets** | **[Amazon S3](https://aws.amazon.com/s3/)**, **[MinIO](https://min.io/)**, **Backblaze B2** | `POST /up` & `POST /upload` | Simple HTTP `POST`/`GET` without IAM policies, access keys, or bucket CORS headaches |
 | **Ephemeral Key-Value & Cache** | **[Redis](https://redis.io/)**, **[Upstash](https://upstash.com/)**, **Memcached** | `POST /records` (TTL Expiration) | Zero memory bloat, automatic TTL expiration, keypair-authenticated writes |
 | **App State & Game Saves** | **[Firebase Realtime DB](https://firebase.google.com/)**, **[Supabase](https://supabase.com/)** | `POST /records` (Signed JSON) | Keypair auth matches crypto wallets, zero server database management |
 | **Lightweight Backends** | **[PocketBase](https://pocketbase.io/)**, **[Appwrite](https://appwrite.io/)** | `POST /records` (Signed Documents) | No server user tables, cryptographic identity (Ed25519), embedded SQLite with WAL |
-| **Pub/Sub Event Bus** | **[Pusher](https://pusher.com/)**, **[Ably](https://ably.com/)** | `POST /records` & `GET /records` | Cryptographic message verification, label-based topic isolation, zero socket fees |
+| **Pub/Sub Event Bus** | **[Pusher](https://pusher.com/)**, **[Ably](https://ably.com/)** | `POST /records` & `GET /records/stream` | Native Server-Sent Events (SSE), cryptographic verification, zero socket fees |
 | **IPFS Pinning Services** | **[Pinata](https://www.pinata.cloud/)**, **[Web3.Storage](https://web3.storage/)**, **Infura** | Native Kubo daemon + Janitor | Zero subscription tiers, no credit card, auto-GC & disk quotas |
 | **Static DApp Deployment** | **[Vercel](https://vercel.com/)**, **[Cloudflare Pages](https://pages.cloudflare.com/)**, **Netlify** | `POST /uploadfolder` | One `curl` command pins full `dist/` directory tree under a content-addressed root CID |
 | **Media Hosting** | **[Imgur](https://imgur.com/)**, **Cloudinary** | `POST /upload` | Client-encrypted, Nostr NIP-92 `imeta` ready, zero DMCA operator liability |
@@ -166,7 +176,7 @@ curl -X POST -F "file=@dump.bin" http://localhost:3232/up
 ```
 No rate limits, no third-party server seeing your uploads, and automated LRU cleanup when disk quota is reached.
 
-### 2. ntfy.sh / Pushover &rarr; Signed Event & Alert Feeds (`/records`)
+### 2. ntfy.sh / Pushover &rarr; Signed Real-Time Alert Feeds (`/records`, `/records/stream`)
 Broadcast notifications, IoT telemetry, or inter-process events with cryptographic signatures:
 ```bash
 curl -X POST http://localhost:3232/records -H "Content-Type: application/json" -d '{
@@ -176,7 +186,10 @@ curl -X POST http://localhost:3232/records -H "Content-Type: application/json" -
   "labels": ["topic:backups", "level:info"], "sig": "..."
 }'
 
-# Subscribers poll or fetch:
+# Live push stream via SSE (zero polling):
+curl -N "http://localhost:3232/records/stream?collection=alerts&label=topic:backups"
+
+# Or query historical notifications:
 curl "http://localhost:3232/records?collection=alerts&label=topic:backups&limit=5"
 ```
 Nobody can spoof notifications because every message is signed by the publisher's Ed25519 private key.
@@ -202,8 +215,14 @@ Build games, decentralized chats, and web rooms without spinning up PostgreSQL o
 ### 8. PocketBase / Appwrite &rarr; Cryptographic Document Store (`/records`)
 Rapidly prototype web and mobile apps without writing database schemas. Query by collection, label, or date with built-in SQLite WAL persistence and instant zero-auth writes.
 
-### 9. Pusher / Ably &rarr; Polling & Webhook Event Bus (`/records`)
-Avoid costly per-message or concurrent socket subscriptions. Publish timestamped events under label topics (e.g. `label=room:lobby`) that clients can fetch with lightweight delta polling.
+### 9. Pusher / Ably &rarr; Real-Time SSE & Pub/Sub Bus (`/records/stream`)
+Avoid costly per-message cloud fees and socket limits. Originless provides native Server-Sent Events (SSE):
+- Broadcast messages: `POST /records` with labels like `labels: ["room:lobby"]`.
+- Subscribe live in browser or node without extra client libraries:
+```javascript
+const feed = new EventSource("http://localhost:3232/records/stream?collection=chat&label=room:lobby");
+feed.onmessage = (e) => console.log("Incoming event:", JSON.parse(e.data));
+```
 
 ### 10. Pinata / Web3.Storage &rarr; Built-in IPFS Ingestion Node
 Never pay a monthly subscription or worry about an IPFS provider shutting down or hiking API pricing. Originless runs an optimized low-power Kubo node, broadcasts blocks across the libp2p swarm (`4001`), and cleans up old unpinned files automatically.
@@ -254,14 +273,29 @@ Open **http://localhost:3232** · Client Tools in **[`examples/`](examples/)** �
 
 | Application | Originless Tier | Route | Why it fits |
 | :--- | :--- | :--- | :--- |
-| **Games & Save States** | Quick Records / Blobs | `POST /records` or `/up` | Ed25519 identity, instant state query, `.bin` saves |
-| **Chat Apps & Web Rooms** | Quick Records | `POST /records` & `GET /records` | Ephemeral rooms, label filtering, auto-expiring messages |
-| **Push Notifications & Signals** | Quick Records | `POST /records` | Timestamped event feeds, subscriber polling |
-| **Crypto & Web3 DApps** | Quick Records | `POST /records` | Keypair auth matches crypto wallets, no server DB |
+| **Real-Time Feeds & Alerts** | Quick Records | `GET /records/stream` | Instant Server-Sent Events push stream, zero polling, filter by collection & label |
+| **Chat Apps & Web Rooms** | Quick Records | `POST /records` & `GET /records/stream` | Ephemeral rooms, label filtering, auto-expiring messages, live SSE sync |
+| **Games & Save States** | Quick Records / Blobs | `POST /records` or `POST /up` | Ed25519 identity, instant state query, SHA-256 `.bin` save buffers |
+| **Push Notifications & Signals** | Quick Records | `POST /records` & `GET /records/stream` | Timestamped event feeds, zero-polling live SSE subscriber streams |
+| **Crypto & Web3 DApps** | Quick Records | `POST /records` | Keypair auth matches crypto wallets, no server DB or account signups |
 | **Encrypted File Sharing** | IPFS Pinning | `POST /upload` | Client encrypts, server pins, zero operator liability |
-| **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Root CID preserves directory paths |
+| **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Single `curl` pins full `dist/` directory tree under one root CID |
+| **Fast Binary Blobs** | Content-Addressed Blobs | `POST /up` & `GET /down/{hash}` | Direct SHA-256 blobs, 7-day retention window, LRU auto-pruning |
 | **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
-| **Web Snippets & Tools** | Client Templates | [`examples/`](examples/) | Standalone client templates ready to open or pin |
+| **Web Snippets & Tools** | Client Templates | [`examples/`](examples/) | Standalone client templates ready to open or pin to IPFS |
+
+---
+
+### Decoupled Client Templates (`examples/`)
+
+Originless is a headless, zero-auth backend binary. A suite of production-ready, zero-dependency client apps is provided under [`examples/`](examples/) — open them directly in any browser or pin them to IPFS:
+
+- 📋 **[crypto-paste](examples/crypto-paste.html)**: Zero-knowledge client-encrypted pastebin (AES-GCM-256 key in URL hash).
+- 📁 **[file-share](examples/file-share.html)**: Drag-and-drop file sharing with automatic IPFS pinning and gateway links.
+- 💬 **[chat-room](examples/chat-room.html)**: Ephemeral decentralized chat rooms with real-time SSE streaming.
+- 🎮 **[game-save](examples/game-save.html)**: Keypair-authenticated cloud game save manager using Ed25519 signatures.
+- 🖼️ **[nip92-uploader](examples/nip92-uploader.html)**: Nostr NIP-92 media uploader with SHA-256 hashes and `imeta` tag generation.
+- 🤖 **[agent-memory](examples/agent-memory.html)**: State inspector and key-value memory browser for autonomous AI agents.
 
 ---
 
