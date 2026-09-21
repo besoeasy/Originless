@@ -70,16 +70,50 @@
     return `in ${mins}m`;
   }
 
-  function isBlobProtected(val) {
-    if (!val) return false;
+  // Size-weighted blob retention mirror of the server policy
+  // (modules/retention.go): min 30d at 512 MiB .. max 1y at size 0.
+  const BLOB_MIN_AGE_MS = 30 * 24 * 3600 * 1000;
+  const BLOB_MAX_AGE_MS = 365 * 24 * 3600 * 1000;
+  const BLOB_MAX_SIZE = 512 * 1024 * 1024;
+
+  function blobRetentionMs(size) {
+    if (!size || size <= 0) return BLOB_MAX_AGE_MS;
+    if (size >= BLOB_MAX_SIZE) return BLOB_MIN_AGE_MS;
+    const r = size / BLOB_MAX_SIZE - 1;
+    const retention = BLOB_MIN_AGE_MS + (BLOB_MIN_AGE_MS - BLOB_MAX_AGE_MS) * Math.pow(r, 3);
+    return Math.min(BLOB_MAX_AGE_MS, Math.max(BLOB_MIN_AGE_MS, retention));
+  }
+
+  function blobSizeOf(val) {
+    if (!val || typeof val !== "object") return 0;
+    const s = val.size ?? val.sizeBytes ?? 0;
+    return typeof s === "number" ? s : 0;
+  }
+
+  function blobCreatedMs(val) {
+    if (!val) return NaN;
     const src = (val && typeof val === "object")
       ? (val.created_at || val.createdAt || val.last_access || val.lastAccess)
       : val;
-    if (!src) return false;
-    const d = new Date(src).getTime();
+    if (!src) return NaN;
+    return new Date(src).getTime();
+  }
+
+  function isBlobProtected(val) {
+    // Prefer the server-computed flag (fresh at fetch time) when present.
+    if (val && typeof val === "object" && typeof val.protected === "boolean") return val.protected;
+    const d = blobCreatedMs(val);
     if (isNaN(d)) return false;
-    const diffMs = Date.now() - d;
-    return diffMs < 7 * 24 * 3600 * 1000;
+    return (Date.now() - d) < blobRetentionMs(blobSizeOf(val));
+  }
+
+  function blobRetentionLabel(val) {
+    if (val && typeof val === "object" && typeof val.retention_secs === "number" && val.retention_secs > 0) {
+      const days = val.retention_secs / 86400;
+      return days >= 100 ? `${Math.round(days)}d` : `${Math.round(days * 10) / 10}d`;
+    }
+    const days = blobRetentionMs(blobSizeOf(val)) / (24 * 3600 * 1000);
+    return `${Math.round(days * 10) / 10}d`;
   }
 
   function canonicalJSON(obj) {
@@ -182,6 +216,7 @@
           shortOwner,
           formatExpires,
           isBlobProtected,
+          blobRetentionLabel,
         };
       },
       data() {

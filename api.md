@@ -8,7 +8,7 @@ No API keys, accounts, or authentication.
 
 **Bodies** — JSON uses `Content-Type: application/json`. Responses are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` is not wrapped).
 
-Uploads (`POST /upload`, `/uploadfolder`, `/up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `STORAGE_MAX / 100` (1 GB when `STORAGE_MAX=100GB`).
+Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `min(STORAGE_MAX / 100, 512 MiB)`.
 
 ---
 
@@ -87,7 +87,7 @@ curl http://localhost:3232/status
   "node": { "id": "12D3KooW...", "agentVersion": "kubo/0.34.0" },
   "peers": { "count": 140 },
   "storageLimit": { "configured": "100GB", "current": "1.00 MB" },
-  "fileLimit": { "configured": "1.00 GB", "bytes": 1073741824 }
+  "fileLimit": { "configured": "512.00 MB", "bytes": 536870912 }
 }
 ```
 
@@ -353,7 +353,7 @@ Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted
 - **Content-Type:** `multipart/form-data`
 - **Field name:** `file` (filename must end in `.bin`, case-insensitive)
 - Saved as `<sha256>.bin` under `/data/blobs`
-- Retention: kept **minimum 7 days**; after that LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota with IPFS pins)
+- Retention: size-weighted guarantee of **30 days at 512 MiB** up to **1 year at size 0** (`retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`); after expiry, LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota)
 
 ```bash
 curl -X POST -F "file=@save.bin" http://localhost:3232/up
@@ -470,7 +470,7 @@ curl http://localhost:3232/metrics
 | Status | When |
 | :----- | :--- |
 | `400` | Missing `file` part, empty filename, or malformed multipart |
-| `413` | File larger than `STORAGE_MAX / 100` (`maxSize` is included) |
+| `413` | File larger than `min(STORAGE_MAX / 100, 512 MiB)` (`maxSize` is included) |
 | `415` | `/up` only: filename does not end in `.bin` |
 | `503` | 3 uploads already in flight (`"Server busy"`) |
 | `500` | Kubo add/pin failed |

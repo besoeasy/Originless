@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-// blobMinAge is the minimum retention for /up blobs before LRU may evict them.
-const blobMinAge = 7 * 24 * time.Hour
-
 type Manager struct {
 	store     *Store
 	limit     int64
@@ -62,8 +59,8 @@ func (m *Manager) totalUsage() int64 {
 	return size
 }
 
-// CheckBlobThreshold evicts LRU blobs (min 7 days old) while total usage
-// exceeds the threshold share of the storage limit.
+// CheckBlobThreshold evicts LRU blobs whose size-weighted retention has
+// expired while total usage exceeds the threshold share of the limit.
 func (m *Manager) CheckBlobThreshold() error {
 	if m == nil || m.store == nil {
 		return nil
@@ -78,8 +75,9 @@ func (m *Manager) CheckBlobThreshold() error {
 	return m.EvictBlobsLRU()
 }
 
-// EvictBlobsLRU deletes blobs LRU-first, never touching blobs younger than
-// blobMinAge (7 days). Stops once total usage drops to target.
+// EvictBlobsLRU deletes blobs LRU-first, never touching blobs still inside
+// their size-weighted retention (30 days at 512 MiB .. 1 year at size 0).
+// Stops once total usage drops to target.
 func (m *Manager) EvictBlobsLRU() error {
 	if m == nil || m.store == nil {
 		return nil
@@ -91,32 +89,52 @@ func (m *Manager) EvictBlobsLRU() error {
 	}
 	var evicted int
 	var freed int64
+	var protected int
+	const pageSize = 50
+	// offset counts scanned-but-surviving rows; evicted rows vanish from
+	// the table so they must not advance the page cursor.
+	offset := 0
+	now := time.Now()
 	for total > target {
-		candidates, err := m.store.GetEvictableBlobs(blobMinAge, 50)
+		candidates, err := m.store.GetBlobsByLRU(pageSize, offset)
 		if err != nil {
 			return err
 		}
 		if len(candidates) == 0 {
-			log.Printf("[janitor] no evictable blobs (all younger than %s)", blobMinAge)
+			log.Printf("[janitor] no more blobs to scan (%d evicted, %d still protected)", evicted, protected)
 			break
 		}
 		for _, b := range candidates {
 			if total <= target {
 				break
 			}
+			if !BlobRetentionExpired(b.CreatedAt, b.Size, now) {
+				offset++
+				protected++
+				continue
+			}
 			path := BlobPath(BlobDir, b.Hash)
 			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 				log.Printf("[janitor] failed to remove blob %s: %v", b.Hash, err)
+				offset++
+				protected++
 				continue
 			}
 			if err := m.store.DeleteBlob(b.Hash); err != nil {
 				log.Printf("[janitor] failed to delete blob row %s: %v", b.Hash, err)
+				offset++
+				protected++
 				continue
 			}
 			freed += b.Size
 			total -= b.Size
 			evicted++
-			log.Printf("[janitor] evicted blob %s (%s)", b.Hash, FormatBytes(b.Size))
+			log.Printf("[janitor] evicted blob %s (%s, retention %s)", b.Hash, FormatBytes(b.Size), BlobRetentionForSize(b.Size))
+		}
+		if total > target && len(candidates) < pageSize {
+			log.Printf("[janitor] %d blobs still inside retention, usage %s above target %s",
+				protected, FormatBytes(total), FormatBytes(target))
+			break
 		}
 	}
 	log.Printf("[janitor] blob eviction done: evicted %d blobs, freed %s", evicted, FormatBytes(freed))

@@ -46,7 +46,7 @@ Traditional backends force you to become a babysitter: managing user tables, has
   • Ephemeral Chat Rooms      • Serialized State          • Static Sites / DApps
   • Real-Time SSE Streams     • Raw Binary Caches         • Media Attachments
   • Push Notifications        • Fast SHA-256 Dedupe       • Global P2P Bitswap
-  • Web3 & Crypto Profiles    • 7-Day Retention Window    • Swarm Port 4001
+  • Web3 & Crypto Profiles    • 30d–1y Size-Weighted Retention    • Swarm Port 4001
   • AI Agent Memory           • LRU Auto-Eviction         • Rainbow Gateway Ready
 ```
 
@@ -110,7 +110,7 @@ Direct binary blob storage without IPFS DAG chunking overhead. Ideal for game sa
 
 - **SHA-256 Addressing**: Stored strictly as `<sha256>.bin` under `/data/blobs`.
 - **Deduplication**: Uploading identical bytes calculates the same hash and touches recency without wasting disk space.
-- **7-Day Retention Guarantee**: New blobs are protected from eviction for at least 7 days.
+- **Size-Weighted Retention**: New blobs are protected from eviction for `30 days` at `512 MiB` up to `1 year` at size `0`, following `retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`.
 - **Automated LRU Eviction**: Pruned least-recently-used only when total storage exceeds quota (`STORAGE_MAX`).
 - **Immutable Caching**: Served with `ETag` and `Cache-Control: public, max-age=86400, immutable`.
 
@@ -154,7 +154,7 @@ Instead of juggling a dozen different SaaS subscriptions, cloud accounts, API ke
 | **CLI File Drop** | **[0x0.st](https://0x0.st/)**, **[file.io](https://www.file.io/)** | `POST /up` & `POST /upload` | Unlimited self-hosted storage, SHA-256 deduplication, automated LRU pruning |
 | **Push Alerts & Signals** | **[ntfy.sh](https://ntfy.sh/)**, **Pushover** | `POST /records` & `GET /records/stream` | Cryptographically signed (Ed25519), label-indexed topics, real-time SSE push alerts |
 | **Code & Text Pastes** | **[Pastebin](https://pastebin.com/)**, **[PrivateBin](https://privatebin.info/)**, **[GitHub Gist](https://gist.github.com/)** | `POST /upload` + client templates | Content-addressed CIDs, client-side encryption, tamper-proof, no account needed |
-| **Expiring Transfers** | **[WeTransfer](https://wetransfer.com/)**, **[Wormhole](https://wormhole.app/)** | `POST /up` (7-day retention + LRU) | Direct content-addressed hash links, client-side encryptable, zero tracking or ads |
+| **Expiring Transfers** | **[WeTransfer](https://wetransfer.com/)**, **[Wormhole](https://wormhole.app/)** | `POST /up` (size-weighted retention + LRU) | Direct content-addressed hash links, client-side encryptable, zero tracking or ads |
 | **Object Storage & Buckets** | **[Amazon S3](https://aws.amazon.com/s3/)**, **[MinIO](https://min.io/)**, **Backblaze B2** | `POST /up` & `POST /upload` | Simple HTTP `POST`/`GET` without IAM policies, access keys, or bucket CORS headaches |
 | **Ephemeral Key-Value & Cache** | **[Redis](https://redis.io/)**, **[Upstash](https://upstash.com/)**, **Memcached** | `POST /records` (TTL Expiration) | Zero memory bloat, automatic TTL expiration, keypair-authenticated writes |
 | **App State & Game Saves** | **[Firebase Realtime DB](https://firebase.google.com/)**, **[Supabase](https://supabase.com/)** | `POST /records` (Signed JSON) | Keypair auth matches crypto wallets, zero server database management |
@@ -198,7 +198,7 @@ Nobody can spoof notifications because every message is signed by the publisher'
 Paste code, configs, or encrypted secrets. The resulting IPFS CID is immutable — unlike paste sites where content can be altered or removed by third-party admins.
 
 ### 4. WeTransfer / Wormhole &rarr; Expiring File Drops (`/up`, `/upload`)
-Drop files for friends or colleagues without third-party email tracking, upload caps, or intrusive ad walls. Content is guaranteed for at least 7 days before LRU eviction.
+Drop files for friends or colleagues without third-party email tracking, upload caps, or intrusive ad walls. Content carries a size-weighted retention guarantee (30 days at 512 MiB, up to 1 year for tiny files) before LRU eviction.
 
 ### 5. Amazon S3 / MinIO &rarr; Zero-Config Raw Object Storage (`/up`, `/down`)
 Eliminate the complexity of configuring AWS IAM users, bucket policies, secret keys, and region endpoints. Storing an object is a single HTTP POST; retrieving it is a simple GET by SHA-256 hash.
@@ -255,7 +255,6 @@ podman run -d \
   -p 3232:3232 \
   -p 4001:4001 \
   -p 4001:4001/udp \
-  -e STORAGE_MAX=100GB \
   -v originless-data:/data \
   ghcr.io/besoeasy/originless:latest
 ```
@@ -280,7 +279,7 @@ Open **http://localhost:3232** · Client Tools in **[`examples/`](examples/)** �
 | **Crypto & Web3 DApps** | Quick Records | `POST /records` | Keypair auth matches crypto wallets, no server DB or account signups |
 | **Encrypted File Sharing** | IPFS Pinning | `POST /upload` | Client encrypts, server pins, zero operator liability |
 | **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Single `curl` pins full `dist/` directory tree under one root CID |
-| **Fast Binary Blobs** | Content-Addressed Blobs | `POST /up` & `GET /down/{hash}` | Direct SHA-256 blobs, 7-day retention window, LRU auto-pruning |
+| **Fast Binary Blobs** | Content-Addressed Blobs | `POST /up` & `GET /down/{hash}` | Direct SHA-256 blobs, size-weighted retention window, LRU auto-pruning |
 | **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
 | **Web Snippets & Tools** | Client Templates | [`examples/`](examples/) | Standalone client templates ready to open or pin to IPFS |
 

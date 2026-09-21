@@ -142,47 +142,65 @@ func TestDownBadHashAndMissing(t *testing.T) {
 	}
 }
 
-func TestBlobLRURespectsMinAge(t *testing.T) {
+func TestBlobLRURespectsRetention(t *testing.T) {
 	st := testStore(t)
 	dir := t.TempDir()
 	withBlobDir(t, dir)
 
-	// Old blob (8 days ago, evictable) and fresh blob (now, protected).
+	// Big blob (max_size => 30-day retention, backdated 31d: expired) and
+	// small blob (tiny => ~1-year retention, backdated 31d: protected),
+	// plus a fresh blob (protected).
 	oldHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	smallHash := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	newHash := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	oldContent := []byte("old-bytes")
+	smallContent := []byte("small-bytes")
 	newContent := []byte("new-bytes")
 	if err := os.WriteFile(BlobPath(dir, oldHash), oldContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(BlobPath(dir, smallHash), smallContent, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(BlobPath(dir, newHash), newContent, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.UpsertBlob(oldHash, int64(len(oldContent))); err != nil {
+	// DB sizes drive retention: max-size blob expires in 30d, tiny blob in ~1y.
+	if _, err := st.UpsertBlob(oldHash, BlobMaxSizeBytes); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.UpsertBlob(smallHash, int64(len(smallContent))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.UpsertBlob(newHash, int64(len(newContent))); err != nil {
 		t.Fatal(err)
 	}
-	// Backdate the old row past the 7-day minimum.
-	oldTime := time.Now().Add(-8 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
+	// Backdate the big + small rows (big 32d ago, small 31d ago) past 30d.
+	oldTime := time.Now().Add(-32 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
+	smallTime := time.Now().Add(-31 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
 	if _, err := st.db.Exec(`UPDATE blobs SET created_at = ?, last_access = ? WHERE hash = ?`, oldTime, oldTime, oldHash); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := st.db.Exec(`UPDATE blobs SET created_at = ?, last_access = ? WHERE hash = ?`, smallTime, smallTime, smallHash); err != nil {
+		t.Fatal(err)
+	}
 
-	// Tiny quota forces eviction; only the old blob is eligible.
+	// Tiny quota forces eviction; only the retention-expired big blob is eligible.
 	mgr := NewJanitor(st, 10)
 	if err := mgr.EvictBlobsLRU(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.GetBlob(oldHash); err == nil {
-		t.Fatal("old blob should have been evicted")
+		t.Fatal("expired big blob should have been evicted")
 	}
 	if _, err := os.Stat(BlobPath(dir, oldHash)); !os.IsNotExist(err) {
-		t.Fatal("old blob file should be gone")
+		t.Fatal("expired big blob file should be gone")
+	}
+	if _, err := st.GetBlob(smallHash); err != nil {
+		t.Fatalf("small blob inside ~1y retention must survive: %v", err)
 	}
 	if _, err := st.GetBlob(newHash); err != nil {
-		t.Fatalf("fresh blob must survive min-age: %v", err)
+		t.Fatalf("fresh blob must survive retention: %v", err)
 	}
 }
 

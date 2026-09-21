@@ -249,12 +249,27 @@ func scanRecord(row *sql.Row) (*Record, error) {
 }
 
 // BlobMeta tracks a content-addressed .bin blob for LRU accounting.
+// RetentionSecs/RetainedUntil/Protected are computed from the
+// size-weighted retention policy (see retention.go), not stored.
 type BlobMeta struct {
-	Hash        string    `json:"hash"`
-	Size        int64     `json:"size"`
-	CreatedAt   time.Time `json:"created_at"`
-	LastAccess  time.Time `json:"last_access"`
-	AccessCount int64     `json:"access_count"`
+	Hash          string    `json:"hash"`
+	Size          int64     `json:"size"`
+	CreatedAt     time.Time `json:"created_at"`
+	LastAccess    time.Time `json:"last_access"`
+	AccessCount   int64     `json:"access_count"`
+	RetentionSecs int64     `json:"retention_secs"`
+	RetainedUntil time.Time `json:"retained_until"`
+	Protected     bool      `json:"protected"`
+}
+
+// fillBlobRetention populates the computed retention fields of m as of now.
+func fillBlobRetention(m *BlobMeta, now time.Time) {
+	if m == nil {
+		return
+	}
+	m.RetentionSecs = int64(BlobRetentionForSize(m.Size) / time.Second)
+	m.RetainedUntil = BlobRetainedUntil(m.CreatedAt, m.Size)
+	m.Protected = now.Before(m.RetainedUntil)
 }
 
 // UpsertBlob inserts a new blob row or touches the existing one.
@@ -289,6 +304,7 @@ func (s *Store) GetBlob(hash string) (*BlobMeta, error) {
 	if err != nil {
 		return nil, err
 	}
+	fillBlobRetention(&m, time.Now())
 	return &m, nil
 }
 
@@ -336,13 +352,20 @@ type BlobRow struct {
 	LastAccess time.Time
 }
 
-// GetEvictableBlobs returns blobs older than minAge, LRU-first.
-func (s *Store) GetEvictableBlobs(minAge time.Duration, limit int) ([]BlobRow, error) {
-	cutoff := time.Now().Add(-minAge)
+// GetBlobsByLRU returns blobs oldest-access-first for eviction scans.
+// Retention filtering happens in the janitor (per-blob, size-weighted),
+// so this returns every tracked blob in pages.
+func (s *Store) GetBlobsByLRU(limit, offset int) ([]BlobRow, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
 	rows, err := s.db.Query(
 		`SELECT hash, size, created_at, last_access FROM blobs
-		 WHERE created_at < ? ORDER BY last_access ASC LIMIT ?`,
-		cutoff, limit,
+		 ORDER BY last_access ASC LIMIT ? OFFSET ?`,
+		limit, offset,
 	)
 	if err != nil {
 		return nil, err
@@ -402,11 +425,13 @@ func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 	}
 	defer rows.Close()
 	var out []BlobMeta
+	now := time.Now()
 	for rows.Next() {
 		var m BlobMeta
 		if err := rows.Scan(&m.Hash, &m.Size, &m.CreatedAt, &m.LastAccess, &m.AccessCount); err != nil {
 			return nil, err
 		}
+		fillBlobRetention(&m, now)
 		out = append(out, m)
 	}
 	if out == nil {

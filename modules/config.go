@@ -27,8 +27,18 @@ var (
 	BlobDir         = "/data/blobs"
 )
 
-// BlobMinAge is the minimum retention for /up blobs before LRU may evict them.
-const BlobMinAgeDays = 7
+// Blob retention policy (size-weighted):
+//   min_age  = 30 days  (applies at max_size)
+//   max_age  = 1 year   (applies at size 0)
+//   max_size = 512 MiB  (normalization point + upload cap)
+// retention(size) = min_age + (min_age - max_age) * (size/max_size - 1)^3
+// Small blobs are retained longest; the guarantee decays cubically to
+// min_age as the blob approaches max_size.
+const (
+	BlobMinAgeDays   = 30
+	BlobMaxAgeDays   = 365
+	BlobMaxSizeBytes = 512 * 1024 * 1024 // 512 MiB
+)
 
 var sizePattern = regexp.MustCompile(`(?i)^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$`)
 
@@ -41,7 +51,12 @@ func init() {
 	}
 
 	StorageMaxBytes = storageMaxBytes
+	// Per-blob uploads are capped at BlobMaxSizeBytes; the quota-derived
+	// cap still applies on small STORAGE_MAX deployments.
 	FileLimit = storageMaxBytes / 100
+	if FileLimit > BlobMaxSizeBytes {
+		FileLimit = BlobMaxSizeBytes
+	}
 }
 
 func envOrDefault(key, fallback string) string {
