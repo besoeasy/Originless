@@ -305,9 +305,6 @@ Originless is a headless, zero-auth backend binary. A suite of production-ready,
 | :------- | :------ | :---- |
 | `STORAGE_MAX` | `100GB` | Shared quota for IPFS datastore and `.bin` blobs |
 | `PIN_EXPIRY_DAYS` | `30` | Janitor may evict IPFS pins after this threshold |
-| `BLOB_DIR` | `/data/blobs` | On-disk storage path for `.bin` blobs |
-| `IPFS_PROFILE` | `lowpower` | Umbrel/home-friendly Kubo initialization |
-| `SWARM_ANNOUNCE` | | Public multiaddrs if **4001** is behind NAT |
 
 More env vars and every route: **[api.md](api.md)**.
 

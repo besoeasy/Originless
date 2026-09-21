@@ -24,19 +24,6 @@ csv_foreach() {
   printf '%s' "$1" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed '/^$/d'
 }
 
-json_string_array_from_csv() {
-  printf '%s' "$1" | awk -F',' '{
-    printf "["
-    for (i = 1; i <= NF; i++) {
-      gsub(/^[ \t]+|[ \t]+$/, "", $i)
-      if ($i == "") next
-      if (n++) printf ","
-      printf "\"%s\"", $i
-    }
-    printf "]"
-  }'
-}
-
 host_from_url() {
   # http://node-a:3232 → node-a   | https://originless.gupt.app/ → originless.gupt.app
   printf '%s' "$1" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://##' | sed 's#[/?].*##' | sed 's#:[0-9]*$##'
@@ -123,21 +110,10 @@ connect_swarm_multiaddrs() {
   done
 }
 
-# IPFS_PROFILE: lowpower (default, Umbrel/home-friendly), default, or server.
-# Connectivity still comes from bootstrap + published 4001 + swarm peering —
-# not from raising ConnMgr via the default/server profiles.
-profile=$(printf '%s' "${IPFS_PROFILE:-lowpower}" | tr '[:upper:]' '[:lower:]')
-case "$profile" in
-  lowpower|server|default|local-discovery|test|badgerds|flatfs|randomports) ;;
-  *) profile=lowpower ;;
-esac
-
+# Hardcoded lowpower profile for Umbrel/home-friendly resource usage.
+# Connectivity comes from bootstrap + published 4001 + swarm peering.
 if [ ! -f "$IPFS_PATH/config" ]; then
-  if [ "$profile" = "default" ]; then
-    ipfs init
-  else
-    ipfs init --profile="$profile"
-  fi
+  ipfs init --profile=lowpower
 fi
 
 ipfs config Datastore.StorageMax "${STORAGE_MAX:-100GB}"
@@ -194,15 +170,6 @@ ipfs bootstrap add \
 
 # Quiet Kubo telemetry nag in container logs (operators can re-enable).
 export IPFS_TELEMETRY="${IPFS_TELEMETRY:-off}"
-
-# Optional public multiaddrs when Docker publishes 4001 behind NAT/firewall.
-# Comma-separated, e.g. /ip4/203.0.113.10/tcp/4001,/ip4/203.0.113.10/udp/4001/quic-v1
-if [ -n "${SWARM_ANNOUNCE:-}" ]; then
-  announce_json=$(json_string_array_from_csv "$SWARM_ANNOUNCE")
-  if [ -n "$announce_json" ] && [ "$announce_json" != "[]" ]; then
-    ipfs config --json Addresses.Announce "$announce_json"
-  fi
-fi
 
 # Sticky Peering.Peers JSON array, e.g.
 # [{"ID":"12D3KooW...","Addrs":["/ip4/10.0.0.2/tcp/4001"]}]

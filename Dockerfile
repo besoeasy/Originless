@@ -13,7 +13,6 @@ FROM alpine:latest
 ENV STORAGE_MAX=100GB
 ENV PIN_EXPIRY_DAYS=30
 ENV IPFS_ROUTING=dhtclient
-ENV IPFS_PROFILE=lowpower
 
 RUN apk add --no-cache ca-certificates gcompat kubo wget && \
   adduser -D -h /app originless

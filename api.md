@@ -353,7 +353,7 @@ Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted
 
 - **Content-Type:** `multipart/form-data`
 - **Field name:** `file` (filename must end in `.bin`, case-insensitive)
-- Saved as `<sha256>.bin` under `BLOB_DIR` (default `/data/blobs`)
+- Saved as `<sha256>.bin` under `/data/blobs`
 - Retention: kept **minimum 7 days**; after that LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota with IPFS pins)
 
 ```bash

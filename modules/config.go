@@ -25,7 +25,7 @@ var (
 	StorageMaxBytes int64
 	FileLimit       int64
 	PinExpiryDays   = 30
-	BlobDir         string
+	BlobDir         = "/data/blobs"
 )
 
 // BlobMinAge is the minimum retention for /up blobs before LRU may evict them.
@@ -36,7 +36,6 @@ var sizePattern = regexp.MustCompile(`(?i)^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$`)
 func init() {
 	StorageMax = envOrDefault("STORAGE_MAX", "100GB")
 	PinExpiryDays = envOrDefaultInt("PIN_EXPIRY_DAYS", 30)
-	BlobDir = envOrDefault("BLOB_DIR", "/data/blobs")
 
 	storageMaxBytes, err := ParseSize(StorageMax)
 	if err != nil {
