@@ -4,9 +4,9 @@ Base URL: **`http://localhost:3232`**
 
 No API keys, accounts, or authentication.
 
-**CORS** — JSON API and dashboard pages send standard Originless headers: `Access-Control-Allow-Origin: *`, methods `GET, HEAD, POST, OPTIONS`, headers `Content-Type`.
+**CORS** — JSON API and dashboard pages send standard Originless headers: `Access-Control-Allow-Origin: *`, methods `GET, HEAD, POST, OPTIONS`, headers `Content-Type`. `OPTIONS` preflights return `204`.
 
-**Bodies** — JSON uses `Content-Type: application/json`. Responses are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` is not wrapped).
+**Bodies** — JSON uses `Content-Type: application/json`. Responses are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` and the SSE stream are not wrapped).
 
 Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `min(STORAGE_MAX / 100, 512 MiB)`.
 
@@ -16,12 +16,7 @@ Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads ret
 
 | Method | Path | What it does |
 | :----- | :--- | :----------- |
-| `GET` | [`/health`](#get-health) | Liveness + IPFS peer count |
 | `GET` | [`/status`](#get-status) | Node and storage snapshot |
-| `POST` | [`/upload`](#post-upload) | Pin a file to IPFS; returns a CID |
-| `POST` | [`/uploadfolder`](#post-uploadfolder) | Pin a directory tree as one root CID |
-| `GET` | [`/history`](#get-history) | Paginated upload log |
-| `GET` | [`/pins`](#get-pins) | Pinned count, bytes, and janitor threshold |
 | `POST` | [`/records`](#post-records) | Store a signed JSON record (8 KB max) |
 | `GET` | [`/records`](#get-records) | Query signed records (owner, collection, label, time) |
 | `GET` | [`/records/stream`](#get-recordsstream) | Real-time Server-Sent Events (SSE) feed |
@@ -35,31 +30,9 @@ Dashboard pages (`/`, `/agent.html`, …) are HTML, not JSON.
 
 ---
 
-## `GET /health`
-
-IPFS swarm check. Use this for container healthchecks and load balancers.
-
-```bash
-curl http://localhost:3232/health
-```
-
-**200** — daemon is up and has at least one peer:
-
-```json
-{ "status": "healthy", "peers": 140 }
-```
-
-**503** — daemon down, unreachable, or zero peers:
-
-```json
-{ "status": "unhealthy", "peers": 0, "reason": "No peers connected" }
-```
-
----
-
 ## `GET /status`
 
-Full node snapshot for the dashboard and operators.
+Node snapshot for the dashboard, operators, and container healthchecks.
 
 ```bash
 curl http://localhost:3232/status
@@ -71,132 +44,21 @@ curl http://localhost:3232/status
 | :---- | :------ |
 | `status` | `"success"` |
 | `timestamp` | RFC 3339 UTC |
-| `bandwidth` | Kubo totals and rates (`totalIn`, `totalOut`, `rateIn`, `rateOut`, `interval`) |
-| `repository` | Repo `size`, `storageMax`, `numObjects`, `path`, `version` |
-| `node` | Peer `id`, `publicKey`, `agentVersion`, `protocolVersion` |
-| `peers.count` | Connected swarm peers |
-| `storageLimit` | Configured `STORAGE_MAX` and current repo size |
+| `version` | Server build version |
+| `storageLimit` | Configured `STORAGE_MAX` (`configured` string, `bytes` integer) |
 | `fileLimit` | Per-upload cap (`configured` string, `bytes` integer) |
+| `blobs` | Tracked blobs (`count`, `size`, `sizeStr`) |
+| `records` | Live (unexpired) records (`count`) |
 
 ```json
 {
   "status": "success",
-  "timestamp": "2026-08-28T12:00:00Z",
-  "bandwidth": { "totalIn": 0, "totalOut": 0, "rateIn": 0, "rateOut": 0 },
-  "repository": { "size": 1048576, "storageMax": 107374182400, "numObjects": 12 },
-  "node": { "id": "12D3KooW...", "agentVersion": "kubo/0.34.0" },
-  "peers": { "count": 140 },
-  "storageLimit": { "configured": "100GB", "current": "1.00 MB" },
-  "fileLimit": { "configured": "512.00 MB", "bytes": 536870912 }
-}
-```
-
----
-
-## `POST /upload`
-
-Upload and pin any file.
-
-- **Content-Type:** `multipart/form-data`
-- **Field name:** `file` (only the first file part is read)
-
-```bash
-curl -X POST -F "file=@document.pdf" http://localhost:3232/upload
-```
-
-**200:**
-
-```json
-{
-  "status": "success",
-  "cid": "bafybeicg2oxl5gah64cvk44phwsr33m42x3fvwg6b2kdt6v2iylndr2mqu",
-  "size": 245760,
-  "type": "application/pdf",
-  "filename": "document.pdf",
-  "pinned": true
-}
-```
-
----
-
-## `POST /uploadfolder`
-
-Upload a directory tree under a single root CID.
-
-```bash
-curl -X POST \
-  -F "file=@dist/index.html;filename=index.html" \
-  -F "file=@dist/app.js;filename=assets/app.js" \
-  http://localhost:3232/uploadfolder
-```
-
-**200:**
-
-```json
-{
-  "status": "success",
-  "cid": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
-  "files": 2,
-  "size": 40960,
-  "pinned": true
-}
-```
-
----
-
-## `GET /history`
-
-Paginated list of pinned uploads.
-
-| Query | Default | Range |
-| :---- | :------ | :---- |
-| `limit` | `50` | 1–100 |
-| `offset` | `0` | ≥ 0 |
-
-```bash
-curl "http://localhost:3232/history?limit=20&offset=0"
-```
-
-**200:**
-
-```json
-{
-  "status": "success",
-  "uploads": [
-    {
-      "id": 1,
-      "cid": "bafybei...",
-      "filename": "document.pdf",
-      "size": 245760,
-      "created_at": "2026-08-28T12:00:00Z",
-      "unpinned": false
-    }
-  ],
-  "limit": 20,
-  "offset": 0
-}
-```
-
----
-
-## `GET /pins`
-
-Stats on currently tracked pins and eviction threshold.
-
-```bash
-curl http://localhost:3232/pins
-```
-
-**200:**
-
-```json
-{
-  "status": "success",
-  "pinnedCount": 42,
-  "pinnedSize": 524288000,
-  "pinnedSizeStr": "500.00 MB",
-  "storageLimit": "100GB",
-  "threshold": 75
+  "timestamp": "2026-09-21T02:00:00Z",
+  "version": "0.1.0",
+  "storageLimit": { "configured": "100GB", "bytes": 107374182400 },
+  "fileLimit": { "configured": "512.00 MB", "bytes": 536870912 },
+  "blobs": { "count": 12, "size": 1048576, "sizeStr": "1.00 MB" },
+  "records": { "count": 42 }
 }
 ```
 
@@ -300,13 +162,14 @@ Real-time Server-Sent Events (SSE) stream of newly published records matching qu
 ### SSE Event Format
 
 Response headers:
+
 ```
 Content-Type: text/event-stream; charset=utf-8
 Cache-Control: no-cache, no-transform
 Connection: keep-alive
 ```
 
-Clients receive an initial comment, followed by standard SSE event messages as records are published:
+Clients receive an initial comment, followed by standard SSE event messages as records are published (plus `: keepalive` comments every 15 s):
 
 ```text
 : connected
@@ -377,17 +240,19 @@ curl -X POST -F "file=@save.bin" http://localhost:3232/up
 
 Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file, `503` server busy.
 
+To reference the blob from a record, publish with `"data": { …, "_blob": "<hash>" }` (see [`POST /records`](#post-records)).
+
 ---
 
 ## `GET /blobs`
 
-List stored `.bin` binary blobs, ordered newest-first.
+List stored `.bin` binary blobs, ordered newest-first. Each entry carries its computed retention window.
 
 ```bash
 curl "http://localhost:3232/blobs?limit=50&offset=0"
 ```
 
-**200 OK**:
+**200 OK:**
 
 ```json
 {
@@ -403,7 +268,10 @@ curl "http://localhost:3232/blobs?limit=50&offset=0"
       "size": 4096,
       "created_at": "2026-09-21T09:00:00Z",
       "last_access": "2026-09-21T09:05:00Z",
-      "access_count": 2
+      "access_count": 2,
+      "retention_secs": 31535337,
+      "retained_until": "2027-09-21T09:00:00Z",
+      "protected": true
     }
   ]
 }
@@ -415,29 +283,13 @@ curl "http://localhost:3232/blobs?limit=50&offset=0"
 
 Serve a stored blob by sha256. `HEAD` is also allowed. Every hit refreshes LRU recency.
 
-- `{hash}` must be 64 lowercase hex chars (`400` otherwise)
-- Responses send `Content-Type: application/octet-stream`, `ETag: "<hash>"`, and immutable-friendly `Cache-Control`
-- Unknown or evicted hashes return `404`
+- `{hash}` must be 64 hex chars, case-insensitive (`400` otherwise)
+- Responses send `Content-Type: application/octet-stream`, `Content-Disposition: inline; filename="<hash>.bin"`, `ETag: "<hash>"`, and immutable-friendly `Cache-Control`
+- Unknown or evicted hashes return `404` (stale DB rows are dropped)
 
 ```bash
 curl -O "http://localhost:3232/down/e3b0...85"
 ```
-
----
-
-## Gateway Fetching (Rainbow & Public Gateways)
-
-To protect node operators from serving abusive web traffic and legal liabilities, Originless does not host an open HTTP gateway on port `3232`. Requests to `/ipfs/` or `/ipns/` return `404 Not Found`.
-
-Content pinned by Originless is broadcast across the IPFS swarm on port `4001` (Bitswap). To fetch content over HTTP:
-
-- **[Rainbow](https://github.com/ipfs/rainbow)** (Recommended) — The official standalone IPFS HTTP gateway implementation in Go. Provides automated denylist enforcement (`badbits`), subdomain origin isolation, and caching.
-- **Public Gateways**:
-  ```bash
-  curl -O "https://inbrowser.link/ipfs/$CID"
-  curl -O "https://ipfs.io/ipfs/$CID"
-  ```
-- **Native IPFS URIs**: `ipfs://$CID`
 
 ---
 
@@ -451,16 +303,12 @@ curl http://localhost:3232/metrics
 
 | Metric | Type | Meaning |
 | :----- | :--- | :------ |
-| `originless_build_info{version=…}` | gauge | Build version (`1.0.4`) |
-| `originless_http_requests_total{path=…}` | counter | Requests by path |
+| `originless_http_requests_total{path=…}` | counter | Requests by path (`/records/{id}` and `/down/{hash}` are label-normalized) |
 | `originless_http_errors_total` | counter | Responses with status ≥ 400 |
-| `originless_uploads_total` | counter | Successful upload operations |
-| `originless_upload_bytes_total` | counter | Bytes added via upload endpoints |
-| `originless_pinned_count` / `_bytes` | gauge | Current janitor-tracked pins |
-| `originless_storage_limit_bytes` | gauge | `STORAGE_MAX` |
-| `originless_storage_used_bytes` | gauge | Kubo repo size |
-| `originless_ipfs_healthy` | gauge | `1` / `0` |
-| `originless_ipfs_peers` | gauge | Swarm peer count |
+| `originless_uploads_total` | counter | Successful `POST /up` uploads |
+| `originless_upload_bytes_total` | counter | Bytes stored via `POST /up` |
+| `originless_storage_limit_bytes` | gauge | `STORAGE_MAX` in bytes |
+| `originless_storage_used_bytes` | gauge | Tracked blob bytes (refreshed per scrape) |
 
 ---
 
@@ -468,7 +316,7 @@ curl http://localhost:3232/metrics
 
 | Path | Notes |
 | :--- | :---- |
-| `GET /` | Node dashboard (library, telemetry, status) |
+| `GET /` | Node dashboard (Quick Records + Binary Blobs) |
 | `GET /agent` | `301` → `/agent.html` |
 | `GET /agent.html` | Standalone Agent Prompt & Skill guide |
 | `GET /library.html` | `301` → `/` |
@@ -481,6 +329,5 @@ curl http://localhost:3232/metrics
 | :----- | :--- |
 | `400` | Missing `file` part, empty filename, or malformed multipart |
 | `413` | File larger than `min(STORAGE_MAX / 100, 512 MiB)` (`maxSize` is included) |
-| `415` | `/up` only: filename does not end in `.bin` |
+| `415` | Filename does not end in `.bin` |
 | `503` | 3 uploads already in flight (`"Server busy"`) |
-| `500` | Kubo add/pin failed |
