@@ -75,24 +75,3 @@ func TestGzipDropsHandlerContentLength(t *testing.T) {
 	}
 }
 
-func TestGzipSkipsGatewayPaths(t *testing.T) {
-	innerCalled := false
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		innerCalled = true
-		w.Header().Set("Content-Encoding", "gzip")
-		_, _ = w.Write([]byte("kubo"))
-	})
-	h := Gzip(inner)
-
-	req := httptest.NewRequest(http.MethodGet, "/ipfs/QmTest", nil)
-	req.Header.Set("Accept-Encoding", "gzip")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-
-	if !innerCalled {
-		t.Fatal("expected gateway handler to run")
-	}
-	if rec.Body.String() != "kubo" {
-		t.Fatalf("gateway body should pass through uncompressed by Originless, got %q", rec.Body.String())
-	}
-}

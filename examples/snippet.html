@@ -537,7 +537,7 @@
           </div>
 
           <div class="form-group">
-            <label class="kicker">Node Gateway URL</label>
+            <label class="kicker">Public Gateway URL</label>
             <div class="addon">
               <input class="field mono grow" type="text" :value="receipt.gatewayUrl" readonly @click="$event.target.select()" />
               <a class="addon-btn" :href="receipt.gatewayUrl" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i></a>
@@ -553,17 +553,6 @@
               <input class="field mono grow" type="text" :value="'ipfs://' + receipt.cid" readonly @click="$event.target.select()" />
               <button class="addon-btn" type="button" @click="copyText('ipfs://' + receipt.cid, 'uri')">
                 <i :class="copiedKey === 'uri' ? 'fas fa-check' : 'fas fa-copy'"></i>
-              </button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="kicker">Raw Node Endpoint</label>
-            <div class="addon">
-              <input class="field mono grow" type="text" :value="receipt.rawNodeUrl" readonly @click="$event.target.select()" />
-              <a class="addon-btn" :href="receipt.rawNodeUrl" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i></a>
-              <button class="addon-btn" type="button" @click="copyText(receipt.rawNodeUrl, 'rawNode')">
-                <i :class="copiedKey === 'rawNode' ? 'fas fa-check' : 'fas fa-copy'"></i>
               </button>
             </div>
           </div>
@@ -855,8 +844,7 @@ if __name__ == "__main__":
           this.receipt = {
             cid: data.cid,
             filename: filename,
-            gatewayUrl: `${this.nodeUrl}/ipfs/${data.cid}?filename=${fnEncoded}`,
-            rawNodeUrl: `${this.nodeUrl}/paste/${data.cid}`,
+            gatewayUrl: `https://inbrowser.link/ipfs/${data.cid}?filename=${fnEncoded}`,
             sha256: sha256,
           };
           this.checkNodeStatus();
@@ -871,7 +859,7 @@ if __name__ == "__main__":
         if (!cid) return;
         this.fetching = true;
         try {
-          const res = await fetch(`${this.nodeUrl}/ipfs/${cid}`);
+          const res = await fetch(`https://inbrowser.link/ipfs/${cid}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const text = await res.text();
           this.snippetContent = text;

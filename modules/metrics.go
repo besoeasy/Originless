@@ -31,11 +31,27 @@ func NewMetrics() *Metrics {
 	return &Metrics{requests: make(map[string]*atomic.Int64)}
 }
 
+func metricPath(path string) string {
+	if path == "" {
+		return "/"
+	}
+	if strings.HasPrefix(path, "/records/") {
+		return "/records/{id}"
+	}
+	if strings.HasPrefix(path, "/down/") {
+		return "/down/{hash}"
+	}
+	if strings.HasPrefix(path, "/examples/") {
+		return "/examples/*"
+	}
+	return path
+}
+
 // Middleware counts every HTTP request by URL path and flags 4xx/5xx responses
 // as errors. It is the outermost middleware so it sees all traffic.
 func (m *Metrics) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		m.IncRequest(gatewayRequestLabel(r))
+		m.IncRequest(metricPath(r.URL.Path))
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 		if rec.status >= http.StatusBadRequest {
@@ -170,14 +186,6 @@ func (m *Metrics) Handler(janitor *Manager, ipfs *Client) http.HandlerFunc {
 		sb.WriteString("# HELP originless_ipfs_peers Number of connected IPFS peers.\n")
 		sb.WriteString("# TYPE originless_ipfs_peers gauge\n")
 		fmt.Fprintf(&sb, "originless_ipfs_peers %d\n", m.peers.Load())
-
-		enabled := 0
-		if GatewayEnabled {
-			enabled = 1
-		}
-		sb.WriteString("# HELP originless_gateway_enabled Whether this node serves /ipfs and /ipns (1) or not (0).\n")
-		sb.WriteString("# TYPE originless_gateway_enabled gauge\n")
-		fmt.Fprintf(&sb, "originless_gateway_enabled %d\n", enabled)
 
 		w.Write([]byte(sb.String()))
 	}

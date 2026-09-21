@@ -435,7 +435,7 @@
     computed: {
       gatewayUrl() {
         if (!this.result) return "";
-        return `${this.nodeUrl}/ipfs/${this.result.cid}?filename=${encodeURIComponent(this.result.filename)}`;
+        return `https://inbrowser.link/ipfs/${this.result.cid}?filename=${encodeURIComponent(this.result.filename)}`;
       },
       ipfsUri() {
         if (!this.result) return "";

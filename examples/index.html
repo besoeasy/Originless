@@ -199,12 +199,8 @@
           ? window.location.origin
           : "http://localhost:3232");
 
-      const localGw = (window.location.origin && window.location.origin !== "null" && window.location.protocol.startsWith("http"))
-        ? `${window.location.origin}/ipfs/`
-        : "http://localhost:3232/ipfs/";
       const savedGateway = localStorage.getItem("ol_gateway_url");
       const gateways = [
-        { label: "This node (Originless)", url: localGw },
         { label: "inbrowser.link", url: "https://inbrowser.link/ipfs/" },
         { label: "ipfs.io (Official)", url: "https://ipfs.io/ipfs/" },
       ];
@@ -216,7 +212,7 @@
         tools: defaultTools,
         loadingTools: false,
         gateways,
-        currentGateway: savedGateway || localGw,
+        currentGateway: (savedGateway && !savedGateway.includes("localhost") && !savedGateway.includes("127.0.0.1")) ? savedGateway : "https://inbrowser.link/ipfs/",
       };
     },
     computed: {

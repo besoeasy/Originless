@@ -100,7 +100,6 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 			"bytes":      FileLimit,
 		},
 		"appVersion": AppVersion,
-		"gateway":    gatewayStatus(r),
 	}
 	writeJSON(w, http.StatusOK, payload)
 }

@@ -124,7 +124,7 @@ connect_swarm_multiaddrs() {
 }
 
 # IPFS_PROFILE: lowpower (default, Umbrel/home-friendly), default, or server.
-# Connectivity still comes from bootstrap + published 4001 + swarm gateway fetch —
+# Connectivity still comes from bootstrap + published 4001 + swarm peering —
 # not from raising ConnMgr via the default/server profiles.
 profile=$(printf '%s' "${IPFS_PROFILE:-lowpower}" | tr '[:upper:]' '[:lower:]')
 case "$profile" in
@@ -195,15 +195,6 @@ ipfs bootstrap add \
 # Quiet Kubo telemetry nag in container logs (operators can re-enable).
 export IPFS_TELEMETRY="${IPFS_TELEMETRY:-off}"
 
-# Gateway.NoFetch is off by default so /ipfs/{cid} retrieves from the swarm
-# (Kubo “retrieve and publish”). Set GATEWAY_NO_FETCH=true only on public hosts
-# that should serve local pins exclusively.
-if truthy "${GATEWAY_NO_FETCH:-}"; then
-  ipfs config --json Gateway.NoFetch true
-else
-  ipfs config --json Gateway.NoFetch false
-fi
-
 # Optional public multiaddrs when Docker publishes 4001 behind NAT/firewall.
 # Comma-separated, e.g. /ip4/203.0.113.10/tcp/4001,/ip4/203.0.113.10/udp/4001/quic-v1
 if [ -n "${SWARM_ANNOUNCE:-}" ]; then
@@ -219,13 +210,10 @@ if [ -n "${IPFS_PEERING:-}" ]; then
   ipfs config --json Peering.Peers "$IPFS_PEERING"
 fi
 
-# Gateway is disabled by default to prevent serving abusive HTTP traffic.
-# Use Rainbow (https://github.com/ipfs/rainbow) on a separate domain for fetching.
-if falsey "${ENABLE_GATEWAY:-false}"; then
-  ipfs config Addresses.Gateway '""'
-else
-  ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
-fi
+# Gateway is disabled to prevent serving abusive cleartext HTTP traffic.
+# Content is pinned and distributed via libp2p swarm (port 4001).
+# For HTTP retrieval, use Rainbow (https://github.com/ipfs/rainbow) on a separate domain.
+ipfs config Addresses.Gateway '""'
 
 # Drop a stale lock from a previous crashed container (single-process image).
 rm -f "$IPFS_PATH/repo.lock" "$IPFS_PATH/api"

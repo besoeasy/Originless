@@ -6,7 +6,7 @@ import (
 )
 
 func TestEnvOrDefaultBool(t *testing.T) {
-	const key = "TEST_ENABLE_GATEWAY"
+	const key = "TEST_BOOL_FLAG"
 	t.Cleanup(func() { os.Unsetenv(key) })
 
 	tests := []struct {

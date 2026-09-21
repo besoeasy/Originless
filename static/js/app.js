@@ -1,6 +1,6 @@
 (() => {
-  // Built-in public IPFS gateways. The local Originless gateway is prepended
-  // at runtime when ENABLE_GATEWAY is on (the default).
+  // Built-in public IPFS gateways for content resolution (Originless decouples HTTP
+  // fetching to public gateways or dedicated Rainbow instances).
   const PUBLIC_GATEWAY = "https://inbrowser.link/ipfs/";
   const GATEWAYS = [
     { label: "inbrowser.link", url: PUBLIC_GATEWAY },
@@ -9,15 +9,16 @@
 
   function migrateSavedGateway(url) {
     if (!url) return url;
+    if (url === "https://dweb.link/ipfs/" || url === "https://dweb.link/ipfs" || url.includes("/ipfs/")) {
+      // If previously pointed to a local /ipfs/ route, migrate to default public gateway
+      if (url.includes("127.0.0.1") || url.includes("localhost")) {
+        return PUBLIC_GATEWAY;
+      }
+    }
     if (url === "https://dweb.link/ipfs/" || url === "https://dweb.link/ipfs") {
       return PUBLIC_GATEWAY;
     }
     return url;
-  }
-
-  function localGateway() {
-    const origin = typeof window !== "undefined" && window.location ? window.location.origin : "http://localhost:3232";
-    return { label: "This node (Originless)", url: `${origin}/ipfs/`, local: true };
   }
 
   function formatBytes(bytes) {
@@ -295,7 +296,6 @@
         };
       },
       data() {
-        const local = localGateway();
         const savedGateway = migrateSavedGateway(safeGet("ol_gateway_url"));
         if (savedGateway && savedGateway !== safeGet("ol_gateway_url")) {
           safeSet("ol_gateway_url", savedGateway);
@@ -303,9 +303,9 @@
         return {
           activePage: options.page || "overview",
           
-          gateways: [local, ...GATEWAYS],
-          currentGateway: savedGateway || local.url,
-          gatewayEnabled: true,
+          gateways: GATEWAYS.slice(),
+          currentGateway: savedGateway || PUBLIC_GATEWAY,
+          gatewayEnabled: false,
 
           status: statusDefaults(),
           pinStats: pinDefaults(),
@@ -853,18 +853,11 @@ To confirm you have understood this skill, complete this check:
                 isHealthy: true,
               };
 
-              const local = localGateway();
-              this.gatewayEnabled = !data.gateway || data.gateway.enabled !== false;
-              if (this.gatewayEnabled) {
-                if (!this.gateways.some((g) => g.url === local.url)) {
-                  this.gateways = [local, ...GATEWAYS];
-                }
-              } else {
-                this.gateways = GATEWAYS.slice();
-                if (this.currentGateway === local.url) {
-                  this.currentGateway = GATEWAYS[0].url;
-                  safeSet("ol_gateway_url", this.currentGateway);
-                }
+              this.gatewayEnabled = false;
+              this.gateways = GATEWAYS.slice();
+              if (this.currentGateway.includes("127.0.0.1") || this.currentGateway.includes("localhost")) {
+                this.currentGateway = PUBLIC_GATEWAY;
+                safeSet("ol_gateway_url", this.currentGateway);
               }
             }
           } catch (err) {
@@ -1098,7 +1091,6 @@ To confirm you have understood this skill, complete this check:
   window.Originless = {
     GATEWAYS,
     PUBLIC_GATEWAY,
-    localGateway,
     formatBytes,
     formatDate,
     formatUnix,

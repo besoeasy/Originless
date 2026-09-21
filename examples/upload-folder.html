@@ -404,7 +404,7 @@
       },
       gatewayUrl() {
         if (!this.result) return "";
-        return `${this.nodeUrl}/ipfs/${this.result.cid}/`;
+        return `https://inbrowser.link/ipfs/${this.result.cid}/`;
       },
       curlSnippet() {
         return `curl -X POST \\\n  -F "file=@dist/index.html;filename=index.html" \\\n  -F "file=@dist/style.css;filename=style.css" \\\n  ${this.nodeUrl}/uploadfolder`;

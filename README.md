@@ -178,7 +178,6 @@ Open **http://localhost:3232** · Tools at **/examples/** · Full API in **[api.
 | `STORAGE_MAX` | `100GB` | Shared quota for IPFS datastore and `.bin` blobs |
 | `PIN_EXPIRY_DAYS` | `30` | Janitor may evict IPFS pins after this threshold |
 | `BLOB_DIR` | `/data/blobs` | On-disk storage path for `.bin` blobs |
-| `ENABLE_GATEWAY` | `false` | Disabled by default. Use Rainbow for fetching |
 | `IPFS_PROFILE` | `lowpower` | Umbrel/home-friendly Kubo initialization |
 | `SWARM_ANNOUNCE` | | Public multiaddrs if **4001** is behind NAT |
 

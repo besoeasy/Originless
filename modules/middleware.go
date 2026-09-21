@@ -21,14 +21,6 @@ func setCORS(w http.ResponseWriter) {
 
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Kubo already emits CORS for /ipfs and /ipns. Writing ours first
-		// makes ReverseProxy Add the same headers again; browsers treat
-		// duplicate Access-Control-Allow-Origin as a failed fetch().
-		if isGatewayRequest(r) && GatewayEnabled {
-			next.ServeHTTP(w, r)
-			return
-		}
-
 		setCORS(w)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -72,10 +64,7 @@ func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
 
 func Gzip(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Let Kubo handle compression for gateway streams so we do not
-		// double-gzip or buffer large CID payloads. HEAD has no body;
-		// wrapping it writes an empty gzip trailer and a bogus Content-Length.
-		if isGatewayRequest(r) || r.Method == http.MethodHead ||
+		if r.Method == http.MethodHead ||
 			!strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return

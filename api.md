@@ -78,10 +78,6 @@ curl http://localhost:3232/status
 | `storageLimit` | Configured `STORAGE_MAX` and current repo size |
 | `fileLimit` | Per-upload cap (`configured` string, `bytes` integer) |
 | `appVersion` | Originless version string |
-| `gateway.enabled` / `gateway.serving` | Whether this node serves `/ipfs` and `/ipns` over HTTP |
-| `gateway.path` / `gateway.ipns` | `"/ipfs/"` and `"/ipns/"` |
-| `gateway.url` / `gateway.ipnsUrl` | Public fetch URLs on this node (omitted when disabled) |
-| `gateway.kubo` | Native Kubo gateway URL (omitted when disabled) |
 
 ```json
 {
@@ -93,8 +89,7 @@ curl http://localhost:3232/status
   "peers": { "count": 140 },
   "storageLimit": { "configured": "100GB", "current": "1.00 MB" },
   "fileLimit": { "configured": "1.00 GB", "bytes": 1073741824 },
-  "appVersion": "1.0.4",
-  "gateway": { "enabled": true, "serving": true, "path": "/ipfs/", "ipns": "/ipns/" }
+  "appVersion": "1.0.4"
 }
 ```
 
@@ -376,7 +371,6 @@ curl http://localhost:3232/metrics
 | `originless_storage_used_bytes` | gauge | Kubo repo size |
 | `originless_ipfs_healthy` | gauge | `1` / `0` |
 | `originless_ipfs_peers` | gauge | Swarm peer count |
-| `originless_gateway_enabled` | gauge | `1` if `/ipfs` is served |
 
 ---
 
