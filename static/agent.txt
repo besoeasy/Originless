@@ -86,9 +86,9 @@ python:
 - Keep event bodies <= 8 KB; put large bytes in blobs, link via data._blob.
 - For replaceable state (profile, save slot): publish a new event per change,
   read with ?limit=1 (latest wins, older fade via expires_at).
-- After SSE disconnect, poll GET /events?limit=... to catch up.
-- Multi-node sync: Nodes with the same NETWORK_ID discover each other via
-  BitTorrent Mainline DHT and sync all events & blobs over P2P Bloom streams.
+- Multi-node sync: Nodes with the same NETWORK_ID (defaults to 'originless')
+  discover each other via BitTorrent Mainline DHT and sync all events & blobs
+  over P2P Bloom streams. Set NETWORK_ID=off to disable.
 
 Repo: https://github.com/besoeasy/Originless
 Full contract: GET /agent.txt is the summary; see api.md in the repo.

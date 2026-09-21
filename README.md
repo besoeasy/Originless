@@ -50,8 +50,9 @@ podman run -d --name originless --restart unless-stopped \
   ghcr.io/besoeasy/originless:latest
 ```
 
-* **Standalone mode**: Omit `-e NETWORK_ID` to run as an isolated local instance.
-* **Mesh mode**: Set `-e NETWORK_ID=<any-name>` on two or more machines. They automatically discover each other over the BitTorrent Mainline DHT, UPnP, and local network, keeping all events and blobs synchronized in real time.
+* **Default mesh**: By default, `NETWORK_ID` is `originless` — instances immediately join the global swarm out-of-the-box.
+* **Custom mesh**: Set `-e NETWORK_ID=my-project` on two or more machines to form an isolated private swarm.
+* **Standalone mode**: Set `-e NETWORK_ID=off` (or `none`) to disable P2P and run strictly local.
 * **Dashboard**: Open **http://localhost:3232** in your browser.
 * **AI Agents**: Point LLMs or agents at **[/agent.txt](static/agent.txt)** for the complete machine-readable contract.
 
@@ -59,7 +60,7 @@ podman run -d --name originless --restart unless-stopped \
 
 ## Automatic P2P Mesh (Torrent Network)
 
-Originless is built for zero-config Docker and Podman deployments. When `NETWORK_ID` is set:
+Originless is built for zero-config Docker and Podman deployments. With P2P active (`NETWORK_ID=originless` by default):
 
 1. **BitTorrent Mainline DHT (BEP 5)**: Nodes announce themselves to the global BitTorrent DHT swarm under `sha1("originless:" + NETWORK_ID)`.
 2. **Auto UPnP & NAT-PMP Port Forwarding**: On startup, Originless automatically maps port 3232 on your home or office Wi-Fi router.

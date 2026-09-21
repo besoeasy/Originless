@@ -17,10 +17,11 @@ var (
 		"dht.aelitis.com:6881",
 	}
 
-	DefaultP2PPath        = "/p2p"
-	DefaultP2PPort        = 3232
-	DefaultMaxPeers       = 8
-	DefaultSyncInterval   = 60 * time.Second
+	DefaultP2PPath         = "/p2p"
+	DefaultP2PPort         = 3232
+	DefaultNetworkID       = "originless"
+	DefaultMaxPeers        = 8
+	DefaultSyncInterval    = 60 * time.Second
 	DefaultDHTPollInterval = 120 * time.Second
 	DefaultGossipCacheSize = 10000
 )
@@ -35,15 +36,25 @@ type Config struct {
 }
 
 // LoadConfig reads the environment to configure the P2P subsystem.
-// If NETWORK_ID is non-empty, P2P sync is enabled.
+// Default NETWORK_ID is "originless". Set NETWORK_ID=off or none to disable.
 func LoadConfig() Config {
 	netID := strings.TrimSpace(os.Getenv("NETWORK_ID"))
 	if netID == "" {
 		netID = strings.TrimSpace(os.Getenv("NETWORKID"))
 	}
+	if netID == "" {
+		netID = DefaultNetworkID
+	}
+
+	enabled := true
+	lower := strings.ToLower(netID)
+	if lower == "none" || lower == "off" || lower == "disabled" || lower == "false" || lower == "0" {
+		enabled = false
+		netID = ""
+	}
 
 	cfg := Config{
-		Enabled:   netID != "",
+		Enabled:   enabled,
 		NetworkID: netID,
 		Port:      DefaultP2PPort,
 		Routers:   DefaultDHTBootstrapRouters,
