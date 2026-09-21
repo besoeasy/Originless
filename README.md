@@ -134,6 +134,15 @@ Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it 
 * **Retention**: Size-weighted retention policy (30 days at 512 MiB → 1 year near 0 bytes).
 * **Link to Events**: Add `data._blob = "<sha256>"` inside any event. As long as the signed event is unexpired, the janitor will never evict its blob.
 
+#### Why `.bin` Only? (Abuse Immunity & Security)
+Originless strictly accepts `.bin` files and rejects renderable/textual payloads (`text/*`, `image/*`, `application/pdf`). All downloads are served as `application/octet-stream` with `X-Content-Type-Options: nosniff`:
+
+* **No Free Media CDN / Hotlinking**: Prevents third-party sites from embedding images or streaming video through your node, protecting your bandwidth.
+* **Immunity to XSS & Phishing**: Browsers never execute, parse, or inline-render uploaded files under your origin. Malicious HTML, scripts, or weaponized SVGs are completely neutralized.
+* **Legal & Abuse Shield**: Open unauthenticated image/video hosts are magnets for copyright infringement, pirate streaming, and illicit media. Opaque `.bin` keeps Originless a blind, neutral data pipe.
+* **Zero Parsing Attack Surface**: No image thumbnailers, EXIF extractors, or video transcoders that can be targeted by decompression bombs or memory corruption exploits.
+* **Client-Sovereign Media**: Need to store an image or document? Package or encrypt it into a `.bin`, link its hash inside a signed event (`data._blob = "<hash>"`), and decode or render it client-side (`URL.createObjectURL`).
+
 ---
 
 ## Showcase: Replacing Common Architectures
