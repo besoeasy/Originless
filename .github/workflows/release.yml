@@ -46,7 +46,6 @@ jobs:
 
       - name: Syntax check
         run: |
-          bash -n docker-entrypoint.sh
           go vet ./...
           go build -v .
 

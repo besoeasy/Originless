@@ -18,10 +18,8 @@ RUN apk add --no-cache ca-certificates wget && \
 WORKDIR /app
 
 COPY --from=builder /originless /app/originless
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
-RUN chmod +x /app/docker-entrypoint.sh && \
-  mkdir -p /data && \
+RUN mkdir -p /data && \
   chown -R originless:originless /app /data
 
 USER originless
@@ -34,4 +32,4 @@ STOPSIGNAL SIGTERM
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 CMD wget -qO- http://127.0.0.1:3232/status || exit 1
 
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/app/originless"]
