@@ -44,7 +44,7 @@ func main() {
 	}
 	defer database.Close()
 
-	janitorMgr := modules.NewJanitor(database, modules.StorageMaxBytes)
+	janitorMgr := modules.NewJanitor(database)
 
 	log.Printf("[STARTUP] reconciling blob store...")
 	if err := janitorMgr.ReconcileBlobs(); err != nil {
@@ -57,10 +57,11 @@ func main() {
 	router := modules.NewRouter(janitorMgr, uiFS())
 
 	// ReadTimeout/WriteTimeout are intentionally 0: full-body reads must
-	// tolerate slow uploads up to the 512 MiB cap, and the SSE live stream
-	// is long-lived (a fixed WriteTimeout would kill every stream at 2 min
-	// — Go sets one absolute write deadline per request). Header reads are
-	// still bounded by ReadHeaderTimeout and keep-alive idle by IdleTimeout.
+	// tolerate slow uploads (there is no upload size cap), and the SSE live
+	// stream is long-lived (a fixed WriteTimeout would kill every stream at
+	// 2 min — Go sets one absolute write deadline per request). Header reads
+	// are still bounded by ReadHeaderTimeout and keep-alive idle by
+	// IdleTimeout.
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", modules.Host, modules.Port),
 		Handler:           router,

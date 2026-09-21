@@ -27,20 +27,20 @@ ed25519 keypair held by the client; the server only verifies signatures.
    hidden unless `include_expired=true`. List pagination is a keyset cursor
    `<created_at>:<id>` in `next_cursor` (numeric offsets still accepted).
 3. **Upload** (`POST /up`, max 3 concurrent): stream to an `up-*` temp file,
-   sniff content, size/quota gate, rename to `<sha256>.bin`, upsert DB row.
-   Post-hash quota uses a fresh size sum so the hard cap can't be bypassed.
+   sniff content, rename to `<sha256>.bin`, upsert DB row.
 4. **Download** (`GET /down/{hash}`, `HEAD` allowed): serve bytes, refresh LRU
    recency; unknown/evicted hashes are `404` and stale DB rows are dropped.
 5. **Janitor** (hourly + startup): size-weighted blob retention (30 d at
-   512 MiB → 1 y at size 0), LRU eviction above 75% of `STORAGE_MAX`, expiry
-   purge of records, hash re-verification, and sweep of crashed `up-*` temps.
-   Blobs linked from live records are never evicted.
+   512 MiB → 1 y at size 0), eviction of blobs whose retention has expired,
+   expiry purge of records, hash re-verification, and sweep of crashed
+   `up-*` temps. Blobs linked from live records are never evicted.
 
 ## Storage and limits
 
 - SQLite (`/data/originless.db`), WAL + `synchronous=NORMAL`, one connection.
-- Blobs live in `/data/blobs`; `STORAGE_MAX` (default `100GB`); per-file cap
-  is `min(STORAGE_MAX/100, 512 MiB)`; records capped at 8 KB.
+- Blobs live in `/data/blobs`; no total pool cap and no per-file size cap —
+  blobs persist until their size-weighted retention elapses. Records capped
+  at 8 KB.
 - SSE capped at `SSE_MAX_SUBSCRIBERS` (default 256, `503` beyond); each stream
   frame carries a write deadline so stuck clients are disconnected, not leaked.
 - No read/write server timeouts (slow uploads and long streams survive);

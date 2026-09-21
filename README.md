@@ -40,7 +40,7 @@ podman run -d \
   ghcr.io/besoeasy/originless:latest
 ```
 
-Optional: `-e STORAGE_MAX=100GB` caps total blob storage (default `100GB`). Per-file uploads cap at `min(STORAGE_MAX/100, 512 MiB)`.
+There is **no total storage cap** and uploads are **not size-limited**: blobs persist until their size-weighted retention window elapses, then the janitor evicts them. Data persists in the `/data` volume.
 
 Open **http://localhost:3232** for the dashboard · Full API in **[api.md](api.md)**
 
@@ -51,7 +51,7 @@ Open **http://localhost:3232** for the dashboard · Full API in **[api.md](api.m
 Two primitives, no auth:
 
 - **Quick Records** (`POST /records`, `GET /records`, `GET /records/stream`) — Ed25519-signed JSON documents (8 KB max) with collections, labels, mandatory TTL, and a real-time SSE feed. Identity is a keypair; IDs are server-computed content hashes.
-- **Binary Blobs** (`POST /up`, `GET /down/{hash}`, `GET /blobs`) — opaque `.bin` files stored as `<sha256>.bin`, deduplicated, with size-weighted retention (30 days at 512 MiB → 1 year near 0 bytes) and LRU eviction under quota pressure. Non-binary uploads (HTML, images, PDFs, text) are rejected; downloads send `nosniff`.
+- **Binary Blobs** (`POST /up`, `GET /down/{hash}`, `GET /blobs`) — opaque `.bin` files stored as `<sha256>.bin`, deduplicated, with size-weighted retention (30 days at 512 MiB → 1 year near 0 bytes). Expired blobs are evicted periodically by the janitor. Non-binary uploads (HTML, images, PDFs, text) are rejected; downloads send `nosniff`.
 
 Records link blobs via `"_blob": "<sha256>"` in `data` — validated on publish, exempt from eviction while the record lives, inlinable with `GET /records/{id}?resolve=blob`.
 

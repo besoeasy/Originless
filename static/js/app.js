@@ -167,8 +167,6 @@
     return {
       version: "...",
       timestamp: "...",
-      storageLimit: { configured: "Unknown", bytes: 0 },
-      fileLimit: { configured: "Unknown", bytes: 0 },
       blobs: { count: 0, size: 0, sizeStr: "0 B" },
       records: { count: 0 },
       isHealthy: true,
@@ -282,20 +280,6 @@
           } catch (_) {
             return "";
           }
-        },
-
-        storagePercentage() {
-          const st = (this && this.status) || {};
-          const max = (st.storageLimit && st.storageLimit.bytes) || 0;
-          if (!max || max === 0) return 0;
-          const pct = ((this.blobsTotalBytes || 0) / max) * 100;
-          return Math.min(100, Math.max(0, Math.round(pct * 10) / 10));
-        },
-
-        storageGaugeClass() {
-          if (this.storagePercentage >= 90) return "is-critical";
-          if (this.storagePercentage >= 75) return "is-warn";
-          return "";
         },
 
         nodeGraphics() {
@@ -443,27 +427,19 @@
         },
 
         storageBreakdown() {
-          const st = (this && this.status) || {};
-          const maxBytes = (st.storageLimit && st.storageLimit.bytes) || (100 * 1024 * 1024 * 1024);
           const usedBytes = this.blobsTotalBytes || 0;
-          const thresholdPct = 75;
-          const thresholdBytes = maxBytes * (thresholdPct / 100);
-          const headroomBytes = Math.max(0, thresholdBytes - usedBytes);
-
-          const usedPct = maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0;
-          const visualUsedPct = usedBytes > 0 ? Math.max(1.8, usedPct) : 0;
-
-          const isOverThreshold = usedBytes >= thresholdBytes;
-
           return {
             usedBytes,
-            headroomBytes,
             usedStr: formatBytes(usedBytes),
-            headroomStr: formatBytes(headroomBytes),
-            usedPct: Math.round(visualUsedPct * 10) / 10,
-            statusText: isOverThreshold ? "Evicting Over Quota" : "Operating in Safe Zone",
-            isOverThreshold,
           };
+        },
+
+        blobsProtectedCount() {
+          return (this.blobs || []).filter((b) => isBlobProtected(b)).length;
+        },
+
+        blobsExpiredCount() {
+          return (this.blobs || []).filter((b) => !isBlobProtected(b)).length;
         },
 
         filteredRecords() {
@@ -591,8 +567,6 @@ Whenever you need to publish records or store blobs, use this Originless node.`;
               this.status = {
                 version: data.version || "0.1.0",
                 timestamp: new Date(data.timestamp).toLocaleTimeString("en-US", { hour12: false }),
-                storageLimit: data.storageLimit || { configured: "Unknown", bytes: 0 },
-                fileLimit: data.fileLimit || { configured: "Unknown", bytes: 0 },
                 blobs: data.blobs || { count: 0, size: 0, sizeStr: "0 B" },
                 records: data.records || { count: 0 },
                 isHealthy: true,

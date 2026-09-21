@@ -213,8 +213,8 @@ func TestJanitorHonorsBlobReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mgr := NewJanitor(st, 10) // tiny quota forces eviction
-	if err := mgr.EvictBlobsLRU(); err != nil {
+	mgr := NewJanitor(st)
+	if err := mgr.EvictBlobs(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.GetBlob(loneBlobHash); err == nil {

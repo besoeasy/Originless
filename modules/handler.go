@@ -51,14 +51,6 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		"status":    "success",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"version":   Version,
-		"storageLimit": map[string]any{
-			"configured": StorageMax,
-			"bytes":      StorageMaxBytes,
-		},
-		"fileLimit": map[string]any{
-			"configured": FormatBytes(FileLimit),
-			"bytes":      FileLimit,
-		},
 		"blobs": map[string]any{
 			"count": 0, "size": int64(0), "sizeStr": FormatBytes(0),
 		},

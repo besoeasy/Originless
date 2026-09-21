@@ -22,7 +22,7 @@ type Store struct {
 	db *sql.DB
 
 	// blobSize caches SUM(blobs.size) for a short window. The publish
-	// path, /status, /metrics, /blobs and upload quota checks all read it;
+	// path, /status, /metrics and /blobs all read it;
 	// a TTL keeps this O(1) instead of scanning the whole blob table.
 	blobSizeMu        sync.Mutex
 	blobSize          int64
@@ -416,22 +416,9 @@ func (s *Store) DeleteBlob(hash string) error {
 	return err
 }
 
-// GetBlobSizeFresh returns the live SUM(size) for hard quota enforcement
-// where bounded staleness is not acceptable (the post-hash upload gate).
-func (s *Store) GetBlobSizeFresh() (int64, error) {
-	var total sql.NullInt64
-	if err := s.db.QueryRow(`SELECT SUM(size) FROM blobs`).Scan(&total); err != nil {
-		return 0, err
-	}
-	if total.Valid {
-		return total.Int64, nil
-	}
-	return 0, nil
-}
-
 // GetBlobSize sums tracked blob bytes. The result is cached for a short TTL
-// because hot paths (/up quota checks, /status, /metrics, /blobs) read it far
-// more often than the blob table changes.
+// because hot paths (/status, /metrics, /blobs) read it far more often than
+// the blob table changes.
 func (s *Store) GetBlobSize() (int64, error) {
 	s.blobSizeMu.Lock()
 	defer s.blobSizeMu.Unlock()

@@ -134,10 +134,6 @@ func (m *Metrics) Handler(janitor *Manager, broadcaster *RecordBroadcaster) http
 		sb.WriteString("# TYPE originless_upload_bytes_total counter\n")
 		fmt.Fprintf(&sb, "originless_upload_bytes_total %d\n", m.uploadSize.Load())
 
-		sb.WriteString("# HELP originless_storage_limit_bytes Configured storage limit.\n")
-		sb.WriteString("# TYPE originless_storage_limit_bytes gauge\n")
-		fmt.Fprintf(&sb, "originless_storage_limit_bytes %d\n", StorageMaxBytes)
-
 		sb.WriteString("# HELP originless_storage_used_bytes Storage used by tracked blobs.\n")
 		sb.WriteString("# TYPE originless_storage_used_bytes gauge\n")
 		fmt.Fprintf(&sb, "originless_storage_used_bytes %d\n", m.storageUsed.Load())

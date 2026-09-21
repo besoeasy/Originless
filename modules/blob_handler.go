@@ -36,22 +36,6 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// Best-effort quota pre-check: reject obviously-over-quota uploads
-	// before staging bytes to disk. Duplicates (same hash) use no extra
-	// space, so the check is re-evaluated post-hash below.
-	quota := StorageMaxBytes
-	if h.janitor != nil {
-		quota = h.janitor.StorageLimit()
-	}
-	if r.ContentLength > 0 {
-		if total, err := st.GetBlobSize(); err == nil && total+r.ContentLength > quota {
-			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
-				"status": "error", "error": "storage quota exceeded",
-				"limit": quota, "used": total,
-			})
-			return
-		}
-	}
 	if err := EnsureBlobDir(BlobDir); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"status": "error", "error": "blob storage unavailable",
@@ -59,7 +43,6 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, FileLimit+1024*1024)
 	reader, err := r.MultipartReader()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
@@ -138,16 +121,9 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 	hasher := sha256.New()
 	// Replays the sniffed head so no byte is lost or double-counted.
 	stream := io.MultiReader(bytes.NewReader(headBytes), partReader)
-	limited := io.LimitReader(stream, FileLimit+1)
-	written, err := io.Copy(tmp, io.TeeReader(limited, hasher))
+	written, err := io.Copy(tmp, io.TeeReader(stream, hasher))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
-		return
-	}
-	if written > FileLimit {
-		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
-			"status": "error", "error": "file too large", "maxSize": FormatBytes(FileLimit),
-		})
 		return
 	}
 	if written == 0 {
@@ -162,20 +138,6 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 	sum := hasher.Sum(nil)
 	hash := hex.EncodeToString(sum)
 	dest := BlobPath(BlobDir, hash)
-
-	// Post-hash quota enforcement (covers chunked uploads with unknown
-	// ContentLength). Deduped bytes use no new space, so existing dests
-	// always pass. Uses a fresh SUM so the hard cap is never bypassed by
-	// the cached storage total.
-	if _, err := os.Stat(dest); os.IsNotExist(err) {
-		if total, err := st.GetBlobSizeFresh(); err == nil && total+written > quota {
-			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
-				"status": "error", "error": "storage quota exceeded",
-				"limit": quota, "used": total,
-			})
-			return
-		}
-	}
 
 	duplicate := false
 	if _, err := os.Stat(dest); err == nil {
@@ -205,10 +167,10 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 
 	h.metrics.IncUpload(written)
 
-	// Best-effort LRU pressure relief (never fails the upload itself).
+	// Best-effort cleanup of retention-expired blobs (never fails the upload itself).
 	if h.janitor != nil {
-		if err := h.janitor.CheckBlobThreshold(); err != nil {
-			log.Printf("[blob] threshold eviction error: %v", err)
+		if err := h.janitor.EvictBlobs(); err != nil {
+			log.Printf("[blob] eviction error: %v", err)
 		}
 	}
 

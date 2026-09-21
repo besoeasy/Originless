@@ -252,7 +252,7 @@ func TestDownBadHashAndMissing(t *testing.T) {
 	}
 }
 
-func TestBlobLRURespectsRetention(t *testing.T) {
+func TestBlobEvictionRespectsRetention(t *testing.T) {
 	st := testStore(t)
 	dir := t.TempDir()
 	withBlobDir(t, dir)
@@ -295,9 +295,9 @@ func TestBlobLRURespectsRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Tiny quota forces eviction; only the retention-expired big blob is eligible.
-	mgr := NewJanitor(st, 10)
-	if err := mgr.EvictBlobsLRU(); err != nil {
+	// Only the retention-expired big blob is eligible for eviction.
+	mgr := NewJanitor(st)
+	if err := mgr.EvictBlobs(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.GetBlob(oldHash); err == nil {
@@ -338,7 +338,7 @@ func TestReconcileCleansStaleTemps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mgr := NewJanitor(st, StorageMaxBytes)
+	mgr := NewJanitor(st)
 	if err := mgr.ReconcileBlobs(); err != nil {
 		t.Fatal(err)
 	}
@@ -351,30 +351,6 @@ func TestReconcileCleansStaleTemps(t *testing.T) {
 	}
 	if _, err := os.Stat(elsewhere); err != nil {
 		t.Fatalf("non-temp non-bin file must survive reconcile: %v", err)
-	}
-}
-
-func TestGetBlobSizeFreshBypassesCache(t *testing.T) {
-	st := testStore(t)
-
-	if _, err := st.UpsertBlob("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 100); err != nil {
-		t.Fatal(err)
-	}
-	if n, err := st.GetBlobSize(); err != nil || n != 100 {
-		t.Fatalf("GetBlobSize=%d err=%v want 100", n, err)
-	}
-
-	// A second blob lands inside the TTL window...
-	if _, err := st.UpsertBlob("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 50); err != nil {
-		t.Fatal(err)
-	}
-	// ...so GetBlobSize still serves the cached 100...
-	if n, err := st.GetBlobSize(); err != nil || n != 100 {
-		t.Fatalf("cached GetBlobSize=%d err=%v want 100", n, err)
-	}
-	// ...while GetBlobSizeFresh recomputes: 150.
-	if n, err := st.GetBlobSizeFresh(); err != nil || n != 150 {
-		t.Fatalf("GetBlobSizeFresh=%d err=%v want 150", n, err)
 	}
 }
 

@@ -189,9 +189,9 @@
           <div class="traffic-card-head">
             <div class="traffic-badge-wrap">
               <span class="showcase-badge">Storage</span>
-              <span class="pill" :class="storageBreakdown.isOverThreshold ? 'pill-mute' : 'pill-ok'"><span class="dot"></span>{{ storageBreakdown.statusText }}</span>
+              <span class="pill pill-ok"><span class="dot"></span>{{ storageBreakdown.usedStr }}</span>
             </div>
-            <span class="mono traffic-interval">Safe Watermark 75%</span>
+            <span class="mono traffic-interval">No Total Pool Cap</span>
           </div>
 
           <div class="traffic-rates-block">
@@ -207,19 +207,19 @@
             <div class="traffic-rate-sep"></div>
 
             <div class="traffic-rate-item">
-              <span class="traffic-dir-label">QUOTA LIMIT</span>
+              <span class="traffic-dir-label">RETENTION WINDOW</span>
               <div class="traffic-rate-val mono text-out">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <span>{{ status.storageLimit.configured || '100GB' }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>30d – 1y</span>
               </div>
-              <span class="traffic-total-sub mono">{{ storageBreakdown.headroomStr }} headroom</span>
+              <span class="traffic-total-sub mono">size-weighted</span>
             </div>
           </div>
 
           <div class="traffic-wave-wrap">
-            <div class="storage-mini-bar" :class="storageGaugeClass">
-              <div class="storage-mini-fill" :style="{ width: storagePercentage + '%' }"></div>
-              <span class="storage-mini-pct mono">{{ storagePercentage }}%</span>
+            <div class="storage-mini-bar" :title="'Size-weighted retention: 30d at 512 MiB → 1y at 0 B'">
+              <div class="storage-mini-fill" style="width: 100%; max-width: 100%;"></div>
+              <span class="storage-mini-pct mono">persistent</span>
             </div>
           </div>
         </div>
@@ -241,7 +241,7 @@
             </div>
             <div class="hub-card-body">
               <h3>Binary Blobs</h3>
-              <p>Store raw binaries and artifacts as SHA-256 content-addressed blobs with size-weighted retention (30 days–1 year) and LRU eviction.</p>
+              <p>Store raw binaries and artifacts as SHA-256 content-addressed blobs with size-weighted retention (30 days–1 year) and periodic eviction of expired blobs.</p>
             </div>
             <div class="hub-card-foot">
               <span class="mono">POST /up · SHA-256</span>
@@ -279,54 +279,53 @@
         <div class="storage-policy-head">
           <div class="storage-policy-title">
             <span class="showcase-badge">Storage &amp; Cache Policy</span>
-            <span class="pill" :class="storageBreakdown.isOverThreshold ? 'pill-mute' : 'pill-ok'">
+            <span class="pill pill-ok">
               <span class="dot"></span>
-              {{ storageBreakdown.statusText }}
+              Persistent
             </span>
           </div>
           <div class="storage-policy-limits mono">
-            Quota: {{ status.storageLimit.configured || '100GB' }} · Safe Watermark: 75%
+            No total storage cap · Retention 30d at 512 MiB → 1y at 0 B
           </div>
         </div>
 
         <div class="storage-policy-grid">
-          <!-- Main Capacity Bar with 75% Eviction Threshold Line -->
+          <!-- Blob Storage Panel -->
           <div class="storage-panel">
             <div class="panel-header">
-              <span class="panel-title">Blob Capacity</span>
+              <span class="panel-title">Blob Storage</span>
               <span class="panel-meta mono">
-                {{ storageBreakdown.usedStr }} ({{ storagePercentage }}%)
+                {{ storageBreakdown.usedStr }}
               </span>
             </div>
 
-            <!-- Segmented Progress Track -->
-            <div class="capacity-track-wrap">
-              <div class="capacity-track">
-                <div
-                  class="capacity-fill fill-used"
-                  :style="{ width: storageBreakdown.usedPct + '%' }"
-                  :title="'Stored Blobs: ' + storageBreakdown.usedStr"
-                ></div>
-              </div>
-              <!-- 75% threshold marker -->
-              <div class="capacity-marker" style="left: 75%;" :title="'Auto-eviction trigger at 75%'">
-                <span class="marker-line"></span>
-                <span class="marker-label">75% EVICT</span>
-              </div>
-            </div>
-
-            <!-- Legend for capacity -->
-            <div class="capacity-legend">
+            <div class="capacity-legend" style="margin-top: 0.75rem;">
               <div class="legend-item">
                 <span class="legend-dot dot-used"></span>
                 <span class="legend-name">Stored Blobs:</span>
-                <span class="mono">{{ storageBreakdown.usedStr }}</span>
+                <span class="mono">{{ storageBreakdown.usedStr }} ({{ blobsCount }} blobs)</span>
               </div>
               <div class="legend-item">
-                <span class="legend-dot dot-headroom"></span>
-                <span class="legend-name">Safe Headroom:</span>
-                <span class="mono">{{ storageBreakdown.headroomStr }}</span>
+                <span class="legend-dot" style="background:#38bdf8;"></span>
+                <span class="legend-name">Retention:</span>
+                <span class="mono">30d @ 512 MiB → 1y @ 0 B</span>
               </div>
+            </div>
+
+            <div v-if="(blobs || []).length > 0" class="type-legend" style="margin-top: 0.75rem;">
+              <div class="type-pill">
+                <span class="type-dot" style="background:#3dd68c;"></span>
+                <span class="type-name">Protected (inside retention)</span>
+                <span class="mono type-pct">{{ blobsProtectedCount || 0 }}</span>
+              </div>
+              <div class="type-pill">
+                <span class="type-dot" style="background:#52525b;"></span>
+                <span class="type-name">Expired (janitor-eligible)</span>
+                <span class="mono type-pct">{{ blobsExpiredCount || 0 }}</span>
+              </div>
+            </div>
+            <div v-else class="type-empty">
+              <span>No total pool cap — blobs persist until their size-weighted retention window (30 d at 512 MiB → 1 y at 0 B) elapses, then the janitor evicts them.</span>
             </div>
           </div>
 
@@ -369,8 +368,8 @@
               </svg>
             </div>
             <div class="rule-content">
-              <span class="rule-k">Auto-Eviction Policy</span>
-              <span class="rule-v">LRU at 75% of quota</span>
+              <span class="rule-k">Eviction Policy</span>
+              <span class="rule-v">Expired-retention blobs, periodic</span>
             </div>
           </div>
 
@@ -399,8 +398,8 @@
               </svg>
             </div>
             <div class="rule-content">
-              <span class="rule-k">Max Single Upload</span>
-              <span class="rule-v">{{ status.fileLimit.configured || '512.00 MB' }} per blob</span>
+              <span class="rule-k">Upload Size</span>
+              <span class="rule-v">Unlimited · any size</span>
             </div>
           </div>
 
@@ -549,7 +548,7 @@
             </div>
             <div class="primitive-card-body">
               <h3>Binary Blobs</h3>
-              <p>Content-addressed storage for raw binaries &amp; artifacts. Zero metadata overhead, size-weighted retention (30d–1y), LRU cache.</p>
+              <p>Content-addressed storage for raw binaries &amp; artifacts. Zero metadata overhead, size-weighted retention (30d–1y), expired blobs periodically evicted.</p>
             </div>
             <div class="primitive-card-foot">
               <div class="primitive-metric">
@@ -820,8 +819,8 @@
                   <span v-if="isBlobProtected(b)" class="pill pill-ok" :title="'Protected under size-weighted retention (' + blobRetentionLabel(b) + ' for this size)'">
                     <span class="dot" style="background:#38bdf8;box-shadow:none;"></span>{{ blobRetentionLabel(b) }} Protected
                   </span>
-                  <span v-else class="pill pill-mute" title="Eligible for LRU eviction when threshold is reached">
-                    LRU Eligible
+                  <span v-else class="pill pill-mute" title="Retention expired — the janitor may evict this blob">
+                    Expired
                   </span>
                 </td>
                 <td data-col="Added" class="col-num" :title="b.dateLabel">{{ b.ageLabel }}</td>
@@ -931,7 +930,7 @@
             <span class="kv-k">Retention</span>
             <span class="kv-v">
               <span v-if="isBlobProtected(inspectBlob)" class="pill pill-ok mono">{{ blobRetentionLabel(inspectBlob) }} Protected</span>
-              <span v-else class="pill pill-mute mono">LRU Eligible</span>
+              <span v-else class="pill pill-mute mono">Expired</span>
             </span>
           </div>
           <div class="kv-row">

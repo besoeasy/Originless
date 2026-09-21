@@ -13,25 +13,11 @@ import (
 )
 
 type Manager struct {
-	store     *Store
-	limit     int64
-	threshold float64
+	store *Store
 }
 
-func NewJanitor(store *Store, limit int64) *Manager {
-	return &Manager{
-		store:     store,
-		limit:     limit,
-		threshold: 0.75, // evict when total usage exceeds 75% of the storage limit
-	}
-}
-
-// StorageLimit returns the hard quota blobs may not exceed.
-func (m *Manager) StorageLimit() int64 {
-	if m == nil || m.limit <= 0 {
-		return StorageMaxBytes
-	}
-	return m.limit
+func NewJanitor(store *Store) *Manager {
+	return &Manager{store: store}
 }
 
 // Store exposes the underlying DB so record handlers work without signature changes.
@@ -43,8 +29,7 @@ func (m *Manager) Store() *Store {
 }
 
 func (m *Manager) Run(ctx context.Context, interval time.Duration) {
-	log.Printf("[janitor] started (interval: %s, threshold: %d%%)",
-		interval, PinThresholdPercent)
+	log.Printf("[janitor] started (interval: %s)", interval)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -67,8 +52,8 @@ func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 			} else if n > 0 {
 				log.Printf("[janitor] purged %d expired records", n)
 			}
-			if err := m.CheckBlobThreshold(); err != nil {
-				log.Printf("[janitor] blob threshold check error: %v", err)
+			if err := m.EvictBlobs(); err != nil {
+				log.Printf("[janitor] blob eviction error: %v", err)
 			}
 		}
 	}
@@ -82,42 +67,11 @@ func (m *Manager) PurgeExpiredRecords(nowUnix int64) (int64, error) {
 	return m.store.DeleteExpiredRecords(nowUnix)
 }
 
-// totalUsage returns tracked blob bytes against the shared STORAGE_MAX quota.
-func (m *Manager) totalUsage() int64 {
+// EvictBlobs deletes blobs whose size-weighted retention has expired and
+// that are not linked via "_blob" from a live record. There is no total
+// storage quota: blobs persist until their retention window elapses.
+func (m *Manager) EvictBlobs() error {
 	if m == nil || m.store == nil {
-		return 0
-	}
-	size, _ := m.store.GetBlobSize()
-	return size
-}
-
-// CheckBlobThreshold evicts LRU blobs whose size-weighted retention has
-// expired while total usage exceeds the threshold share of the limit.
-func (m *Manager) CheckBlobThreshold() error {
-	if m == nil || m.store == nil {
-		return nil
-	}
-	total := m.totalUsage()
-	target := int64(float64(m.limit) * m.threshold)
-	if total <= target {
-		return nil
-	}
-	log.Printf("[janitor] total usage %s exceeds %d%% of %s, evicting LRU blobs",
-		FormatBytes(total), PinThresholdPercent, FormatBytes(m.limit))
-	return m.EvictBlobsLRU()
-}
-
-// EvictBlobsLRU deletes blobs LRU-first, never touching blobs still inside
-// their size-weighted retention (30 days at 512 MiB .. 1 year at size 0)
-// or linked via "_blob" from a live record. Stops once total usage drops
-// to target.
-func (m *Manager) EvictBlobsLRU() error {
-	if m == nil || m.store == nil {
-		return nil
-	}
-	target := int64(float64(m.limit) * m.threshold)
-	total := m.totalUsage()
-	if total <= target {
 		return nil
 	}
 	var evicted int
@@ -137,19 +91,14 @@ func (m *Manager) EvictBlobsLRU() error {
 		log.Printf("[janitor] failed to list referenced blobs (proceeding without exemptions): %v", err)
 		referenced = nil
 	}
-	for total > target {
+	for {
 		candidates, err := m.store.GetBlobsByLRU(pageSize, offset)
 		if err != nil {
 			return err
 		}
-		if len(candidates) == 0 {
-			log.Printf("[janitor] no more blobs to scan (%d evicted, %d still protected)", evicted, protected)
-			break
-		}
+		scanned := 0
 		for _, b := range candidates {
-			if total <= target {
-				break
-			}
+			scanned++
 			if referenced[b.Hash] {
 				offset++
 				protected++
@@ -174,17 +123,19 @@ func (m *Manager) EvictBlobsLRU() error {
 				continue
 			}
 			freed += b.Size
-			total -= b.Size
 			evicted++
 			log.Printf("[janitor] evicted blob %s (%s, retention %s)", b.Hash, FormatBytes(b.Size), BlobRetentionForSize(b.Size))
 		}
-		if total > target && len(candidates) < pageSize {
-			log.Printf("[janitor] %d blobs still protected (retention or live reference), usage %s above target %s",
-				protected, FormatBytes(total), FormatBytes(target))
+		if scanned < pageSize {
 			break
 		}
 	}
-	log.Printf("[janitor] blob eviction done: evicted %d blobs, freed %s", evicted, FormatBytes(freed))
+	if protected > 0 {
+		log.Printf("[janitor] %d blobs still protected (retention or live reference)", protected)
+	}
+	if evicted > 0 {
+		log.Printf("[janitor] blob eviction done: evicted %d blobs, freed %s", evicted, FormatBytes(freed))
+	}
 	return nil
 }
 
@@ -221,7 +172,7 @@ func (m *Manager) ReconcileBlobs() error {
 		if !strings.EqualFold(filepath.Ext(name), ".bin") {
 			// Staging temps (up-*) leak only if the process died between
 			// CreateTemp and the final rename — sweep them at startup so a
-			// crash never permanently consumes blob quota.
+			// crash never permanently consumes blob storage.
 			if strings.HasPrefix(name, "up-") {
 				if err := os.Remove(filepath.Join(BlobDir, name)); err == nil {
 					tempRemoved++

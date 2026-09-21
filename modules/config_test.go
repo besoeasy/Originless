@@ -42,27 +42,6 @@ func TestEnvOrDefaultBool(t *testing.T) {
 	}
 }
 
-func TestParseSize(t *testing.T) {
-	tests := []struct {
-		input string
-		want  int64
-	}{
-		{"100GB", 100 * 1024 * 1024 * 1024},
-		{"10GB", 10 * 1024 * 1024 * 1024},
-		{"500MB", 500 * 1024 * 1024},
-		{"1TB", 1024 * 1024 * 1024 * 1024},
-	}
-	for _, tt := range tests {
-		got, err := ParseSize(tt.input)
-		if err != nil {
-			t.Fatalf("ParseSize(%q) error: %v", tt.input, err)
-		}
-		if got != tt.want {
-			t.Errorf("ParseSize(%q) = %d, want %d", tt.input, got, tt.want)
-		}
-	}
-}
-
 func TestFormatBytes(t *testing.T) {
 	tests := []struct {
 		input int64

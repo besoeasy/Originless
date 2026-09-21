@@ -10,8 +10,6 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /originless .
 
 FROM alpine:latest
 
-ENV STORAGE_MAX=100GB
-
 RUN apk add --no-cache ca-certificates wget && \
   adduser -D -h /app originless
 

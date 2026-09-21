@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -14,17 +13,10 @@ const (
 	Host             = "0.0.0.0"
 	MaxConcurrentOps = 3
 	JanitorInterval  = 60 // minutes
-
-	// PinThresholdPercent is the % of the storage quota at which the janitor
-	// starts evicting LRU blobs.
-	PinThresholdPercent = 75
 )
 
 var (
-	StorageMax      string
-	StorageMaxBytes int64
-	FileLimit       int64
-	BlobDir         = "/data/blobs"
+	BlobDir = "/data/blobs"
 	// MaxSSESubscribers caps concurrent /records/stream connections;
 	// <= 0 disables the cap. Guarded atomically in TrySubscribe.
 	MaxSSESubscribers int
@@ -34,7 +26,7 @@ var (
 //
 //	min_age  = 30 days  (applies at max_size)
 //	max_age  = 1 year   (applies at size 0)
-//	max_size = 512 MiB  (normalization point + upload cap)
+//	max_size = 512 MiB  (normalization point)
 //
 // retention(size) = min_age + (min_age - max_age) * (size/max_size - 1)^3
 // Small blobs are retained longest; the guarantee decays cubically to
@@ -45,24 +37,7 @@ const (
 	BlobMaxSizeBytes = 512 * 1024 * 1024 // 512 MiB
 )
 
-var sizePattern = regexp.MustCompile(`(?i)^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$`)
-
 func init() {
-	StorageMax = envOrDefault("STORAGE_MAX", "100GB")
-
-	storageMaxBytes, err := ParseSize(StorageMax)
-	if err != nil {
-		panic(fmt.Sprintf("invalid STORAGE_MAX: %v", err))
-	}
-
-	StorageMaxBytes = storageMaxBytes
-	// Per-blob uploads are capped at BlobMaxSizeBytes; the quota-derived
-	// cap still applies on small STORAGE_MAX deployments.
-	FileLimit = storageMaxBytes / 100
-	if FileLimit > BlobMaxSizeBytes {
-		FileLimit = BlobMaxSizeBytes
-	}
-
 	MaxSSESubscribers = envOrDefaultInt("SSE_MAX_SUBSCRIBERS", 256)
 }
 
@@ -76,13 +51,6 @@ func envOrDefaultInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
-}
-
-func envOrDefault(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }
 
 // envOrDefaultBool reads a truthy/falsey env var. Unset or unrecognized
@@ -100,36 +68,6 @@ func envOrDefaultBool(key string, fallback bool) bool {
 	default:
 		return fallback
 	}
-}
-
-func ParseSize(sizeStr string) (int64, error) {
-	match := sizePattern.FindStringSubmatch(sizeStr)
-	if match == nil {
-		return 0, fmt.Errorf("invalid size format: %s", sizeStr)
-	}
-
-	value, err := strconv.ParseFloat(match[1], 64)
-	if err != nil {
-		return 0, err
-	}
-
-	var unit int64
-	switch match[2] {
-	case "B", "b":
-		unit = 1
-	case "KB", "Kb", "kb":
-		unit = 1024
-	case "MB", "Mb", "mb":
-		unit = 1024 * 1024
-	case "GB", "Gb", "gb":
-		unit = 1024 * 1024 * 1024
-	case "TB", "Tb", "tb":
-		unit = 1024 * 1024 * 1024 * 1024
-	default:
-		return 0, fmt.Errorf("unknown size unit: %s", match[2])
-	}
-
-	return int64(math.Floor(value * float64(unit))), nil
 }
 
 func FormatBytes(bytes int64) string {

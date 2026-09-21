@@ -8,9 +8,9 @@ No API keys, accounts, or authentication.
 
 **Bodies** — JSON uses `Content-Type: application/json`. Responses are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` and the SSE stream are not wrapped).
 
-Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `min(STORAGE_MAX / 100, 512 MiB)`.
+Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads return `503`. There is no per-file size cap and no total storage quota — blobs persist until their size-weighted retention window elapses.
 
-**Timeouts** — the server imposes no read/write deadline: slow uploads up to the size cap are never cut mid-body, and SSE streams are long-lived (read-header and keep-alive idle are still bounded for normal clients).
+**Timeouts** — the server imposes no read/write deadline: slow uploads are never cut mid-body, and SSE streams are long-lived (read-header and keep-alive idle are still bounded for normal clients).
 
 ---
 
@@ -47,8 +47,6 @@ curl http://localhost:3232/status
 | `status` | `"success"` |
 | `timestamp` | RFC 3339 UTC |
 | `version` | Server build version |
-| `storageLimit` | Configured `STORAGE_MAX` (`configured` string, `bytes` integer) |
-| `fileLimit` | Per-upload cap (`configured` string, `bytes` integer) |
 | `blobs` | Tracked blobs (`count`, `size`, `sizeStr`) |
 | `records` | Live (unexpired) records (`count`) |
 | `sse` | Live stream state (`clients`, `dropped` — records lost to slow consumers) |
@@ -58,8 +56,6 @@ curl http://localhost:3232/status
   "status": "success",
   "timestamp": "2026-09-21T02:00:00Z",
   "version": "0.1.0",
-  "storageLimit": { "configured": "100GB", "bytes": 107374182400 },
-  "fileLimit": { "configured": "512.00 MB", "bytes": 536870912 },
   "blobs": { "count": 12, "size": 1048576, "sizeStr": "1.00 MB" },
   "records": { "count": 42 },
   "sse": { "clients": 3, "dropped": 0 }
@@ -232,7 +228,7 @@ Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted
 - **Content-Type:** `multipart/form-data`
 - **Field name:** `file` (filename must end in `.bin`, case-insensitive)
 - Saved as `<sha256>.bin` under `/data/blobs`
-- Retention: size-weighted guarantee of **30 days at 512 MiB** up to **1 year at size 0** (`retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`); after expiry, LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota). Blobs linked via `_blob` from live records are never evicted.
+- Retention: size-weighted guarantee of **30 days at 512 MiB** up to **1 year at size 0** (`retention = min_age + (min_age - max_age) * (size/max_size - 1)^3`); after expiry the janitor evicts the blob. There is no total storage quota. Blobs linked via `_blob` from live records are never evicted.
 
 ```bash
 curl -X POST -F "file=@save.bin" http://localhost:3232/up
@@ -244,7 +240,7 @@ curl -X POST -F "file=@save.bin" http://localhost:3232/up
 { "status": "success", "hash": "e3b0...85", "size": 4096, "url": "/down/e3b0...85", "duplicate": false }
 ```
 
-Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file or sniffed non-binary content (`detected` names the MIME), `503` server busy.
+Errors: `400` missing/empty part, `415` not a `.bin` file or sniffed non-binary content (`detected` names the MIME), `503` server busy.
 
 To reference the blob from a record, publish with `"data": { …, "_blob": "<hash>" }` (see [`POST /records`](#post-records)).
 
@@ -313,7 +309,6 @@ curl http://localhost:3232/metrics
 | `originless_http_errors_total` | counter | Responses with status ≥ 400 |
 | `originless_uploads_total` | counter | Successful `POST /up` uploads |
 | `originless_upload_bytes_total` | counter | Bytes stored via `POST /up` |
-| `originless_storage_limit_bytes` | gauge | `STORAGE_MAX` in bytes |
 | `originless_storage_used_bytes` | gauge | Tracked blob bytes (refreshed per scrape) |
 | `originless_sse_clients` | gauge | Active `records/stream` connections |
 | `originless_sse_dropped_total` | counter | Records dropped because a consumer's buffer was full (too-slow consumer) |
@@ -336,6 +331,5 @@ curl http://localhost:3232/metrics
 | Status | When |
 | :----- | :--- |
 | `400` | Missing `file` part, empty filename, or malformed multipart |
-| `413` | File larger than `min(STORAGE_MAX / 100, 512 MiB)` (`maxSize` is included) |
 | `415` | Filename does not end in `.bin`, or content sniffed as text/HTML/image/PDF |
 | `503` | 3 uploads already in flight (`"Server busy"`) |
