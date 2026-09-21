@@ -87,6 +87,8 @@ python:
 - For replaceable state (profile, save slot): publish a new event per change,
   read with ?limit=1 (latest wins, older fade via expires_at).
 - After SSE disconnect, poll GET /events?limit=... to catch up.
+- Multi-node sync: Nodes with the same NETWORK_ID discover each other via
+  BitTorrent Mainline DHT and sync all events & blobs over P2P Bloom streams.
 
 Repo: https://github.com/besoeasy/Originless
 Full contract: GET /agent.txt is the summary; see api.md in the repo.

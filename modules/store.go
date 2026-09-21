@@ -532,6 +532,30 @@ func (s *Store) GetRecordCount() (int64, error) {
 	return count, err
 }
 
+// ListRecordIDs returns event IDs from SQLite (unexpired only or all).
+func (s *Store) ListRecordIDs(unexpiredOnly bool) ([]string, error) {
+	q := `SELECT id FROM records`
+	var args []any
+	if unexpiredOnly {
+		q += ` WHERE expires_at > ?`
+		args = append(args, time.Now().Unix())
+	}
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 // DeleteExpiredRecords removes records with expires_at <= nowUnix.
 // record_labels rows cascade via FK (PRAGMA foreign_keys=ON); a defensive
 // orphan cleanup runs first for DBs created before the pragma was set.

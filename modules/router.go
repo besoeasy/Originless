@@ -5,9 +5,15 @@ import (
 	"net/http"
 )
 
-func NewRouter(janitorManager *Manager, uiFS fs.FS) http.Handler {
+func NewRouter(janitorManager *Manager, uiFS fs.FS, p2pBroadcaster ...P2PBroadcaster) http.Handler {
 	metrics := NewMetrics()
 	handler := NewHandler(janitorManager, metrics)
+	if len(p2pBroadcaster) > 0 && p2pBroadcaster[0] != nil {
+		handler.SetP2P(p2pBroadcaster[0])
+		if setter, ok := p2pBroadcaster[0].(interface{ SetBroadcaster(*RecordBroadcaster) }); ok {
+			setter.SetBroadcaster(handler.broadcaster)
+		}
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", handler.Status)
@@ -24,6 +30,12 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS) http.Handler {
 	mux.HandleFunc("GET /down/{hash}", handler.Down)
 	mux.HandleFunc("HEAD /down/{hash}", handler.Down)
 	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, handler.broadcaster))
+
+	if len(p2pBroadcaster) > 0 && p2pBroadcaster[0] != nil {
+		if h, ok := p2pBroadcaster[0].(http.Handler); ok {
+			mux.Handle("GET /p2p", h)
+		}
+	}
 
 	mux.HandleFunc("GET /library.html", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusMovedPermanently)

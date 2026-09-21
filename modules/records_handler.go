@@ -88,6 +88,9 @@ func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
 	if h.broadcaster != nil {
 		h.broadcaster.Broadcast(rec)
 	}
+	if h.p2p != nil {
+		h.p2p.BroadcastRecord(rec)
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"status": "success", "id": rec.ID, "stored_at": storedAt,
 	})

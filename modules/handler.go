@@ -10,12 +10,20 @@ import (
 // Overridable at compile time via -ldflags="-X github.com/besoeasy/originless/modules.Version=...".
 var Version = "dev"
 
+// P2PBroadcaster defines the interface for gossip broadcasting to P2P swarms.
+type P2PBroadcaster interface {
+	BroadcastRecord(rec *Record)
+	BroadcastBlob(hash string, size int64)
+	Status() map[string]any
+}
+
 type Handler struct {
 	janitor     *Manager
 	metrics     *Metrics
 	semaphore   chan struct{}
 	store       *Store
 	broadcaster *RecordBroadcaster
+	p2p         P2PBroadcaster
 }
 
 func NewHandler(janitorManager *Manager, metrics *Metrics) *Handler {
@@ -29,6 +37,11 @@ func NewHandler(janitorManager *Manager, metrics *Metrics) *Handler {
 		h.store = janitorManager.Store()
 	}
 	return h
+}
+
+// SetP2P registers a P2P broadcaster for gossip and status reporting.
+func (h *Handler) SetP2P(p P2PBroadcaster) {
+	h.p2p = p
 }
 
 // SetStore allows tests / embedding to provide a DB without changing signatures.
@@ -89,6 +102,14 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		payload["sse"] = map[string]any{
 			"clients": h.broadcaster.SubscriberCount(),
 			"dropped": h.broadcaster.Dropped(),
+		}
+	}
+
+	if h.p2p != nil {
+		payload["p2p"] = h.p2p.Status()
+	} else {
+		payload["p2p"] = map[string]any{
+			"enabled": false,
 		}
 	}
 

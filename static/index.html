@@ -276,6 +276,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <span class="fact-item"><b id="teleEvents">0</b> signed events</span>
       <span class="fact-item"><b id="teleBlobs">0</b> blobs (<span id="teleBytes">0 B</span>)</span>
       <span class="fact-item"><b id="teleSse">0</b> live SSE clients</span>
+      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span></span>
     </div>
   </div>
 
@@ -922,6 +923,15 @@ async function fetchStatus(){
 
       var sseCount = (d.sse && d.sse.clients !== undefined) ? d.sse.clients : 0;
       $("teleSse").textContent = sseCount;
+
+      // Update P2P Swarm Readout
+      if(d.p2p && d.p2p.enabled){
+        if($("teleP2pItem")) $("teleP2pItem").style.display = "inline-flex";
+        if($("teleP2pPeers")) $("teleP2pPeers").textContent = d.p2p.peers_connected || 0;
+        if($("teleP2pLabel")) $("teleP2pLabel").textContent = "P2P (" + (d.p2p.network_id || "mesh") + ")";
+      } else {
+        if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
+      }
 
       // Update Live SVG Telemetry Graphics
       if($("svgNodeStatusText")) $("svgNodeStatusText").textContent = "Node Online";

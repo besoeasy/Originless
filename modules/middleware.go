@@ -1,7 +1,10 @@
 package modules
 
 import (
+	"bufio"
 	"compress/gzip"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -58,6 +61,13 @@ func (w *gzipResponseWriter) Flush() {
 	}
 }
 
+func (w *gzipResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+}
+
 func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
@@ -65,7 +75,10 @@ func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
 func Gzip(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodHead ||
+			r.Header.Get("Upgrade") != "" ||
+			r.URL.Path == "/p2p" ||
 			r.URL.Path == "/records/stream" ||
+			r.URL.Path == "/events/stream" ||
 			// Opaque bytes must stay byte-identical: gzipping breaks
 			// Range/ETag caching and wastes CPU on incompressible data.
 			strings.HasPrefix(r.URL.Path, "/down/") ||

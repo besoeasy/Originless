@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/besoeasy/originless/modules"
+	"github.com/besoeasy/originless/modules/p2p"
 )
 
 //go:embed static
@@ -54,7 +55,16 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
 
-	router := modules.NewRouter(janitorMgr, uiFS())
+	p2pMgr := p2p.NewManager(database, modules.BlobDir, nil, modules.Port)
+	if p2pMgr != nil {
+		if err := p2pMgr.Start(); err != nil {
+			log.Printf("[STARTUP] P2P initialization failed: %v", err)
+		} else {
+			defer p2pMgr.Stop()
+		}
+	}
+
+	router := modules.NewRouter(janitorMgr, uiFS(), p2pMgr)
 
 	// ReadTimeout/WriteTimeout are intentionally 0: full-body reads must
 	// tolerate slow uploads (there is no upload size cap), and the SSE live

@@ -166,6 +166,9 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.metrics.IncUpload(written)
+	if h.p2p != nil {
+		h.p2p.BroadcastBlob(hash, written)
+	}
 
 	// Best-effort cleanup of retention-expired blobs (never fails the upload itself).
 	if h.janitor != nil {
