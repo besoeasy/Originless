@@ -30,24 +30,24 @@ Traditional backends force you to become a babysitter: managing user tables, has
 
 ---
 
-## The 3 Primitives That Power Everything
+## The 2 Primitives That Power Everything
 
 ```
-                                  ORIGINLESS
-                    (All-in-One Zero-Auth Open Backend)
-                                     │
-         ┌───────────────────────────┼───────────────────────────┐
-         │                           │                           │
-         ▼                           ▼                           ▼
-  Quick Records               Binary Blobs                IPFS Swarm
-  (/records, /records/stream) (/up, /down)                (/upload)
-  ─────────────────────       ─────────────────────       ─────────────────────
-  • Multiplayer Games         • Game Save Buffers         • Encrypted Backups
-  • Ephemeral Chat Rooms      • Serialized State          • Static Sites / DApps
-  • Real-Time SSE Streams     • Raw Binary Caches         • Media Attachments
-  • Push Notifications        • Fast SHA-256 Dedupe       • Global P2P Bitswap
-  • Web3 & Crypto Profiles    • 30d–1y Size-Weighted Retention    • Swarm Port 4001
-  • AI Agent Memory           • LRU Auto-Eviction         • Rainbow Gateway Ready
+                        ORIGINLESS
+          (All-in-One Zero-Auth Open Backend)
+                           │
+            ┌──────────────┴──────────────┐
+            │                             │
+            ▼                             ▼
+     Quick Records                 Binary Blobs
+     (/records, /records/stream)   (/up, /down)
+     ─────────────────────         ─────────────────────
+     • Multiplayer Games           • Game Save Buffers
+     • Ephemeral Chat Rooms        • Serialized State
+     • Real-Time SSE Streams       • Raw Binary Caches
+     • Push Notifications          • Fast SHA-256 Dedupe
+     • Web3 & Crypto Profiles      • 30d–1y Size-Weighted Retention
+     • AI Agent Memory             • LRU Auto-Eviction
 ```
 
 ---
@@ -120,27 +120,6 @@ curl -X POST -F "file=@savegame.bin" http://localhost:3232/up
 
 # Fetch it back directly by hash
 curl -O "http://localhost:3232/down/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-```
-
----
-
-### 3. 🌐 Decentralized IPFS Swarm (`/upload`, `/uploadfolder`) — Global Distribution
-
-Pin files or full directory trees with content-addressed multihashes (`ipfs://bafy...`):
-
-- **Zero Gateway Liability**: Originless pins content to the local Kubo datastore and advertises blocks over the libp2p swarm on port `4001`.
-- **P2P Swarm Bitswap**: Other nodes retrieve pinned blocks directly via Bitswap.
-- **Fetching over HTTP**: Handled safely via [**Rainbow**](https://github.com/ipfs/rainbow) (with built-in `badbits` denylists and origin sandboxing) or public gateways (`inbrowser.link`, `ipfs.io`).
-
-```bash
-# Pin an encrypted payload or asset (returns CID)
-curl -X POST -F "file=@backup.enc" http://localhost:3232/upload
-
-# Pin an entire static site or DApp dist folder under one root CID
-curl -X POST \
-  -F "file=@dist/index.html;filename=index.html" \
-  -F "file=@dist/app.js;filename=assets/app.js" \
-  http://localhost:3232/uploadfolder
 ```
 
 ---
