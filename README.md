@@ -131,6 +131,76 @@ curl -X POST \
 
 ---
 
+## What Originless Replaces
+
+Instead of juggling 7 different SaaS subscriptions, API keys, and specialized daemons, Originless consolidates your stack into **one lightweight container**:
+
+| Traditional Service | What it's used for | Originless Replacement | Advantage |
+| :------------------ | :----------------- | :--------------------- | :-------- |
+| **[0x0.st](https://0x0.st/) / [file.io](https://www.file.io/)** | Ephemeral CLI file & script sharing | `POST /up` & `POST /upload` | Unlimited self-hosted storage, SHA-256 dedupe, automated LRU pruning |
+| **[ntfy.sh](https://ntfy.sh/) / Pushover** | Push alerts, webhooks, event feeds | `POST /records` & `GET /records` | Cryptographically signed (Ed25519), label-indexed, auto-expiring TTL |
+| **[Pastebin](https://pastebin.com/) / [PrivateBin](https://privatebin.info/)** | Code snippets, logs, text pastes | `POST /upload` + client templates | Content-addressed CIDs, client-side encryption, tamper-proof |
+| **[Pinata](https://www.pinata.cloud/) / [Web3.Storage](https://web3.storage/)** | IPFS pinning & decentralized storage | Native Kubo daemon + Janitor | Zero subscription tiers, no credit card, auto-GC & disk quotas |
+| **[Firebase Realtime DB](https://firebase.google.com/)** | Game saves, player state, chat rooms | `POST /records` (Signed JSON) | Keypair auth matches crypto wallets, zero server database management |
+| **[Vercel](https://vercel.com/) / [Cloudflare Pages](https://pages.cloudflare.com/)** | Static web apps & DApp deployment | `POST /uploadfolder` | One `curl` command pins full `dist/` directory tree under root CID |
+| **[Imgur](https://imgur.com/) / Media Hosts** | Media uploads & social attachments | `POST /upload` | Client-encrypted, Nostr NIP-92 `imeta` ready, zero DMCA operator liability |
+
+<details>
+<summary><strong>View detailed breakdown for each replacement</strong></summary>
+
+### 1. 0x0.st / file.io &rarr; Instant CLI Blobs (`/up`, `/down`)
+Upload any log file, diagnostic tarball, or binary directly from your terminal:
+```bash
+# Upload and get immediate SHA-256 address
+curl -X POST -F "file=@dump.bin" http://localhost:3232/up
+# Response: {"status":"success","hash":"a3f1...","url":"http://localhost:3232/down/a3f1..."}
+```
+No rate limits, no third-party server seeing your uploads, and automated LRU cleanup when disk quota is reached.
+
+### 2. ntfy.sh / Pushover &rarr; Signed Event & Alert Feeds (`/records`)
+Broadcast notifications, IoT telemetry, or inter-process events with cryptographic signatures:
+```bash
+curl -X POST http://localhost:3232/records -H "Content-Type: application/json" -d '{
+  "owner": "ed25519:<pubkey>", "collection": "alerts",
+  "created_at": 1758420000, "expires_at": 1758423600,
+  "data": { "title": "Backup Finished", "status": "ok" },
+  "labels": ["topic:backups", "level:info"], "sig": "..."
+}'
+
+# Subscribers poll or fetch:
+curl "http://localhost:3232/records?collection=alerts&label=topic:backups&limit=5"
+```
+Nobody can spoof notifications because every message is signed by the publisher's Ed25519 private key.
+
+### 3. Pastebin / PrivateBin &rarr; Content-Addressed Snippets (`/upload`)
+Paste code, configs, or encrypted secrets. The resulting IPFS CID is immutable — unlike paste sites where content can be altered or removed by third-party admins.
+
+### 4. Pinata / Web3.Storage &rarr; Built-in IPFS Ingestion Node
+Never pay a monthly subscription or worry about an IPFS provider shutting down or hiking API pricing. Originless runs an optimized low-power Kubo node, broadcasts blocks across the libp2p swarm (`4001`), and cleans up old unpinned files automatically.
+
+### 5. Firebase / Supabase &rarr; Zero-DB State Engine (`/records`)
+Build games, decentralized chats, and web rooms without spinning up PostgreSQL or managing user authentication tables:
+- User's public key **is** their identity.
+- Signed state updates verify client authenticity.
+- Built-in TTL automatically cleans up expired rooms and sessions.
+
+### 6. Vercel / Cloudflare Pages &rarr; Static DApp & Site Deployment (`/uploadfolder`)
+Deploy frontends, documentation, or client-side DApps directly from CI/CD with a single curl request:
+```bash
+curl -X POST \
+  -F "file=@dist/index.html;filename=index.html" \
+  -F "file=@dist/app.js;filename=app.js" \
+  http://localhost:3232/uploadfolder
+```
+The output is a root CID that can be opened anywhere through decentralized gateways.
+
+### 7. Imgur / Cloudinary &rarr; Client-Encrypted Media Host (`/upload`)
+Upload pictures, audio, or video attachments without operator copyright or CSAM liabilities. Clients encrypt or strip metadata before uploading, preserving end-to-end privacy.
+
+</details>
+
+---
+
 ## Run
 
 Standalone container:
