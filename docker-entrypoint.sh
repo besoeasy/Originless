@@ -180,7 +180,7 @@ fi
 # Gateway is disabled to prevent serving abusive cleartext HTTP traffic.
 # Content is pinned and distributed via libp2p swarm (port 4001).
 # For HTTP retrieval, use Rainbow (https://github.com/ipfs/rainbow) on a separate domain.
-ipfs config Addresses.Gateway '""'
+ipfs config Addresses.Gateway ""
 
 # Drop a stale lock from a previous crashed container (single-process image).
 rm -f "$IPFS_PATH/repo.lock" "$IPFS_PATH/api"
