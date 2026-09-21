@@ -8,7 +8,7 @@ No API keys, accounts, or authentication.
 
 **Bodies** — JSON uses `Content-Type: application/json`. JSON and HTML are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` is not wrapped). `/ipfs` and `/ipns` streams are passed through; Kubo may compress them itself.
 
-Uploads (`POST /upload`, `/media`, `/uploadfolder`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `STORAGE_MAX / 100` (1 GB when `STORAGE_MAX=100GB`).
+Uploads (`POST /upload`, `/media`, `/uploadfolder`, `/up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `STORAGE_MAX / 100` (1 GB when `STORAGE_MAX=100GB`).
 
 ---
 
@@ -23,6 +23,11 @@ Uploads (`POST /upload`, `/media`, `/uploadfolder`) are limited to **3 concurren
 | `POST` | [`/uploadfolder`](#post-uploadfolder) | Pin a directory tree as one root CID |
 | `GET` | [`/history`](#get-history) | Paginated upload log |
 | `GET` | [`/pins`](#get-pins) | Pinned count, bytes, and janitor threshold |
+| `POST` | [`/records`](#post-records) | Store a signed JSON record (8 KB max) |
+| `GET` | [`/records`](#get-records) | Query signed records (owner, collection, label, time) |
+| `GET` | [`/records/{id}`](#get-recordsid) | Fetch one record by ID |
+| `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
+| `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
 | `GET` | [`/metrics`](#get-metrics) | Prometheus text metrics |
 | `GET`/`HEAD` | [`/ipfs/{cid}`](#get-ipfscid--ipnspath) | Serve bytes for a CID (local pin or swarm fetch) |
 | `GET`/`HEAD` | [`/ipns/{name}`](#get-ipfscid--ipnspath) | Resolve and serve an IPNS name |
@@ -233,6 +238,137 @@ curl http://localhost:3232/pins
   "storageLimit": "100GB",
   "threshold": 75
 }
+```
+
+---
+
+## `POST /records`
+
+Store a signed JSON record for app data (posts, chat, game saves, profiles). No accounts — ownership is an `ed25519` keypair, verified server-side on every publish.
+
+- **Content-Type:** `application/json`
+- **Max size:** total body `<= 8192` bytes (`413` if over)
+- **ID:** server-computed `sha256(owner:collection:created_at:expires_at:canonical(data):labels)` — never send `id`
+
+| Field | Required | Rule |
+| :---- | :------ | :--- |
+| `owner` | yes | `ed25519:<64 hex>` (32-byte pubkey) |
+| `collection` | yes | `^[a-z0-9/_-]{1,32}$` — your table: `chat`, `saves`, `profile` |
+| `created_at` | yes | unix seconds (≤ 15 min future skew allowed) |
+| `expires_at` | yes | unix seconds, `created_at < expires_at <= created_at + 315360000` (10y) |
+| `data` | yes | JSON **object** (stringify app structs into it) |
+| `labels` | yes | `0–10` strings for filtering (`[]` for none) |
+| `sig` | yes | `128` hex chars: `ed25519_sign(id)` |
+
+```bash
+curl -X POST http://localhost:3232/records \
+  -H "Content-Type: application/json" \
+  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
+```
+
+**201** (new) or **200** (`duplicate: true` — same payload republishes to the same ID):
+
+```json
+{ "status": "success", "id": "8f2c...1a", "stored_at": "2026-09-21T02:00:00Z" }
+```
+
+Errors: `400` schema/TTL failure, `401` bad signature, `413` over 8 KB.
+
+---
+
+## `GET /records`
+
+Query records, newest-first. Expired records are hidden unless `include_expired=true`.
+
+| Query | Default | Notes |
+| :---- | :------ | :---- |
+| `owner` | | exact `ed25519:…` match |
+| `collection` | | exact match |
+| `label` | | records carrying this label |
+| `since` / `until` | | unix seconds on `created_at` |
+| `search` | | substring match inside `data` |
+| `limit` | `50` | 1–100 |
+| `cursor` | `0` | offset; follow `next_cursor` while non-empty |
+| `include_expired` | | `true` to show expired rows |
+
+```bash
+curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
+```
+
+**200:**
+
+```json
+{
+  "status": "success",
+  "records": [
+    {
+      "id": "8f2c...1a",
+      "owner": "ed25519:3b6a...29",
+      "collection": "chat",
+      "created_at": 1758420000,
+      "expires_at": 1790040000,
+      "data": { "room": "general", "text": "gg" },
+      "labels": ["room:general"],
+      "sig": "a3f1...c9",
+      "stored_at": "2026-09-21T02:00:00Z",
+      "size": 312
+    }
+  ],
+  "limit": 20,
+  "cursor": "0",
+  "next_cursor": ""
+}
+```
+
+Tip for replaceable state (profile, save slots): publish a new record per change and read with `limit=1` — latest wins, older versions fade via `expires_at`.
+
+---
+
+## `GET /records/{id}`
+
+Fetch one record by its server-computed ID. Expired records return `404` unless `?include_expired=true`.
+
+```bash
+curl http://localhost:3232/records/8f2c...1a
+```
+
+**200:** `{ "status": "success", "record": { … } }` · **404:** unknown or expired ID.
+
+---
+
+## `POST /up`
+
+Store a binary blob, content-addressed by its sha256. Only `.bin` files accepted; identical bytes dedupe to the same hash.
+
+- **Content-Type:** `multipart/form-data`
+- **Field name:** `file` (filename must end in `.bin`, case-insensitive)
+- Saved as `<sha256>.bin` under `BLOB_DIR` (default `/data/blobs`)
+- Retention: kept **minimum 7 days**; after that LRU-evicted only under storage pressure (shared `STORAGE_MAX` quota with IPFS pins)
+
+```bash
+curl -X POST -F "file=@save.bin" http://localhost:3232/up
+```
+
+**201** (new) or **200** (`duplicate: true`):
+
+```json
+{ "status": "success", "hash": "e3b0...85", "size": 4096, "url": "/down/e3b0...85", "duplicate": false }
+```
+
+Errors: `400` missing/empty part, `413` over per-file cap, `415` not a `.bin` file, `503` server busy.
+
+---
+
+## `GET /down/{hash}`
+
+Serve a stored blob by sha256. `HEAD` is also allowed. Every hit refreshes LRU recency.
+
+- `{hash}` must be 64 lowercase hex chars (`400` otherwise)
+- Responses send `Content-Type: application/octet-stream`, `ETag: "<hash>"`, and immutable-friendly `Cache-Control`
+- Unknown or evicted hashes return `404`
+
+```bash
+curl -O "http://localhost:3232/down/e3b0...85"
 ```
 
 ---
