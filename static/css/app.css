@@ -74,6 +74,19 @@ input:focus-visible {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+}
+
+@media (max-width: 1480px) {
+  .app-shell {
+    border-left: none;
+    border-right: none;
+  }
 }
 
 .app-topbar {
@@ -285,6 +298,26 @@ input:focus-visible {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.workspace::-webkit-scrollbar {
+  width: 0.6154rem;
+}
+
+.workspace::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workspace::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 99px;
+  border: 2px solid var(--bg);
+}
+
+.workspace::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
 
 /* —— Stat cards —— */
@@ -1768,7 +1801,8 @@ input:focus-visible {
 .workspace-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .workspace-scroll::-webkit-scrollbar { width: 0.7692rem; height: 0.7692rem; }
