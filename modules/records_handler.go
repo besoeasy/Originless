@@ -70,6 +70,9 @@ func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "success", "id": rec.ID})
 		return
 	}
+	if h.broadcaster != nil {
+		h.broadcaster.Broadcast(stored)
+	}
 	code := http.StatusCreated
 	writeJSON(w, code, map[string]any{
 		"status": "success", "id": stored.ID, "stored_at": stored.StoredAt,
@@ -187,6 +190,65 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "record": rec})
+}
+
+// StreamRecords streams newly published records matching query filters over Server-Sent Events (SSE).
+// GET /records/stream?owner=&collection=&label=&search=
+func (h *Handler) StreamRecords(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	q := r.URL.Query()
+	sub := &RecordSubscriber{
+		Ch:         make(chan *Record, 64),
+		Owner:      q.Get("owner"),
+		Collection: q.Get("collection"),
+		Label:      q.Get("label"),
+		Search:     q.Get("search"),
+	}
+
+	if h.broadcaster != nil {
+		h.broadcaster.Subscribe(sub)
+		defer h.broadcaster.Unsubscribe(sub)
+	}
+
+	_, _ = w.Write([]byte(": connected\n\n"))
+	flusher.Flush()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, err := w.Write([]byte(": keepalive\n\n"))
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		case rec := <-sub.Ch:
+			sse, err := FormatSSE(rec)
+			if err != nil {
+				continue
+			}
+			_, err = w.Write(sse)
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
 }
 
 func contains(s, sub string) bool {

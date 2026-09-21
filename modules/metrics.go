@@ -35,6 +35,9 @@ func metricPath(path string) string {
 	if path == "" {
 		return "/"
 	}
+	if path == "/records/stream" {
+		return "/records/stream"
+	}
 	if strings.HasPrefix(path, "/records/") {
 		return "/records/{id}"
 	}

@@ -12,17 +12,19 @@ import (
 type Handler struct {
 	ipfs      *Client
 	janitor   *Manager
-	metrics   *Metrics
-	semaphore chan struct{}
-	store     *Store
+	metrics     *Metrics
+	semaphore   chan struct{}
+	store       *Store
+	broadcaster *RecordBroadcaster
 }
 
 func NewHandler(ipfsClient *Client, janitorManager *Manager, metrics *Metrics) *Handler {
 	h := &Handler{
-		ipfs:      ipfsClient,
-		janitor:   janitorManager,
-		metrics:   metrics,
-		semaphore: make(chan struct{}, MaxConcurrentOps),
+		ipfs:        ipfsClient,
+		janitor:     janitorManager,
+		metrics:     metrics,
+		semaphore:   make(chan struct{}, MaxConcurrentOps),
+		broadcaster: NewRecordBroadcaster(),
 	}
 	if janitorManager != nil {
 		h.store = janitorManager.Store()

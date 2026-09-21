@@ -24,6 +24,7 @@ Uploads (`POST /upload`, `/uploadfolder`, `/up`) are limited to **3 concurrent r
 | `GET` | [`/pins`](#get-pins) | Pinned count, bytes, and janitor threshold |
 | `POST` | [`/records`](#post-records) | Store a signed JSON record (8 KB max) |
 | `GET` | [`/records`](#get-records) | Query signed records (owner, collection, label, time) |
+| `GET` | [`/records/stream`](#get-recordsstream) | Real-time Server-Sent Events (SSE) feed |
 | `GET` | [`/records/{id}`](#get-recordsid) | Fetch one record by ID |
 | `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
@@ -281,6 +282,56 @@ curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
 ```
 
 Tip for replaceable state (profile, save slots): publish a new record per change and read with `limit=1` — latest wins, older versions fade via `expires_at`.
+
+---
+
+## `GET /records/stream`
+
+Real-time Server-Sent Events (SSE) stream of newly published records matching query filters. Ideal for live chats, multiplayer game events, push notifications, and IoT signal listening without polling.
+
+| Parameter | Filter |
+| :-------- | :----- |
+| `collection` | Stream records matching exact collection name |
+| `label` | Stream records containing specific label |
+| `owner` | Stream records published by specific `ed25519:<pubkey>` |
+| `search` | Stream records where JSON `data` contains substring |
+
+### SSE Event Format
+
+Response headers:
+```
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
+Connection: keep-alive
+```
+
+Clients receive an initial comment, followed by standard SSE event messages as records are published:
+
+```text
+: connected
+
+event: record
+id: 8f2c...1a
+data: {"id":"8f2c...1a","owner":"ed25519:...","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"lobby","msg":"hi"},"labels":["room:lobby"],"sig":"...","stored_at":"..."}
+
+: keepalive
+```
+
+### Example Usage (curl & JavaScript)
+
+```bash
+# Listen for all chat messages in room:lobby
+curl -N "http://localhost:3232/records/stream?collection=chat&label=room:lobby"
+```
+
+```javascript
+// Browser / Node EventSource
+const es = new EventSource("http://localhost:3232/records/stream?collection=chat&label=room:lobby");
+es.addEventListener("record", (e) => {
+  const record = JSON.parse(e.data);
+  console.log("New record:", record.data);
+});
+```
 
 ---
 

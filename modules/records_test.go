@@ -2,6 +2,7 @@ package modules
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -210,3 +212,133 @@ func TestRecordsEndToEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestRecordBroadcaster(t *testing.T) {
+	b := NewRecordBroadcaster()
+	if b.SubscriberCount() != 0 {
+		t.Fatalf("expected 0 subscribers, got %d", b.SubscriberCount())
+	}
+
+	subChat := &RecordSubscriber{
+		Ch:         make(chan *Record, 10),
+		Collection: "chat",
+		Label:      "room:lobby",
+	}
+	subGame := &RecordSubscriber{
+		Ch:         make(chan *Record, 10),
+		Collection: "games",
+	}
+
+	b.Subscribe(subChat)
+	b.Subscribe(subGame)
+	if b.SubscriberCount() != 2 {
+		t.Fatalf("expected 2 subscribers, got %d", b.SubscriberCount())
+	}
+
+	recChat := &Record{
+		ID:         "rec1",
+		Collection: "chat",
+		Labels:     []string{"room:lobby", "user:alice"},
+		Data:       []byte(`{"text":"hello"}`),
+	}
+	recGame := &Record{
+		ID:         "rec2",
+		Collection: "games",
+		Labels:     []string{"slot:1"},
+		Data:       []byte(`{"score":100}`),
+	}
+
+	b.Broadcast(recChat)
+	select {
+	case got := <-subChat.Ch:
+		if got.ID != "rec1" {
+			t.Fatalf("subChat expected rec1, got %s", got.ID)
+		}
+	default:
+		t.Fatal("subChat did not receive recChat")
+	}
+
+	select {
+	case <-subGame.Ch:
+		t.Fatal("subGame should not have received recChat")
+	default:
+	}
+
+	b.Broadcast(recGame)
+	select {
+	case got := <-subGame.Ch:
+		if got.ID != "rec2" {
+			t.Fatalf("subGame expected rec2, got %s", got.ID)
+		}
+	default:
+		t.Fatal("subGame did not receive recGame")
+	}
+
+	b.Unsubscribe(subChat)
+	if b.SubscriberCount() != 1 {
+		t.Fatalf("expected 1 subscriber, got %d", b.SubscriberCount())
+	}
+
+	sseBytes, err := FormatSSE(recChat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sseBytes), "event: record") ||
+		!strings.Contains(string(sseBytes), "id: rec1") ||
+		!strings.Contains(string(sseBytes), `"text":"hello"`) {
+		t.Fatalf("unexpected SSE format: %s", string(sseBytes))
+	}
+}
+
+func TestStreamRecordsSSE(t *testing.T) {
+	st := testStore(t)
+	h := NewHandler(nil, nil, NewMetrics())
+	h.SetStore(st)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req := httptest.NewRequest(http.MethodGet, "/records/stream?collection=chat&label=room:lobby", nil).WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	streamDone := make(chan struct{})
+	go func() {
+		defer close(streamDone)
+		h.StreamRecords(rec, req)
+	}()
+
+	// Allow subscriber registration and initial header flush
+	time.Sleep(50 * time.Millisecond)
+
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+	p := signRecord(t, priv, owner, "chat", now, now+3600, map[string]any{"msg": "hi"}, []string{"room:lobby"})
+	delete(p, "_id")
+	raw, _ := json.Marshal(p)
+
+	pubReq := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+	pubRec := httptest.NewRecorder()
+	h.PublishRecord(pubRec, pubReq)
+
+	if pubRec.Code != http.StatusCreated {
+		t.Fatalf("publish failed: %d body=%s", pubRec.Code, pubRec.Body.String())
+	}
+
+	// Give broadcaster a moment to deliver to the SSE subscriber
+	time.Sleep(50 * time.Millisecond)
+
+	cancel()
+	<-streamDone
+
+	body := rec.Body.String()
+	if !strings.Contains(body, ": connected") {
+		t.Fatalf("expected ': connected', got %q", body)
+	}
+	if !strings.Contains(body, "event: record") {
+		t.Fatalf("expected 'event: record', got %q", body)
+	}
+	if !strings.Contains(body, `"msg":"hi"`) {
+		t.Fatalf("expected data payload in stream, got %q", body)
+	}
+}
+

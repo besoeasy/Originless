@@ -18,6 +18,7 @@ func NewRouter(ipfsClient *Client, janitorManager *Manager, uiFS fs.FS) http.Han
 	mux.HandleFunc("GET /pins", handler.PinStats)
 	mux.HandleFunc("POST /records", handler.PublishRecord)
 	mux.HandleFunc("GET /records", handler.ListRecords)
+	mux.HandleFunc("GET /records/stream", handler.StreamRecords)
 	mux.HandleFunc("GET /records/{id}", handler.GetRecordByID)
 	mux.HandleFunc("POST /up", handler.Up)
 	mux.HandleFunc("GET /down/{hash}", handler.Down)

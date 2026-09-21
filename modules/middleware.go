@@ -65,6 +65,8 @@ func (w *gzipResponseWriter) Unwrap() http.ResponseWriter {
 func Gzip(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodHead ||
+			r.URL.Path == "/records/stream" ||
+			strings.Contains(r.Header.Get("Accept"), "text/event-stream") ||
 			!strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)
 			return

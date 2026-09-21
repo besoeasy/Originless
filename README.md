@@ -66,6 +66,7 @@ A fast, cryptographic document store for structured JSON data. Replaces traditio
 - **Tamper-Proof IDs**: Server-computed deterministic hash `sha256(owner:collection:created_at:expires_at:canonical(data):labels)`. Clients cannot spoof or tamper with IDs.
 - **Mandatory Expiration (TTL)**: `expires_at` is required (minutes to 10 years). Expired state naturally fades away; queries auto-hide expired records.
 - **Instant Search & Labels**: Filter by collection, indexed tags (up to 10 labels), time range, or substring search inside the data payload.
+- **Real-Time SSE Streaming**: Connect to `GET /records/stream` to receive incoming matching records as Server-Sent Events with zero polling.
 
 ```bash
 # Store game progress or a room message (Ed25519 signed, 8 KB cap)
@@ -83,6 +84,9 @@ curl -X POST http://localhost:3232/records \
 
 # Query state (newest-first, filtered by collection & label)
 curl "http://localhost:3232/records?collection=gamesaves&label=slot:1&limit=1"
+
+# Stream matching records in real-time (Server-Sent Events)
+curl -N "http://localhost:3232/records/stream?collection=gamesaves&label=slot:1"
 
 # Fetch record by its server-computed hash ID
 curl "http://localhost:3232/records/8f2c...1a"
