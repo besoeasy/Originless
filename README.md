@@ -32,13 +32,12 @@ Instead of running and configuring half a dozen microservices, API keys, and dat
 
 ## Run in 10 seconds
 
-Run a single node, or pass `NETWORK_ID` to automatically connect nodes across different PCs into a synchronized P2P mesh:
+Zero configuration. One command starts your node, maps router ports via UPnP, joins the BitTorrent P2P mesh, and starts syncing automatically:
 
 ### Docker
 ```bash
 docker run -d --name originless --restart unless-stopped \
   -p 3232:3232 -v originless-data:/data \
-  -e NETWORK_ID=my-project \
   ghcr.io/besoeasy/originless:latest
 ```
 
@@ -46,13 +45,17 @@ docker run -d --name originless --restart unless-stopped \
 ```bash
 podman run -d --name originless --restart unless-stopped \
   -p 3232:3232 -v originless-data:/data \
-  -e NETWORK_ID=my-project \
   ghcr.io/besoeasy/originless:latest
 ```
 
-* **Default mesh**: By default, `NETWORK_ID` is `originless` — instances immediately join the global swarm out-of-the-box.
-* **Custom mesh**: Set `-e NETWORK_ID=my-project` on two or more machines to form an isolated private swarm.
-* **Standalone mode**: Set `-e NETWORK_ID=off` (or `none`) to disable P2P and run strictly local.
+That's it! Your node is live at **http://localhost:3232**.
+
+### Mesh Network Options
+
+* **Public Mesh (Default)**: No extra flags needed. By default, `NETWORK_ID` is `originless` — your nodes immediately discover each other across different PCs or cloud servers over BitTorrent Mainline DHT and sync events and blobs.
+* **Private Mesh**: Add `-e NETWORK_ID=my-project` on your containers to create an isolated private swarm.
+* **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
+
 * **Dashboard**: Open **http://localhost:3232** in your browser.
 * **AI Agents**: Point LLMs or agents at **[/agent.txt](static/agent.txt)** for the complete machine-readable contract.
 
