@@ -21,19 +21,8 @@ import (
 //go:embed static
 var staticFS embed.FS
 
-//go:embed examples
-var examplesFS embed.FS
-
 func uiFS() fs.FS {
 	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		panic(err)
-	}
-	return sub
-}
-
-func exFS() fs.FS {
-	sub, err := fs.Sub(examplesFS, "examples")
 	if err != nil {
 		panic(err)
 	}
@@ -73,7 +62,7 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
 
-	router := modules.NewRouter(ipfsClient, janitorMgr, uiFS(), exFS())
+	router := modules.NewRouter(ipfsClient, janitorMgr, uiFS())
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", modules.Host, modules.Port),

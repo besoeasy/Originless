@@ -119,7 +119,7 @@ func TestValidateRejectsBadSigAndTTL(t *testing.T) {
 
 func TestRecordsEndToEnd(t *testing.T) {
 	st := testStore(t)
-	h := NewHandler(nil, nil, NewMetrics(), nil)
+	h := NewHandler(nil, nil, NewMetrics())
 	h.SetStore(st)
 
 	_, priv, owner := testKeys(t)

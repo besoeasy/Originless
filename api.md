@@ -28,10 +28,8 @@ Uploads (`POST /upload`, `/uploadfolder`, `/up`) are limited to **3 concurrent r
 | `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
 | `GET` | [`/metrics`](#get-metrics) | Prometheus text metrics |
-| `GET` | [`/api/examples`](#get-apiexamples) | JSON catalog of client tools |
-| `GET` | [`/examples/manifest.json`](#get-apiexamples) | Same catalog as `/api/examples` |
 
-Dashboard and Tools pages (`/`, `/examples/`, …) are HTML, not JSON.
+Dashboard pages (`/`, `/agent.html`, …) are HTML, not JSON.
 
 ---
 
@@ -374,24 +372,13 @@ curl http://localhost:3232/metrics
 
 ---
 
-## `GET /api/examples`
-
-JSON catalog of HTML client tools under [`examples/`](examples/). `GET /examples/manifest.json` returns the same payload.
-
-```bash
-curl http://localhost:3232/api/examples
-```
-
----
-
 ## UI pages (not JSON)
 
 | Path | Notes |
 | :--- | :---- |
-| `GET /` | Node dashboard (library, status) |
-| `GET /examples/` | Client tools index |
-| `GET /examples/{file}` | Individual tool HTML |
-| `GET /examples` | `301` → `/examples/` |
+| `GET /` | Node dashboard (library, telemetry, status) |
+| `GET /agent` | `301` → `/agent.html` |
+| `GET /agent.html` | Standalone Agent Prompt & Skill guide |
 | `GET /library.html` | `301` → `/` |
 
 ---

@@ -152,7 +152,7 @@ podman run -d \
 | **3232** | Dashboard, REST API, Records, and Blobs |
 | **4001** TCP+UDP | IPFS swarm — other nodes Bitswap your pins |
 
-Open **http://localhost:3232** · Tools at **/examples/** · Full API in **[api.md](api.md)**
+Open **http://localhost:3232** · Client Tools in **[`examples/`](examples/)** · Full API in **[api.md](api.md)**
 
 ---
 
@@ -167,7 +167,7 @@ Open **http://localhost:3232** · Tools at **/examples/** · Full API in **[api.
 | **Encrypted File Sharing** | IPFS Pinning | `POST /upload` | Client encrypts, server pins, zero operator liability |
 | **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Root CID preserves directory paths |
 | **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
-| **Web Snippets & Tools** | Web Client Tools | `/examples/` | Built-in browser tools ready to use |
+| **Web Snippets & Tools** | Client Templates | [`examples/`](examples/) | Standalone client templates ready to open or pin |
 
 ---
 

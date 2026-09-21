@@ -255,26 +255,9 @@
         } catch (_) {}
         this.nodeOnline = false;
       },
-      async fetchTools() {
-        try {
-          this.loadingTools = true;
-          const endpoint = (this.nodeUrl ? this.nodeUrl.replace(/\/+$/, "") : "") + "/api/examples";
-          const res = await fetch(endpoint);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.status === "success" && Array.isArray(data.tools) && data.tools.length > 0) {
-              this.tools = data.tools;
-            }
-          }
-        } catch (_) {
-        } finally {
-          this.loadingTools = false;
-        }
-      }
     },
     mounted() {
       this.checkNodeStatus();
-      this.fetchTools();
     },
   }).mount("#app");
 </script>

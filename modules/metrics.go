@@ -41,9 +41,6 @@ func metricPath(path string) string {
 	if strings.HasPrefix(path, "/down/") {
 		return "/down/{hash}"
 	}
-	if strings.HasPrefix(path, "/examples/") {
-		return "/examples/*"
-	}
 	return path
 }
 

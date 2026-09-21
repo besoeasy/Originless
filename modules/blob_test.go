@@ -48,7 +48,7 @@ func postBin(t *testing.T, h *Handler, filename string, content []byte) *httptes
 func TestUpDownRoundTrip(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
-	h := NewHandler(nil, nil, NewMetrics(), nil)
+	h := NewHandler(nil, nil, NewMetrics())
 	h.SetStore(st)
 
 	content := []byte("hello-blob-world")
@@ -109,7 +109,7 @@ func TestUpDownRoundTrip(t *testing.T) {
 func TestUpRejectsNonBin(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
-	h := NewHandler(nil, nil, NewMetrics(), nil)
+	h := NewHandler(nil, nil, NewMetrics())
 	h.SetStore(st)
 
 	rec := postBin(t, h, "photo.png", []byte("x"))
@@ -121,7 +121,7 @@ func TestUpRejectsNonBin(t *testing.T) {
 func TestDownBadHashAndMissing(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
-	h := NewHandler(nil, nil, NewMetrics(), nil)
+	h := NewHandler(nil, nil, NewMetrics())
 	h.SetStore(st)
 
 	req := httptest.NewRequest(http.MethodGet, "/down/notahash", nil)
