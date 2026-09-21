@@ -27,3 +27,6 @@ data/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Planning documents
+plan.md
