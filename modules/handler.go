@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
 	"time"
 )
@@ -17,7 +16,6 @@ type Handler struct {
 	metrics    *Metrics
 	examplesFS fs.FS
 	semaphore  chan struct{}
-	gateway    *httputil.ReverseProxy
 	store      *Store
 }
 
@@ -31,9 +29,6 @@ func NewHandler(ipfsClient *Client, janitorManager *Manager, metrics *Metrics, e
 	}
 	if janitorManager != nil {
 		h.store = janitorManager.Store()
-	}
-	if GatewayEnabled {
-		h.gateway = NewGatewayProxy(IPFSGateway)
 	}
 	return h
 }
@@ -170,81 +165,6 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) Media(w http.ResponseWriter, r *http.Request) {
-	select {
-	case h.semaphore <- struct{}{}:
-		defer func() { <-h.semaphore }()
-	default:
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"error":     "Server busy",
-			"status":    "error",
-			"message":   "Too many concurrent uploads, try again later",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, FileLimit+1024*1024)
-
-	saved, err := SaveMultipartFile(r, FileLimit)
-	if err != nil {
-		h.handleUploadError(w, err)
-		return
-	}
-	defer RemovePath(saved.Path)
-
-	processed, err := AnonymizeImage(saved.Path, saved.OriginalName)
-	if err != nil {
-		h.handleUploadError(w, err)
-		return
-	}
-	defer RemovePath(processed.Path)
-
-	start := time.Now()
-	log.Printf("Starting anonymized IPFS upload for %s ...", processed.Filename)
-
-	cid, err := h.ipfs.AddFile(r.Context(), processed.Path, processed.Filename)
-	if err != nil {
-		log.Printf("IPFS media upload error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"error":     "Failed to upload to IPFS",
-			"details":   err.Error(),
-			"status":    "error",
-			"message":   "Failed to upload to IPFS",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
-		return
-	}
-
-	log.Printf("Anonymized media uploaded: name=%s original_bytes=%d size_bytes=%d mime_type=%s cid=%s stripped=%v upload_duration_ms=%d",
-		processed.Filename, processed.OriginalSize, processed.Size, processed.Mime, cid, processed.Stripped, time.Since(start).Milliseconds())
-	h.metrics.IncUpload(processed.Size)
-
-	pinned := true
-	if err := h.janitor.PinOnUpload(cid, processed.Filename, processed.Size); err != nil {
-		log.Printf("Pin failed for %s: %v", cid, err)
-		pinned = false
-	}
-
-	stripped := processed.Stripped
-	if stripped == nil {
-		stripped = []string{}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"status":       "success",
-		"cid":          cid,
-		"size":         processed.Size,
-		"originalSize": processed.OriginalSize,
-		"type":         processed.Mime,
-		"filename":     processed.Filename,
-		"pinned":       pinned,
-		"anonymized":   true,
-		"stripped":     stripped,
-		"orientation":  processed.Orientation,
-		"transcoded":   processed.Transcoded,
-	})
-}
 
 func (h *Handler) UploadFolder(w http.ResponseWriter, r *http.Request) {
 	select {
@@ -318,12 +238,6 @@ func (h *Handler) handleUploadError(w http.ResponseWriter, err error) {
 			"error":   "File too large",
 			"message": err.Error(),
 			"maxSize": FormatBytes(FileLimit),
-		})
-	case errors.Is(err, ErrUnsupportedMedia):
-		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{
-			"error":   "Unsupported media type",
-			"status":  "error",
-			"message": err.Error(),
 		})
 	default:
 		writeJSON(w, http.StatusBadRequest, map[string]any{

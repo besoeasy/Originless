@@ -159,8 +159,6 @@ func parseExampleMetadata(filename string, content string) ExampleTool {
 			tool.Endpoint = "NIP-68 · Kind 20"
 		} else if strings.Contains(lowerFile, "post") || strings.Contains(lowerContent, "kind 1") {
 			tool.Endpoint = "NIP-01 · Kind 1"
-		} else if strings.Contains(lowerFile, "media") || strings.Contains(lowerContent, "post /media") {
-			tool.Endpoint = "POST /media"
 		} else if strings.Contains(lowerContent, "/upload") {
 			tool.Endpoint = "POST /upload"
 		} else {

@@ -4,11 +4,11 @@ Base URL: **`http://localhost:3232`**
 
 No API keys, accounts, or authentication.
 
-**CORS** — JSON API and dashboard pages send Originless headers: `Access-Control-Allow-Origin: *`, methods `GET, HEAD, POST, OPTIONS`, headers `Content-Type`. **`/ipfs` and `/ipns` (including `{cid}.ipfs.*` hosts) do not.** Those responses are reverse-proxied from Kubo and already include CORS (`GET`/`HEAD`/`OPTIONS`, `Range`, `X-Ipfs-Path`, …). Originless must not add its own `Access-Control-*` on that path: browsers treat a second `Access-Control-Allow-Origin` as invalid and `fetch()` throws `TypeError: Failed to fetch` even on HTTP 200.
+**CORS** — JSON API and dashboard pages send standard Originless headers: `Access-Control-Allow-Origin: *`, methods `GET, HEAD, POST, OPTIONS`, headers `Content-Type`.
 
-**Bodies** — JSON uses `Content-Type: application/json`. JSON and HTML are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` is not wrapped). `/ipfs` and `/ipns` streams are passed through; Kubo may compress them itself.
+**Bodies** — JSON uses `Content-Type: application/json`. Responses are gzip-compressed when the client sends `Accept-Encoding: gzip` (`HEAD` is not wrapped).
 
-Uploads (`POST /upload`, `/media`, `/uploadfolder`, `/up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `STORAGE_MAX / 100` (1 GB when `STORAGE_MAX=100GB`).
+Uploads (`POST /upload`, `/uploadfolder`, `/up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `STORAGE_MAX / 100` (1 GB when `STORAGE_MAX=100GB`).
 
 ---
 
@@ -17,9 +17,8 @@ Uploads (`POST /upload`, `/media`, `/uploadfolder`, `/up`) are limited to **3 co
 | Method | Path | What it does |
 | :----- | :--- | :----------- |
 | `GET` | [`/health`](#get-health) | Liveness + IPFS peer count |
-| `GET` | [`/status`](#get-status) | Node, storage, and gateway snapshot |
-| `POST` | [`/upload`](#post-upload) | Pin a file as-is; returns a CID |
-| `POST` | [`/media`](#post-media) | Strip EXIF/GPS/XMP from an image, then pin |
+| `GET` | [`/status`](#get-status) | Node and storage snapshot |
+| `POST` | [`/upload`](#post-upload) | Pin a file to IPFS; returns a CID |
 | `POST` | [`/uploadfolder`](#post-uploadfolder) | Pin a directory tree as one root CID |
 | `GET` | [`/history`](#get-history) | Paginated upload log |
 | `GET` | [`/pins`](#get-pins) | Pinned count, bytes, and janitor threshold |
@@ -29,8 +28,6 @@ Uploads (`POST /upload`, `/media`, `/uploadfolder`, `/up`) are limited to **3 co
 | `POST` | [`/up`](#post-up) | Store a `.bin` file as `<sha256>.bin` |
 | `GET`/`HEAD` | [`/down/{hash}`](#get-downhash) | Serve a stored `.bin` by sha256 |
 | `GET` | [`/metrics`](#get-metrics) | Prometheus text metrics |
-| `GET`/`HEAD` | [`/ipfs/{cid}`](#get-ipfscid--ipnspath) | Serve bytes for a CID (local pin or swarm fetch) |
-| `GET`/`HEAD` | [`/ipns/{name}`](#get-ipfscid--ipnspath) | Resolve and serve an IPNS name |
 | `GET` | [`/api/examples`](#get-apiexamples) | JSON catalog of client tools |
 | `GET` | [`/examples/manifest.json`](#get-apiexamples) | Same catalog as `/api/examples` |
 
@@ -124,36 +121,6 @@ curl -X POST -F "file=@document.pdf" http://localhost:3232/upload
   "type": "application/pdf",
   "filename": "document.pdf",
   "pinned": true
-}
-```
-
----
-
-## `POST /media`
-
-Upload an image and strip private metadata before pinning.
-
-- Supported inputs: JPEG, PNG, GIF, WebP
-- Actions: Strips EXIF, GPS, XMP, IPTC; normalizes orientation
-- **Field name:** `file`
-
-```bash
-curl -X POST -F "file=@photo.jpg" http://localhost:3232/media
-```
-
-**200:**
-
-```json
-{
-  "status": "success",
-  "cid": "bafybeihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
-  "size": 1823400,
-  "originalSize": 2104500,
-  "type": "image/jpeg",
-  "filename": "photo.jpg",
-  "pinned": true,
-  "anonymized": true,
-  "stripped": ["EXIF", "GPS", "XMP"]
 }
 ```
 
@@ -373,15 +340,19 @@ curl -O "http://localhost:3232/down/e3b0...85"
 
 ---
 
-## `GET /ipfs/{cid}` / `/ipns/{name}`
+## Gateway Fetching (Rainbow & Public Gateways)
 
-Path-style HTTP gateway. Reverse-proxies Kubo (`IPFS_GATEWAY`, default `http://127.0.0.1:8080`).
+To protect node operators from serving abusive web traffic and legal liabilities, Originless does not host an open HTTP gateway on port `3232`. Requests to `/ipfs/` or `/ipns/` return `404 Not Found`.
 
-```bash
-curl -O "http://localhost:3232/ipfs/$CID"
-curl "http://localhost:3232/ipfs/$CID?filename=photo.png"
-curl -O "http://localhost:3232/ipfs/$CID/index.html"
-```
+Content pinned by Originless is broadcast across the IPFS swarm on port `4001` (Bitswap). To fetch content over HTTP:
+
+- **[Rainbow](https://github.com/ipfs/rainbow)** (Recommended) — The official standalone IPFS HTTP gateway implementation in Go. Provides automated denylist enforcement (`badbits`), subdomain origin isolation, and caching.
+- **Public Gateways**:
+  ```bash
+  curl -O "https://inbrowser.link/ipfs/$CID"
+  curl -O "https://ipfs.io/ipfs/$CID"
+  ```
+- **Native IPFS URIs**: `ipfs://$CID`
 
 ---
 
@@ -437,6 +408,6 @@ curl http://localhost:3232/api/examples
 | :----- | :--- |
 | `400` | Missing `file` part, empty filename, or malformed multipart |
 | `413` | File larger than `STORAGE_MAX / 100` (`maxSize` is included) |
-| `415` | `/media` only: not JPEG/PNG/GIF/WebP |
+| `415` | `/up` only: filename does not end in `.bin` |
 | `503` | 3 uploads already in flight (`"Server busy"`) |
 | `500` | Kubo add/pin failed |

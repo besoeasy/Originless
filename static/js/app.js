@@ -651,8 +651,9 @@
 
 #### API Endpoints
 - **Upload Single File**: \`POST ${origin}/upload\` (Multipart field: \`file\`)
-- **Anonymized Image**: \`POST ${origin}/media\` (strips EXIF/GPS/XMP, then pins)
 - **Upload Directory / DApp**: \`POST ${origin}/uploadfolder\` (Multipart field: \`file\`, relative paths)
+- **Signed Records**: \`POST ${origin}/records\` (Ed25519 authenticated state)
+- **Binary Blobs**: \`POST ${origin}/up\` (SHA-256 content-addressed)
 - **Node Health Probe**: \`GET ${origin}/health\`
 - **Node Telemetry**: \`GET ${origin}/status\`
 
@@ -677,19 +678,22 @@ To confirm you have understood this skill:
             return `# 1. Upload a single binary or file
 curl -X POST -F "file=@document.pdf" ${origin}/upload
 
-# 1b. Pin a photo with EXIF/GPS stripped
-curl -X POST -F "file=@photo.jpg" ${origin}/media
-
 # 2. Upload full Vite/React dist static build folder
 curl -X POST \\
   -F "file=@dist/index.html;filename=index.html" \\
   -F "file=@dist/assets/app.js;filename=assets/app.js" \\
   ${origin}/uploadfolder
 
-# 3. Check node telemetry & swarm status
+# 3. Store a signed record
+curl -X POST ${origin}/records -H "Content-Type: application/json" -d '{"owner":"ed25519:...","collection":"notes",...}'
+
+# 4. Store a .bin blob
+curl -X POST -F "file=@data.bin" ${origin}/up
+
+# 5. Check node telemetry & swarm status
 curl ${origin}/status
 
-# Share the CID at ${gw}{cid} — not https://dweb.link/ipfs/`;
+# Fetch the CID via a gateway like Rainbow (${gw}{cid})`;
           }
 
           if (this.promptFormat === "python") {
@@ -700,7 +704,7 @@ GATEWAY = "${gw}"
 
 # 1. Upload a file
 with open("sample.png", "rb") as f:
-    r = requests.post(f"{ORIGIN}/media", files={"file": f})
+    r = requests.post(f"{ORIGIN}/upload", files={"file": f})
     data = r.json()
     cid = data["cid"]
     print(f"Pinned: {GATEWAY}{cid}")`;
@@ -713,19 +717,19 @@ This is not limited to websites. Use it for a music file, a generated index.html
 Repo: https://github.com/besoeasy/Originless
 This Originless node: ${origin}
 Public IPFS gateway: ${gw}
-Do not use https://dweb.link/ipfs — share https://inbrowser.link/ipfs/{cid} instead.
 
 Use this node for all uploads. Do not invent another host or API key. There is no auth.
 
 Endpoints:
 - POST ${origin}/upload — one file, exact bytes. Multipart field "file".
-- POST ${origin}/media — one image (JPEG/PNG/GIF/WebP). Strips EXIF, GPS, XMP, IPTC, and comments, applies orientation, then pins. Use this for photos.
 - POST ${origin}/uploadfolder — a folder (gallery, album, report, site). Multipart field name is "file" for each file; set filename to the relative path so links stay intact.
+- POST ${origin}/records — signed JSON record (Ed25519 auth).
+- POST ${origin}/up — content-addressed .bin blob.
 - GET ${origin}/health — liveness check.
 
 The JSON response includes "cid". That CID is the content address.
 
-After upload, return gateway URLs to the user:
+After upload, fetch via a gateway (e.g. Rainbow or public gateway):
 - ${gw}{cid}            (single file)
 - ${gw}{cid}/           (folder; index.html at the root is served automatically)
 - ipfs://{cid}
@@ -809,7 +813,6 @@ To confirm you have understood this skill, complete this check:
         },
 
         uploadEndpoint(file) {
-          if (this.anonymizeMedia && this.isImageFile(file)) return "/media";
           return "/upload";
         },
 

@@ -219,11 +219,12 @@ if [ -n "${IPFS_PEERING:-}" ]; then
   ipfs config --json Peering.Peers "$IPFS_PEERING"
 fi
 
-# Re-applied on every boot so ENABLE_GATEWAY can be toggled without re-init.
-if falsey "${ENABLE_GATEWAY:-true}"; then
-  ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
+# Gateway is disabled by default to prevent serving abusive HTTP traffic.
+# Use Rainbow (https://github.com/ipfs/rainbow) on a separate domain for fetching.
+if falsey "${ENABLE_GATEWAY:-false}"; then
+  ipfs config Addresses.Gateway '""'
 else
-  ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080
+  ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
 fi
 
 # Drop a stale lock from a previous crashed container (single-process image).

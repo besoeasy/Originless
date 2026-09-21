@@ -545,7 +545,7 @@
         try {
           const form = new FormData();
           form.append("file", item.file, item.name);
-          const res = await fetch((this.nodeUrl || "http://localhost:3232") + "/media", { method: "POST", body: form });
+          const res = await fetch((this.nodeUrl || "http://localhost:3232") + "/upload", { method: "POST", body: form });
           const body = await res.json();
           if (!res.ok || !body.cid) throw new Error(body.message || body.error || ("HTTP " + res.status));
           item.cid = body.cid;

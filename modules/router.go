@@ -13,7 +13,6 @@ func NewRouter(ipfsClient *Client, janitorManager *Manager, uiFS fs.FS, examples
 	mux.HandleFunc("GET /health", handler.Health)
 	mux.HandleFunc("GET /status", handler.Status)
 	mux.HandleFunc("POST /upload", handler.Upload)
-	mux.HandleFunc("POST /media", handler.Media)
 	mux.HandleFunc("POST /uploadfolder", handler.UploadFolder)
 	mux.HandleFunc("GET /history", handler.History)
 	mux.HandleFunc("GET /pins", handler.PinStats)

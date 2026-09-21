@@ -2,10 +2,7 @@ module github.com/besoeasy/originless
 
 go 1.22
 
-require (
-	golang.org/x/image v0.21.0
-	modernc.org/sqlite v1.34.5
-)
+require modernc.org/sqlite v1.34.5
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

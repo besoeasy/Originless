@@ -38,7 +38,7 @@ var sizePattern = regexp.MustCompile(`(?i)^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$`)
 func init() {
 	StorageMax = envOrDefault("STORAGE_MAX", "100GB")
 	PinExpiryDays = envOrDefaultInt("PIN_EXPIRY_DAYS", 30)
-	GatewayEnabled = envOrDefaultBool("ENABLE_GATEWAY", true)
+	GatewayEnabled = envOrDefaultBool("ENABLE_GATEWAY", false)
 	IPFSGateway = strings.TrimRight(envOrDefault("IPFS_GATEWAY", "http://127.0.0.1:8080"), "/")
 	BlobDir = envOrDefault("BLOB_DIR", "/data/blobs")
 

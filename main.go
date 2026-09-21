@@ -74,9 +74,9 @@ func main() {
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
 
 	if modules.GatewayEnabled {
-		log.Printf("[STARTUP] IPFS gateway enabled path=/ipfs/ backend=%s (set ENABLE_GATEWAY=false to disable)", modules.IPFSGateway)
+		log.Printf("[STARTUP] IPFS gateway enabled path=/ipfs/ backend=%s", modules.IPFSGateway)
 	} else {
-		log.Printf("[STARTUP] IPFS gateway disabled (ENABLE_GATEWAY=false)")
+		log.Printf("[STARTUP] IPFS gateway disabled. For HTTP fetching, use Rainbow (https://github.com/ipfs/rainbow) or a public gateway.")
 	}
 
 	router := modules.NewRouter(ipfsClient, janitorMgr, uiFS(), exFS())

@@ -2,45 +2,24 @@ package modules
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"testing/fstest"
 )
 
-func withGatewayState(t *testing.T, enabled bool, backend string) {
-	t.Helper()
-	prevEnabled := GatewayEnabled
-	prevBackend := IPFSGateway
-	GatewayEnabled = enabled
-	if backend != "" {
-		IPFSGateway = strings.TrimRight(backend, "/")
-	}
-	t.Cleanup(func() {
-		GatewayEnabled = prevEnabled
-		IPFSGateway = prevBackend
-	})
-}
-
-func testRouter(enabled bool, backend string) http.Handler {
+func testRouter() http.Handler {
 	mockUI := fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("ui")},
 	}
 	mockExamples := fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("examples")},
 	}
-	GatewayEnabled = enabled
-	if backend != "" {
-		IPFSGateway = strings.TrimRight(backend, "/")
-	}
 	return NewRouter(nil, nil, mockUI, mockExamples)
 }
 
 func TestGatewayDisabledReturns404(t *testing.T) {
-	withGatewayState(t, false, "http://127.0.0.1:9")
-	router := testRouter(false, "http://127.0.0.1:9")
+	router := testRouter()
 
 	req := httptest.NewRequest(http.MethodGet, "/ipfs/QmY7Yh4UquoXHLPFo2XbhXkhBvFoPwmQUSa92pxnxjQuPU", nil)
 	rec := httptest.NewRecorder()
@@ -57,98 +36,39 @@ func TestGatewayDisabledReturns404(t *testing.T) {
 	if payload["status"] != "disabled" {
 		t.Errorf("expected status=disabled, got %#v", payload["status"])
 	}
+	if payload["recommended"] != "https://github.com/ipfs/rainbow" {
+		t.Errorf("expected recommended Rainbow URL, got %#v", payload["recommended"])
+	}
 }
 
-func TestGatewayProxiesIpfsAndIpns(t *testing.T) {
-	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Ipfs-Path", r.URL.Path)
-		w.Header().Set("Content-Type", "text/plain")
-		if r.URL.Path == "/ipfs/QmTest" {
-			io.WriteString(w, "hello-from-kubo")
-			return
-		}
-		if r.URL.Path == "/ipns/example" {
-			io.WriteString(w, "hello-ipns")
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	t.Cleanup(backend.Close)
+func TestSubdomainGatewayDisabledReturns404(t *testing.T) {
+	router := testRouter()
 
-	withGatewayState(t, true, backend.URL)
-	router := testRouter(true, backend.URL)
-
-	t.Run("GET /ipfs/cid", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/ipfs/QmTest", nil)
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-		}
-		if rec.Body.String() != "hello-from-kubo" {
-			t.Errorf("unexpected body %q", rec.Body.String())
-		}
-		if rec.Header().Get("X-Ipfs-Path") != "/ipfs/QmTest" {
-			t.Errorf("expected Kubo path header, got %q", rec.Header().Get("X-Ipfs-Path"))
-		}
-	})
-
-	t.Run("GET /ipns/name", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/ipns/example", nil)
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-		}
-		if rec.Body.String() != "hello-ipns" {
-			t.Errorf("unexpected body %q", rec.Body.String())
-		}
-	})
-}
-
-func TestGatewayDoesNotDuplicateKuboCORS(t *testing.T) {
-	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-		w.Header().Add("Access-Control-Allow-Methods", "GET")
-		w.Header().Add("Access-Control-Allow-Methods", "HEAD")
-		w.Header().Add("Access-Control-Allow-Methods", "OPTIONS")
-		w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Add("Access-Control-Allow-Headers", "Range")
-		w.Header().Set("X-Ipfs-Path", r.URL.Path)
-		io.WriteString(w, "ok")
-	}))
-	t.Cleanup(backend.Close)
-
-	withGatewayState(t, true, backend.URL)
-	router := testRouter(true, backend.URL)
-
-	req := httptest.NewRequest(http.MethodGet, "/ipfs/QmTest", nil)
-	req.Header.Set("Origin", "https://gupt.app")
+	req := httptest.NewRequest(http.MethodGet, "http://bafybeiabc.ipfs.localhost:3232/", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rec.Code)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 when gateway is disabled, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	origins := rec.Header().Values("Access-Control-Allow-Origin")
-	if len(origins) != 1 || origins[0] != "*" {
-		t.Fatalf("expected a single CORS origin *, got %#v", origins)
+	if rec.Body.String() == "ui" {
+		t.Fatal("disabled gateway must not fall through to the dashboard")
 	}
-	if got := rec.Header().Values("Access-Control-Allow-Headers"); len(got) < 2 {
-		t.Fatalf("expected Kubo's Allow-Headers to pass through, got %#v", got)
+}
+
+func TestGatewayStatusReportsDisabled(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:3232/status", nil)
+	got := gatewayStatus(req)
+	if got["enabled"] != false || got["serving"] != false {
+		t.Fatalf("expected enabled/serving false, got %#v", got)
 	}
-	for _, m := range rec.Header().Values("Access-Control-Allow-Methods") {
-		if strings.Contains(m, "POST") {
-			t.Fatalf("Originless CORS leaked onto the gateway: %#v", rec.Header().Values("Access-Control-Allow-Methods"))
-		}
+	if got["recommended"] != "https://github.com/ipfs/rainbow" {
+		t.Errorf("expected recommendation, got %#v", got["recommended"])
 	}
 }
 
 func TestAPIHasSingleOriginlessCORS(t *testing.T) {
-	withGatewayState(t, true, "http://127.0.0.1:9")
-	router := testRouter(true, "http://127.0.0.1:9")
+	router := testRouter()
 
 	req := httptest.NewRequest(http.MethodOptions, "/health", nil)
 	req.Header.Set("Origin", "https://gupt.app")
@@ -212,81 +132,5 @@ func TestIsSubdomainGatewayHost(t *testing.T) {
 		if isSubdomainGatewayHost(host) {
 			t.Errorf("did not expect subdomain gateway host %q", host)
 		}
-	}
-}
-
-func TestSubdomainGatewayDoesNotServeDashboard(t *testing.T) {
-	var sawHost string
-	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawHost = r.Host
-		w.Header().Set("Content-Type", "text/html")
-		io.WriteString(w, "pinned-site")
-	}))
-	t.Cleanup(backend.Close)
-
-	withGatewayState(t, true, backend.URL)
-	router := testRouter(true, backend.URL)
-
-	req := httptest.NewRequest(http.MethodGet, "http://bafybeichqkffkyfqetlaucpshgkel2wtwm57twvyvp6sp6ok45cnggxu24.ipfs.localhost:3232/?filename=QmT9o78zKwGNR97T33LhsdhtS2a3c6cDbguEbnbGwKAZBC", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
-	}
-	if rec.Body.String() == "ui" {
-		t.Fatal("subdomain host served the dashboard instead of Kubo")
-	}
-	if rec.Body.String() != "pinned-site" {
-		t.Errorf("unexpected body %q", rec.Body.String())
-	}
-	if origins := rec.Header().Values("Access-Control-Allow-Origin"); len(origins) > 1 {
-		t.Fatalf("duplicate CORS origin on subdomain gateway: %#v", origins)
-	}
-	if !strings.Contains(sawHost, ".ipfs.localhost") {
-		t.Errorf("Kubo should see the subdomain Host, got %q", sawHost)
-	}
-}
-
-func TestGatewayStatusReportsServing(t *testing.T) {
-	withGatewayState(t, true, "http://127.0.0.1:8080")
-	req := httptest.NewRequest(http.MethodGet, "http://localhost:3232/status", nil)
-	got := gatewayStatus(req)
-	if got["enabled"] != true || got["serving"] != true {
-		t.Fatalf("expected enabled/serving true, got %#v", got)
-	}
-	if got["url"] != "http://localhost:3232/ipfs/{cid}" {
-		t.Errorf("url = %#v", got["url"])
-	}
-	if got["ipnsUrl"] != "http://localhost:3232/ipns/{name}" {
-		t.Errorf("ipnsUrl = %#v", got["ipnsUrl"])
-	}
-	if got["kubo"] != "http://127.0.0.1:8080/ipfs/{cid}" {
-		t.Errorf("kubo = %#v", got["kubo"])
-	}
-
-	withGatewayState(t, false, "http://127.0.0.1:8080")
-	off := gatewayStatus(req)
-	if off["enabled"] != false || off["serving"] != false {
-		t.Fatalf("expected enabled/serving false, got %#v", off)
-	}
-	if _, ok := off["url"]; ok {
-		t.Errorf("disabled status should omit url, got %#v", off)
-	}
-}
-
-func TestSubdomainGatewayDisabledReturns404(t *testing.T) {
-	withGatewayState(t, false, "http://127.0.0.1:9")
-	router := testRouter(false, "http://127.0.0.1:9")
-
-	req := httptest.NewRequest(http.MethodGet, "http://bafybeiabc.ipfs.localhost:3232/", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected 404 when gateway is disabled, got %d body=%s", rec.Code, rec.Body.String())
-	}
-	if rec.Body.String() == "ui" {
-		t.Fatal("disabled gateway must not fall through to the dashboard")
 	}
 }

@@ -3,7 +3,7 @@
 #   docker compose up -d --build
 #   open http://localhost:3232
 #
-# 3232 = API + dashboard + /ipfs gateway
+# 3232 = API + dashboard
 # 4001 = libp2p swarm (publish TCP+UDP so peers can Bitswap your pins)
 
 services:
@@ -19,7 +19,7 @@ services:
     environment:
       STORAGE_MAX: ${STORAGE_MAX:-100GB}
       PIN_EXPIRY_DAYS: ${PIN_EXPIRY_DAYS:-30}
-      ENABLE_GATEWAY: ${ENABLE_GATEWAY:-true}
+      ENABLE_GATEWAY: ${ENABLE_GATEWAY:-false}
       IPFS_ROUTING: ${IPFS_ROUTING:-dhtclient}
       IPFS_PROFILE: ${IPFS_PROFILE:-lowpower}
       SWARM_ANNOUNCE: ${SWARM_ANNOUNCE:-}

@@ -1,14 +1,12 @@
-
-
 <div align="center">
 
-<img width="1542" height="1171" alt="image" src="https://github.com/user-attachments/assets/7f474225-2120-469a-92b2-8692dcaaa0d0" />
-
+<img width="1542" height="1171" alt="Originless" src="https://github.com/user-attachments/assets/7f474225-2120-469a-92b2-8692dcaaa0d0" />
 
 # Originless
 
-**Your all-in-one data & storage backend** — structured records, binary blobs, and IPFS files.  
-No accounts. No API keys. One Docker container.
+**The all-in-one backend for the open web.**  
+Records, binary blobs, and decentralized files — client-controlled, operator-safe, and zero-auth.  
+No accounts. No API keys. No copyright strikes. One Docker container.
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
 [![API](https://img.shields.io/badge/HTTP%20API-api.md-1f6feb)](api.md)
@@ -19,21 +17,123 @@ No accounts. No API keys. One Docker container.
 
 ---
 
-## What it is
+## Why Originless? (Built for the Open Internet)
 
-Originless is a zero-friction, multi-tier data and storage backend for apps, AI agents, local-first software, and static sites. Instead of managing a relational database, an S3 object store, an authentication service, and an IPFS pinner, Originless unifies them into three simple tiers:
+Traditional backends force you to become a babysitter: managing user tables, hashing passwords, rotating API tokens, and dreading DMCA takedowns, copyright strikes, or registrar domain freezes when users or agents upload data.
 
-- 🗂️ **Signed Records (`/records`)** — Ed25519-authenticated JSON documents for app state, chat, profiles, and game saves. Users and agents bring their own keys; no user tables or token servers needed.
-- ⚡ **Content-Addressed Blobs (`/up`, `/down`)** — Fast, direct SHA-256 `.bin` storage for raw binary state, caches, and buffers with automatic deduplication, 7-day minimum retention guarantee, and LRU eviction.
-- 🌐 **Decentralized Files (`/upload`, `/ipfs`)** — IPFS file and folder pinning, automatic EXIF/GPS privacy stripping, and built-in HTTP gateway with swarm Bitswap on port 4001.
+**Originless flips the model:**
 
-One port for humans and machines: **`3232`**.
+- 🛡️ **Zero Legal Troubles for Operators**: Built for the client-encrypted web. Clients encrypt their files, saves, and messages before uploading and decrypt after fetching. The node operator only holds opaque bytes and cryptographic hashes — completely insulated from copyright liability and content takedowns.
+- 🚫 **No Domain Drawdowns**: Originless separates ingestion and storage from public web rendering. By not hosting an open cleartext HTTP gateway on your domain, abusers cannot hijack your domain to serve phishing, malware, or illicit media. Content is distributed peer-to-peer over the libp2p swarm (`4001`) and fetched via dedicated gateways like [**Rainbow**](https://github.com/ipfs/rainbow) or public gateways.
+- ⚡ **Zero Auth Overhead**: No account signups, no passwords, no JWT servers. Identity is cryptographic (**Ed25519**) — clients prove ownership with their private key on every write.
+- 🌐 **One Unified Port**: One port for humans and machines: **`3232`**.
+
+---
+
+## The 3 Primitives That Power Everything
+
+```
+                                  ORIGINLESS
+                    (All-in-One Zero-Auth Open Backend)
+                                     │
+         ┌───────────────────────────┼───────────────────────────┐
+         │                           │                           │
+         ▼                           ▼                           ▼
+  Quick Records               Binary Blobs                IPFS Swarm
+  (/records)                  (/up, /down)                (/upload)
+  ─────────────────────       ─────────────────────       ─────────────────────
+  • Multiplayer Games         • Game Save Buffers         • Encrypted Backups
+  • Ephemeral Chat Rooms      • Serialized State          • Static Sites / DApps
+  • Push Notifications        • Raw Binary Caches         • Media Attachments
+  • Web3 & Crypto Profiles    • Fast SHA-256 Dedupe       • Global P2P Bitswap
+  • AI Agent Memory           • LRU Auto-Eviction         • Pinned on Port 4001
+```
+
+---
+
+### 1. ⚡ Quick Records (`/records`) — The Universal State Engine
+
+A fast, cryptographic document store for structured JSON data. Replaces traditional user tables and database servers across:
+
+- 🎮 **Games**: Save slots, player levels, leaderboards, inventory state, character gear.
+- 💬 **Chat & Web Rooms**: Ephemeral channel feeds, multiplayer lobby rooms, presence pings.
+- 🔔 **Notifications & Signals**: Event feeds, device alerts, agent webhooks, IoT state logs.
+- 🪙 **Crypto & Web3**: Wallet-linked metadata, decentralized identity profiles, transaction memos.
+- 🤖 **AI Agents**: Long-term memory, inter-agent message buses, task queues.
+
+**How it works**:
+- **Identity via Ed25519**: `owner: "ed25519:<64-hex-pubkey>"`. No passwords or accounts.
+- **Tamper-Proof IDs**: Server-computed deterministic hash `sha256(owner:collection:created_at:expires_at:canonical(data):labels)`. Clients cannot spoof or tamper with IDs.
+- **Mandatory Expiration (TTL)**: `expires_at` is required (minutes to 10 years). Expired state naturally fades away; queries auto-hide expired records.
+- **Instant Search & Labels**: Filter by collection, indexed tags (up to 10 labels), time range, or substring search inside the data payload.
+
+```bash
+# Store game progress or a room message (Ed25519 signed, 8 KB cap)
+curl -X POST http://localhost:3232/records \
+  -H "Content-Type: application/json" \
+  -d '{
+    "owner": "ed25519:3b6a...29",
+    "collection": "gamesaves",
+    "created_at": 1758420000,
+    "expires_at": 1790040000,
+    "data": { "slot": 1, "level": 42, "xp": 9820, "items": ["sword_of_light"] },
+    "labels": ["slot:1", "player:alice"],
+    "sig": "a3f1...c9"
+  }'
+
+# Query state (newest-first, filtered by collection & label)
+curl "http://localhost:3232/records?collection=gamesaves&label=slot:1&limit=1"
+
+# Fetch record by its server-computed hash ID
+curl "http://localhost:3232/records/8f2c...1a"
+```
+
+---
+
+### 2. 💾 Content-Addressed Blobs (`/up`, `/down`) — Fast Binary Store
+
+Direct binary blob storage without IPFS DAG chunking overhead. Ideal for game saves, binary caches, serialized buffers, and client-encrypted payloads:
+
+- **SHA-256 Addressing**: Stored strictly as `<sha256>.bin` under `/data/blobs`.
+- **Deduplication**: Uploading identical bytes calculates the same hash and touches recency without wasting disk space.
+- **7-Day Retention Guarantee**: New blobs are protected from eviction for at least 7 days.
+- **Automated LRU Eviction**: Pruned least-recently-used only when total storage exceeds quota (`STORAGE_MAX`).
+- **Immutable Caching**: Served with `ETag` and `Cache-Control: public, max-age=86400, immutable`.
+
+```bash
+# Upload a binary blob (returns SHA-256 hash)
+curl -X POST -F "file=@savegame.bin" http://localhost:3232/up
+
+# Fetch it back directly by hash
+curl -O "http://localhost:3232/down/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+```
+
+---
+
+### 3. 🌐 Decentralized IPFS Swarm (`/upload`, `/uploadfolder`) — Global Distribution
+
+Pin files or full directory trees with content-addressed multihashes (`ipfs://bafy...`):
+
+- **Zero Gateway Liability**: Originless pins content to the local Kubo datastore and advertises blocks over the libp2p swarm on port `4001`.
+- **P2P Swarm Bitswap**: Other nodes retrieve pinned blocks directly via Bitswap.
+- **Fetching over HTTP**: Handled safely via [**Rainbow**](https://github.com/ipfs/rainbow) (with built-in `badbits` denylists and origin sandboxing) or public gateways (`inbrowser.link`, `ipfs.io`).
+
+```bash
+# Pin an encrypted payload or asset (returns CID)
+curl -X POST -F "file=@backup.enc" http://localhost:3232/upload
+
+# Pin an entire static site or DApp dist folder under one root CID
+curl -X POST \
+  -F "file=@dist/index.html;filename=index.html" \
+  -F "file=@dist/app.js;filename=assets/app.js" \
+  http://localhost:3232/uploadfolder
+```
 
 ---
 
 ## Run
 
-standalone:
+Standalone container:
 
 ```bash
 podman run -d \
@@ -49,77 +149,25 @@ podman run -d \
 
 | Port | Why |
 | :--- | :--- |
-| **3232** | Dashboard, API, Records, Blobs, and `/ipfs/{cid}` gateway (everything HTTP) |
+| **3232** | Dashboard, REST API, Records, and Blobs |
 | **4001** TCP+UDP | IPFS swarm — other nodes Bitswap your pins |
 
 Open **http://localhost:3232** · Tools at **/examples/** · Full API in **[api.md](api.md)**
 
 ---
 
-## Use it
+## Capabilities at a Glance
 
-### 1. App State & Records (Ed25519-signed JSON)
-
-Store structured application state without user accounts or server credentials. Clients verify identity with an Ed25519 keypair:
-
-```bash
-# publish a record (chat, profile, save slot, config) — ID is server-computed
-curl -X POST http://localhost:3232/records \
-  -H "Content-Type: application/json" \
-  -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1790040000,"data":{"room":"general","text":"hello world"},"labels":["room:general"],"sig":"a3f1...c9"}'
-
-# query records (newest-first, auto-hides expired, filtered by collection/label/search)
-curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
-
-# fetch a single record by ID
-curl "http://localhost:3232/records/8f2c...1a"
-```
-
-### 2. Fast Content-Addressed Blobs (SHA-256)
-
-Store raw binary state without IPFS DAG chunking overhead:
-
-```bash
-# store a binary blob (returns SHA-256 hash, dedupes automatically)
-curl -X POST -F "file=@save.bin" http://localhost:3232/up
-
-# fetch it back directly by hash (includes immutable caching and LRU touch)
-curl -O "http://localhost:3232/down/$HASH"
-```
-
-### 3. IPFS Files & Media (P2P Swarm)
-
-Pin files, directory trees, or privacy-cleaned photos with global content addressing:
-
-```bash
-# upload any file
-curl -X POST -F "file=@document.pdf" http://localhost:3232/upload
-
-# photos with EXIF/GPS/XMP stripped before pinning
-curl -X POST -F "file=@photo.jpg" http://localhost:3232/media
-
-# upload an entire directory tree under a root CID
-curl -X POST -F "file=@dist/index.html;filename=index.html" -F "file=@dist/app.js;filename=assets/app.js" http://localhost:3232/uploadfolder
-
-# fetch via built-in gateway (swarm retrieve is built in)
-curl -O "http://localhost:3232/ipfs/$CID"
-```
-
----
-
-## Capabilities at a glance
-
-| You need… | Originless tier | Route | Notes |
-| :-------- | :-------------- | :---- | :---- |
-| **App state / profiles / chat** | Signed Records | `POST /records` & `GET /records` | Ed25519 authenticated, 8 KB cap, query & TTL |
-| **Game saves / raw binary cache** | Binary Blobs | `POST /up` & `GET /down/{hash}` | Content-addressed SHA-256, LRU eviction |
-| **Photos & media (privacy-first)** | Sanitized Media | `POST /media` | EXIF, GPS, and XMP stripped before pin |
-| **General files & attachments** | IPFS File Pin | `POST /upload` | Returns CID, pinned and swarm-accessible |
-| **Static site / DApp `dist/`** | IPFS Directory Pin | `POST /uploadfolder` | Preserves folder structure under one root CID |
-| **Agent / script output** | Zero-Auth API | Any endpoint | Single `curl` — no auth or API keys |
-| **Paste / snippet hosting** | Web Client Tools | `/examples/` | Browser UI built into the container |
-
-> For dedicated Nostr media backup and mirroring, see [nostr-backup](https://github.com/besoeasy/nostr-backup).
+| Application | Originless Tier | Route | Why it fits |
+| :--- | :--- | :--- | :--- |
+| **Games & Save States** | Quick Records / Blobs | `POST /records` or `/up` | Ed25519 identity, instant state query, `.bin` saves |
+| **Chat Apps & Web Rooms** | Quick Records | `POST /records` & `GET /records` | Ephemeral rooms, label filtering, auto-expiring messages |
+| **Push Notifications & Signals** | Quick Records | `POST /records` | Timestamped event feeds, subscriber polling |
+| **Crypto & Web3 DApps** | Quick Records | `POST /records` | Keypair auth matches crypto wallets, no server DB |
+| **Encrypted File Sharing** | IPFS Pinning | `POST /upload` | Client encrypts, server pins, zero operator liability |
+| **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Root CID preserves directory paths |
+| **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
+| **Web Snippets & Tools** | Web Client Tools | `/examples/` | Built-in browser tools ready to use |
 
 ---
 
@@ -127,12 +175,11 @@ curl -O "http://localhost:3232/ipfs/$CID"
 
 | Variable | Default | Notes |
 | :------- | :------ | :---- |
-| `STORAGE_MAX` | `100GB` | Shared quota for IPFS data and `.bin` blobs |
+| `STORAGE_MAX` | `100GB` | Shared quota for IPFS datastore and `.bin` blobs |
 | `PIN_EXPIRY_DAYS` | `30` | Janitor may evict IPFS pins after this threshold |
 | `BLOB_DIR` | `/data/blobs` | On-disk storage path for `.bin` blobs |
-| `ENABLE_GATEWAY` | `true` | `/ipfs` and `/ipns` on **3232**. Set `false` for pin-only |
-| `GATEWAY_NO_FETCH` | off | Set `true` for local-pins-only (no swarm fetch) |
-| `IPFS_PROFILE` | `lowpower` | Umbrel/home-friendly Kubo init |
+| `ENABLE_GATEWAY` | `false` | Disabled by default. Use Rainbow for fetching |
+| `IPFS_PROFILE` | `lowpower` | Umbrel/home-friendly Kubo initialization |
 | `SWARM_ANNOUNCE` | | Public multiaddrs if **4001** is behind NAT |
 
 More env vars and every route: **[api.md](api.md)**.

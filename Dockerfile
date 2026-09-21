@@ -12,10 +12,9 @@ FROM alpine:latest
 
 ENV STORAGE_MAX=100GB
 ENV PIN_EXPIRY_DAYS=30
-ENV ENABLE_GATEWAY=true
+ENV ENABLE_GATEWAY=false
 ENV IPFS_ROUTING=dhtclient
 ENV IPFS_PROFILE=lowpower
-ENV IPFS_GATEWAY=http://127.0.0.1:8080
 
 RUN apk add --no-cache ca-certificates gcompat kubo wget && \
   adduser -D -h /app originless
@@ -31,7 +30,7 @@ RUN chmod +x /app/docker-entrypoint.sh && \
 
 USER originless
 
-EXPOSE 3232 8080 4001/tcp 4001/udp
+EXPOSE 3232 4001/tcp 4001/udp
 
 VOLUME ["/data"]
 

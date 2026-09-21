@@ -1070,7 +1070,7 @@
           const form = new FormData();
           form.append("file", item.file, item.name);
           const origin = this.nodeUrl || "http://localhost:3232";
-          const res = await fetch(origin + "/media", { method: "POST", body: form });
+          const res = await fetch(origin + "/upload", { method: "POST", body: form });
           const body = await res.json();
           if (!res.ok || !body.cid) {
             throw new Error(body.details || body.error || body.message || ("HTTP " + res.status));
