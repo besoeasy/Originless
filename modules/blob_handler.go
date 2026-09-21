@@ -165,9 +165,10 @@ func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
 
 	// Post-hash quota enforcement (covers chunked uploads with unknown
 	// ContentLength). Deduped bytes use no new space, so existing dests
-	// always pass.
+	// always pass. Uses a fresh SUM so the hard cap is never bypassed by
+	// the cached storage total.
 	if _, err := os.Stat(dest); os.IsNotExist(err) {
-		if total, err := st.GetBlobSize(); err == nil && total+written > quota {
+		if total, err := st.GetBlobSizeFresh(); err == nil && total+written > quota {
 			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
 				"status": "error", "error": "storage quota exceeded",
 				"limit": quota, "used": total,

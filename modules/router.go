@@ -19,7 +19,7 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS) http.Handler {
 	mux.HandleFunc("GET /blobs", handler.ListBlobs)
 	mux.HandleFunc("GET /down/{hash}", handler.Down)
 	mux.HandleFunc("HEAD /down/{hash}", handler.Down)
-	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager))
+	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, handler.broadcaster))
 
 	mux.HandleFunc("GET /library.html", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusMovedPermanently)

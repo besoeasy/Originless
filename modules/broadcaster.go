@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // RecordSubscriber represents an active SSE client listening for matching records.
@@ -54,6 +55,10 @@ func (s *RecordSubscriber) Matches(rec *Record) bool {
 type RecordBroadcaster struct {
 	mu          sync.RWMutex
 	subscribers map[*RecordSubscriber]struct{}
+	// dropped counts records skipped because a subscriber's buffer was
+	// full (slow consumer). Exposed via /metrics so silent record loss
+	// is visible to operators.
+	dropped atomic.Int64
 }
 
 // NewRecordBroadcaster creates an empty thread-safe broadcaster.
@@ -97,10 +102,17 @@ func (b *RecordBroadcaster) Broadcast(rec *Record) {
 			select {
 			case sub.Ch <- rec:
 			default:
-				// Slow consumer buffer saturated — skip to prevent blocking fan-out
+				// Slow consumer buffer saturated — count and skip to
+				// prevent blocking fan-out.
+				b.dropped.Add(1)
 			}
 		}
 	}
+}
+
+// Dropped returns how many records were skipped for slow consumers.
+func (b *RecordBroadcaster) Dropped() int64 {
+	return b.dropped.Load()
 }
 
 // FormatSSE formats a Record into a standard Server-Sent Event block.

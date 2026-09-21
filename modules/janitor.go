@@ -212,13 +212,21 @@ func (m *Manager) ReconcileBlobs() error {
 	for _, h := range tracked {
 		known[h] = true
 	}
-	var imported, quarantined int
+	var imported, quarantined, tempRemoved int
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		name := e.Name()
 		if !strings.EqualFold(filepath.Ext(name), ".bin") {
+			// Staging temps (up-*) leak only if the process died between
+			// CreateTemp and the final rename — sweep them at startup so a
+			// crash never permanently consumes blob quota.
+			if strings.HasPrefix(name, "up-") {
+				if err := os.Remove(filepath.Join(BlobDir, name)); err == nil {
+					tempRemoved++
+				}
+			}
 			continue
 		}
 		hash := name[:len(name)-len(".bin")]
@@ -269,8 +277,8 @@ func (m *Manager) ReconcileBlobs() error {
 			}
 		}
 	}
-	if imported > 0 || missing > 0 || quarantined > 0 {
-		log.Printf("[janitor] blob reconcile: %d imported, %d missing dropped, %d quarantined", imported, missing, quarantined)
+	if imported > 0 || missing > 0 || quarantined > 0 || tempRemoved > 0 {
+		log.Printf("[janitor] blob reconcile: %d imported, %d missing dropped, %d quarantined, %d stale temp files removed", imported, missing, quarantined, tempRemoved)
 	}
 	return nil
 }

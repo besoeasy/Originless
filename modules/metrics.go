@@ -98,7 +98,7 @@ func (m *Metrics) SetStorageUsed(size int64) { m.storageUsed.Store(size) }
 
 // Handler serves the /metrics endpoint in Prometheus text format. Gauges are
 // refreshed on each scrape so they always reflect current state.
-func (m *Metrics) Handler(janitor *Manager) http.HandlerFunc {
+func (m *Metrics) Handler(janitor *Manager, broadcaster *RecordBroadcaster) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if janitor != nil {
 			if size, err := janitor.store.GetBlobSize(); err == nil {
@@ -141,6 +141,19 @@ func (m *Metrics) Handler(janitor *Manager) http.HandlerFunc {
 		sb.WriteString("# HELP originless_storage_used_bytes Storage used by tracked blobs.\n")
 		sb.WriteString("# TYPE originless_storage_used_bytes gauge\n")
 		fmt.Fprintf(&sb, "originless_storage_used_bytes %d\n", m.storageUsed.Load())
+
+		var clients, dropped int64
+		if broadcaster != nil {
+			clients = int64(broadcaster.SubscriberCount())
+			dropped = broadcaster.Dropped()
+		}
+		sb.WriteString("# HELP originless_sse_clients Active records/stream subscribers.\n")
+		sb.WriteString("# TYPE originless_sse_clients gauge\n")
+		fmt.Fprintf(&sb, "originless_sse_clients %d\n", clients)
+
+		sb.WriteString("# HELP originless_sse_dropped_total Records skipped for slow SSE consumers.\n")
+		sb.WriteString("# TYPE originless_sse_dropped_total counter\n")
+		fmt.Fprintf(&sb, "originless_sse_dropped_total %d\n", dropped)
 
 		w.Write([]byte(sb.String()))
 	}

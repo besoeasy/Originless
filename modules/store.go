@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -19,7 +20,16 @@ func jsonRaw(s string) json.RawMessage {
 
 type Store struct {
 	db *sql.DB
+
+	// blobSize caches SUM(blobs.size) for a short window. The publish
+	// path, /status, /metrics, /blobs and upload quota checks all read it;
+	// a TTL keeps this O(1) instead of scanning the whole blob table.
+	blobSizeMu        sync.Mutex
+	blobSize          int64
+	blobSizeCheckedAt time.Time
 }
+
+const blobSizeCacheTTL = 2 * time.Second
 
 func NewStore(dbPath string) (*Store, error) {
 	sqlDB, err := sql.Open("sqlite", dbPath)
@@ -44,6 +54,19 @@ func NewStore(dbPath string) (*Store, error) {
 	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("set auto_vacuum: %w", err)
+	}
+	// WAL + synchronous=NORMAL replace the default rollback journal with
+	// one full fsync per commit by at least two fsyncs (journal + db),
+	// which dominates publish latency. WAL keeps readers non-blocking and
+	// NORMAL stays crash-safe: recent commits may be lost on power loss but
+	// the database never corrupts.
+	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("set journal_mode: %w", err)
+	}
+	if _, err := sqlDB.Exec(`PRAGMA synchronous = NORMAL`); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("set synchronous: %w", err)
 	}
 
 	if err := migrate(sqlDB); err != nil {
@@ -95,11 +118,13 @@ func migrate(db *sql.DB) error {
 	return err
 }
 
-// InsertRecord stores a verified record + labels. Duplicate IDs are idempotent.
-func (s *Store) InsertRecord(r *Record) (bool, error) {
+// InsertRecord stores a verified record + labels. Duplicate IDs are idempotent:
+// created=false means the same ID already existed. storedAt is the DB-assigned
+// timestamp read inside the same transaction so publishes stay one round trip.
+func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	defer tx.Rollback()
 
@@ -108,28 +133,31 @@ func (s *Store) InsertRecord(r *Record) (bool, error) {
 		r.ID, r.Owner, r.Collection, r.CreatedAt, r.ExpiresAt, string(r.Data), r.Sig, r.Size,
 	)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	affected, _ := res.RowsAffected()
 	if affected == 0 {
 		_ = tx.Commit()
-		return false, nil // duplicate — already stored
+		return false, "", nil // duplicate — already stored
 	}
 
 	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO record_labels (record_id, label) VALUES (?, ?)`)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	defer stmt.Close()
 	for _, l := range r.Labels {
 		if _, err := stmt.Exec(r.ID, l); err != nil {
-			return false, err
+			return false, "", err
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return false, err
+	if err := tx.QueryRow(`SELECT stored_at FROM records WHERE id = ?`, r.ID).Scan(&storedAt); err != nil {
+		return false, "", err
 	}
-	return true, nil
+	if err := tx.Commit(); err != nil {
+		return false, "", err
+	}
+	return true, storedAt, nil
 }
 
 func (s *Store) GetRecord(id string) (*Record, error) {
@@ -179,7 +207,12 @@ type RecordFilter struct {
 	Limit          int
 	Offset         int
 	IncludeExpired bool
-	Now            int64
+	// Keyset pagination: fetch records older than (AfterCreated, AfterID)
+	// in DESC (created_at, id) order. When set it is used instead of Offset
+	// so deep pages stay O(page) instead of O(page+offset).
+	AfterCreated int64
+	AfterID      string
+	Now          int64
 }
 
 // QueryRecords returns newest-first, expired hidden unless IncludeExpired.
@@ -214,8 +247,17 @@ func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
 		q += ` AND data LIKE ?`
 		args = append(args, "%"+f.Search+"%")
 	}
-	q += ` ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`
-	args = append(args, f.Limit, f.Offset)
+	if f.AfterCreated > 0 {
+		// Keyset seek on the (created_at, id) DESC composite ordering.
+		q += ` AND (created_at < ? OR (created_at = ? AND id < ?))`
+		args = append(args, f.AfterCreated, f.AfterCreated, f.AfterID)
+	}
+	q += ` ORDER BY created_at DESC, id DESC LIMIT ?`
+	args = append(args, f.Limit)
+	if f.AfterCreated <= 0 {
+		q += ` OFFSET ?`
+		args = append(args, f.Offset)
+	}
 
 	rows, err := s.db.Query(q, args...)
 	if err != nil {
@@ -374,8 +416,9 @@ func (s *Store) DeleteBlob(hash string) error {
 	return err
 }
 
-// GetBlobSize sums tracked blob bytes.
-func (s *Store) GetBlobSize() (int64, error) {
+// GetBlobSizeFresh returns the live SUM(size) for hard quota enforcement
+// where bounded staleness is not acceptable (the post-hash upload gate).
+func (s *Store) GetBlobSizeFresh() (int64, error) {
 	var total sql.NullInt64
 	if err := s.db.QueryRow(`SELECT SUM(size) FROM blobs`).Scan(&total); err != nil {
 		return 0, err
@@ -384,6 +427,28 @@ func (s *Store) GetBlobSize() (int64, error) {
 		return total.Int64, nil
 	}
 	return 0, nil
+}
+
+// GetBlobSize sums tracked blob bytes. The result is cached for a short TTL
+// because hot paths (/up quota checks, /status, /metrics, /blobs) read it far
+// more often than the blob table changes.
+func (s *Store) GetBlobSize() (int64, error) {
+	s.blobSizeMu.Lock()
+	defer s.blobSizeMu.Unlock()
+	if time.Since(s.blobSizeCheckedAt) < blobSizeCacheTTL {
+		return s.blobSize, nil
+	}
+	var total sql.NullInt64
+	if err := s.db.QueryRow(`SELECT SUM(size) FROM blobs`).Scan(&total); err != nil {
+		return 0, err
+	}
+	if total.Valid {
+		s.blobSize = total.Int64
+	} else {
+		s.blobSize = 0
+	}
+	s.blobSizeCheckedAt = time.Now()
+	return s.blobSize, nil
 }
 
 // GetBlobCount counts tracked blobs.

@@ -196,7 +196,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate old failed: %v", err)
 	}
-	if _, err := st.InsertRecord(recOld); err != nil {
+	if _, _, err := st.InsertRecord(recOld); err != nil {
 		t.Fatal(err)
 	}
 	req5 := httptest.NewRequest(http.MethodGet, "/records?collection=chat", nil)
@@ -210,6 +210,150 @@ func TestRecordsEndToEnd(t *testing.T) {
 		if r.ID == recOld.ID {
 			t.Fatal("expired record should be hidden")
 		}
+	}
+}
+
+func TestKeysetPagination(t *testing.T) {
+	st := testStore(t)
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+
+	// Insert 25 records with strictly increasing created_at, newest last.
+	ids := make([]string, 25)
+	for i := 0; i < 25; i++ {
+		created := now - int64(25-i) // i=0 oldest
+		payload := signRecord(t, priv, owner, "pager", created, created+3600,
+			map[string]any{"n": i}, []string{})
+		id := payload["_id"].(string)
+		delete(payload, "_id")
+		raw, _ := json.Marshal(payload)
+		rec, err := ValidateRecordBody(raw, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := st.InsertRecord(rec); err != nil {
+			t.Fatal(err)
+		}
+		ids[i] = id
+	}
+	// Expected DESC order: newest (i=24) first.
+	var want []string
+	for i := 24; i >= 0; i-- {
+		want = append(want, ids[i])
+	}
+
+	var got []string
+	cursor := ""
+	for {
+		req := httptest.NewRequest(http.MethodGet, "/records?collection=pager&limit=10&cursor="+cursor, nil)
+		rec := httptest.NewRecorder()
+		h := NewHandler(nil, NewMetrics())
+		h.SetStore(st)
+		h.ListRecords(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("page status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			Records    []Record `json:"records"`
+			NextCursor string   `json:"next_cursor"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range resp.Records {
+			got = append(got, r.ID)
+		}
+		if resp.NextCursor == "" {
+			break
+		}
+		cursor = resp.NextCursor
+		if len(got) > 30 { // sanity: no infinite loop
+			t.Fatal("pagination did not terminate")
+		}
+	}
+	if len(got) != 25 {
+		t.Fatalf("got %d records, want 25", len(got))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("page order mismatch at %d: got %s want %s", i, got[i], want[i])
+		}
+	}
+}
+
+func TestKeysetPaginationLegacyOffset(t *testing.T) {
+	st := testStore(t)
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+
+	for i := 0; i < 5; i++ {
+		created := now - int64(6-i)
+		payload := signRecord(t, priv, owner, "pager", created, created+3600,
+			map[string]any{"n": i}, []string{})
+		delete(payload, "_id")
+		raw, _ := json.Marshal(payload)
+		rec, err := ValidateRecordBody(raw, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := st.InsertRecord(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+	req := httptest.NewRequest(http.MethodGet, "/records?collection=pager&limit=2&cursor=1", nil)
+	rec := httptest.NewRecorder()
+	h.ListRecords(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("offset page status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Records []Record `json:"records"`
+		Cursor  string   `json:"cursor"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Records) != 2 {
+		t.Fatalf("offset page len=%d, want 2", len(resp.Records))
+	}
+	if resp.Cursor != "1" {
+		t.Fatalf("cursor echo=%q, want 1", resp.Cursor)
+	}
+}
+
+func TestBroadcastDropCount(t *testing.T) {
+	b := NewRecordBroadcaster()
+	if b.Dropped() != 0 {
+		t.Fatalf("expected 0 dropped, got %d", b.Dropped())
+	}
+	// 1-buffer channel: a matching broadcast before the consumer drains
+	// must be counted as dropped.
+	sub := &RecordSubscriber{
+		Ch:         make(chan *Record, 1),
+		Collection: "chat",
+	}
+	b.Subscribe(sub)
+	defer b.Unsubscribe(sub)
+
+	rec := &Record{ID: "r1", Collection: "chat", Labels: []string{}, Data: []byte(`{}`)}
+	b.Broadcast(rec) // fills the 1-slot buffer
+	select {
+	case <-sub.Ch:
+	default:
+		t.Fatal("first broadcast should have been delivered")
+	}
+	if b.Dropped() != 0 {
+		t.Fatalf("no drop expected yet, got %d", b.Dropped())
+	}
+
+	// Refill then broadcast again without draining: buffer full -> dropped.
+	b.Broadcast(rec)
+	b.Broadcast(rec)
+	if b.Dropped() != 1 {
+		t.Fatalf("expected 1 dropped, got %d", b.Dropped())
 	}
 }
 
@@ -341,4 +485,3 @@ func TestStreamRecordsSSE(t *testing.T) {
 		t.Fatalf("expected data payload in stream, got %q", body)
 	}
 }
-

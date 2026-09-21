@@ -10,6 +10,8 @@ No API keys, accounts, or authentication.
 
 Uploads (`POST /up`) are limited to **3 concurrent requests**. Extra uploads return `503`. Per-file size cap is `min(STORAGE_MAX / 100, 512 MiB)`.
 
+**Timeouts** — the server imposes no read/write deadline: slow uploads up to the size cap are never cut mid-body, and SSE streams are long-lived (read-header and keep-alive idle are still bounded for normal clients).
+
 ---
 
 ## Route index
@@ -49,6 +51,7 @@ curl http://localhost:3232/status
 | `fileLimit` | Per-upload cap (`configured` string, `bytes` integer) |
 | `blobs` | Tracked blobs (`count`, `size`, `sizeStr`) |
 | `records` | Live (unexpired) records (`count`) |
+| `sse` | Live stream state (`clients`, `dropped` — records lost to slow consumers) |
 
 ```json
 {
@@ -58,7 +61,8 @@ curl http://localhost:3232/status
   "storageLimit": { "configured": "100GB", "bytes": 107374182400 },
   "fileLimit": { "configured": "512.00 MB", "bytes": 536870912 },
   "blobs": { "count": 12, "size": 1048576, "sizeStr": "1.00 MB" },
-  "records": { "count": 42 }
+  "records": { "count": 42 },
+  "sse": { "clients": 3, "dropped": 0 }
 }
 ```
 
@@ -112,7 +116,7 @@ Query records, newest-first. Expired records are hidden unless `include_expired=
 | `since` / `until` | | unix seconds on `created_at` |
 | `search` | | substring match inside `data` |
 | `limit` | `50` | 1–100 |
-| `cursor` | `0` | offset; follow `next_cursor` while non-empty |
+| `cursor` | | keyset token `"<created_at>:<id>"` from `next_cursor`; follow it while non-empty. Plain numeric cursors (old offset style) still work. |
 | `include_expired` | | `true` to show expired rows |
 
 ```bash
@@ -139,8 +143,8 @@ curl "http://localhost:3232/records?collection=chat&label=room:general&limit=20"
     }
   ],
   "limit": 20,
-  "cursor": "0",
-  "next_cursor": ""
+  "cursor": "",
+  "next_cursor": "1790000000:8f2c...1a"
 }
 ```
 
@@ -196,6 +200,8 @@ es.addEventListener("record", (e) => {
   console.log("New record:", record.data);
 });
 ```
+
+**Delivery guarantee** — SSE is useful but inherently lossy for a slow consumer: if a client reads too slowly, the server skips it rather than blocking others, and counts the skip in `originless_sse_dropped_total`. Reconnect (or poll `GET /records?limit=…`) to catch up after any disconnect or drop.
 
 ---
 
@@ -309,6 +315,8 @@ curl http://localhost:3232/metrics
 | `originless_upload_bytes_total` | counter | Bytes stored via `POST /up` |
 | `originless_storage_limit_bytes` | gauge | `STORAGE_MAX` in bytes |
 | `originless_storage_used_bytes` | gauge | Tracked blob bytes (refreshed per scrape) |
+| `originless_sse_clients` | gauge | Active `records/stream` connections |
+| `originless_sse_dropped_total` | counter | Records dropped because a consumer's buffer was full (too-slow consumer) |
 
 ---
 

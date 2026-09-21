@@ -314,6 +314,46 @@ func TestBlobLRURespectsRetention(t *testing.T) {
 	}
 }
 
+func TestReconcileCleansStaleTemps(t *testing.T) {
+	st := testStore(t)
+	dir := t.TempDir()
+	withBlobDir(t, dir)
+
+	// Simulate a crash mid-upload: a staged up-* temp file left behind.
+	stale := filepath.Join(dir, "up-1234567890")
+	if err := os.WriteFile(stale, []byte("half-uploaded"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A legitimate blob (real content hash matches its filename) + a
+	// non-temp, non-bin file that must be untouched. Reconcile imports
+	// untracked .bin files whose content hashes to their name.
+	goodSum := sha256.Sum256([]byte("real-blob-bytes-with-verified-hash"))
+	goodHash := hex.EncodeToString(goodSum[:])
+	good := filepath.Join(dir, goodHash+".bin")
+	if err := os.WriteFile(good, []byte("real-blob-bytes-with-verified-hash"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(elsewhere, []byte("hands off"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := NewJanitor(st, StorageMaxBytes)
+	if err := mgr.ReconcileBlobs(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Fatal("stale up-* temp should have been swept")
+	}
+	if _, err := os.Stat(good); err != nil {
+		t.Fatalf("legitimate blob must survive reconcile: %v", err)
+	}
+	if _, err := os.Stat(elsewhere); err != nil {
+		t.Fatalf("non-temp non-bin file must survive reconcile: %v", err)
+	}
+}
+
 func TestListBlobsAndCounts(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())

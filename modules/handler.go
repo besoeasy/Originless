@@ -48,9 +48,9 @@ func (h *Handler) recordStore() *Store {
 // Status reports node health, storage policy, and primitive counters.
 func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]any{
-		"status":      "success",
-		"timestamp":   time.Now().UTC().Format(time.RFC3339),
-		"version":     Version,
+		"status":    "success",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"version":   Version,
 		"storageLimit": map[string]any{
 			"configured": StorageMax,
 			"bytes":      StorageMaxBytes,
@@ -64,6 +64,9 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		},
 		"records": map[string]any{
 			"count": int64(0),
+		},
+		"sse": map[string]any{
+			"clients": 0, "dropped": int64(0),
 		},
 	}
 
@@ -80,6 +83,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 			payload["records"] = map[string]any{
 				"count": rCount,
 			}
+		}
+	}
+
+	if h.broadcaster != nil {
+		payload["sse"] = map[string]any{
+			"clients": h.broadcaster.SubscriberCount(),
+			"dropped": h.broadcaster.Dropped(),
 		}
 	}
 

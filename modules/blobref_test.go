@@ -209,7 +209,7 @@ func TestJanitorHonorsBlobReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.InsertRecord(rec); err != nil {
+	if _, _, err := st.InsertRecord(rec); err != nil {
 		t.Fatal(err)
 	}
 
@@ -244,7 +244,7 @@ func TestGetReferencedBlobHashes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.InsertRecord(recLive); err != nil {
+	if _, _, err := st.InsertRecord(recLive); err != nil {
 		t.Fatal(err)
 	}
 
@@ -258,7 +258,7 @@ func TestGetReferencedBlobHashes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.InsertRecord(recDead); err != nil {
+	if _, _, err := st.InsertRecord(recDead); err != nil {
 		t.Fatal(err)
 	}
 

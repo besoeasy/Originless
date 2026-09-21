@@ -3,6 +3,7 @@ package modules
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -58,34 +59,35 @@ func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Idempotent: same payload -> same ID -> return existing.
-	if existing, err := st.GetRecord(rec.ID); err == nil && existing != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"status": "success", "id": existing.ID, "stored_at": existing.StoredAt, "duplicate": true,
-		})
-		return
-	}
-
-	created, err := st.InsertRecord(rec)
+	// Idempotent: InsertRecord reports whether this ID already existed,
+	// so a publish is a single round trip and a concurrent duplicate race
+	// can't get a spurious 201 (or a re-broadcast).
+	created, storedAt, err := st.InsertRecord(rec)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"status": "error", "error": "failed to store record",
 		})
 		return
 	}
-	_ = created
-
-	stored, err := st.GetRecord(rec.ID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"status": "success", "id": rec.ID})
+	if !created {
+		existing, derr := st.GetRecord(rec.ID)
+		if derr != nil {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"status": "success", "id": rec.ID, "duplicate": true,
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status": "success", "id": existing.ID, "stored_at": existing.StoredAt, "duplicate": true,
+		})
 		return
 	}
+
 	if h.broadcaster != nil {
-		h.broadcaster.Broadcast(stored)
+		h.broadcaster.Broadcast(rec)
 	}
-	code := http.StatusCreated
-	writeJSON(w, code, map[string]any{
-		"status": "success", "id": stored.ID, "stored_at": stored.StoredAt,
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"status": "success", "id": rec.ID, "stored_at": storedAt,
 	})
 }
 
@@ -111,15 +113,25 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	cursor := 0
+	// cursor is a keyset token "<created_at>:<id>" (opaque object position).
+	// Plain numeric cursors are accepted for backward compatibility as
+	// OFFSETs.
+	var cursor int
+	var afterCreated int64
+	var afterID string
 	if v := q.Get("cursor"); v != "" {
-		if p, err := strconv.Atoi(v); err != nil || p < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"status": "error", "error": "invalid cursor",
-			})
-			return
+		if n, err := fmt.Sscanf(v, "%d:%64s", &afterCreated, &afterID); err == nil && n == 2 && afterCreated > 0 {
+			// keyset mode — afterCreated/afterID describe the last row
 		} else {
-			cursor = p
+			afterCreated, afterID = 0, "" // partial scan must not leak
+			if p, err := strconv.Atoi(v); err != nil || p < 0 {
+				writeJSON(w, http.StatusBadRequest, map[string]any{
+					"status": "error", "error": "invalid cursor",
+				})
+				return
+			} else {
+				cursor = p
+			}
 		}
 	}
 
@@ -151,6 +163,8 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 		Limit:          limit,
 		Offset:         cursor,
 		IncludeExpired: q.Get("include_expired") == "true",
+		AfterCreated:   afterCreated,
+		AfterID:        afterID,
 		Now:            time.Now().Unix(),
 	}
 
@@ -163,12 +177,13 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 	}
 
 	next := ""
-	if len(records) == limit {
-		next = strconv.Itoa(cursor + len(records))
+	if len(records) > 0 && len(records) == limit {
+		last := records[len(records)-1]
+		next = fmt.Sprintf("%d:%s", last.CreatedAt, last.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status": "success", "records": records,
-		"limit": limit, "cursor": strconv.Itoa(cursor), "next_cursor": next,
+		"limit": limit, "cursor": q.Get("cursor"), "next_cursor": next,
 	})
 }
 
@@ -188,8 +203,11 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := st.GetRecord(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "not found"})
+		if !errors.Is(err, sql.ErrNoRows) {
+			// Real database failure must not masquerade as a 404.
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"status": "error", "error": "query failed",
+			})
 			return
 		}
 		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "not found"})
