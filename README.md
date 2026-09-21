@@ -261,20 +261,3 @@ Open **http://localhost:3232** · Full API in **[api.md](api.md)**
 | **Static Sites & DApps** | Folder Pinning | `POST /uploadfolder` | Single `curl` pins full `dist/` directory tree under one root CID |
 | **Fast Binary Blobs** | Content-Addressed Blobs | `POST /up` & `GET /down/{hash}` | Direct SHA-256 blobs, size-weighted retention window, LRU auto-pruning |
 | **AI Agents & Bots** | Direct API | Any endpoint | Single `curl` — no auth tokens or API key provisioning |
-
----
-
-## Config (common)
-
-| Variable | Default | Notes |
-| :------- | :------ | :---- |
-| `STORAGE_MAX` | `100GB` | Shared quota for IPFS datastore and `.bin` blobs |
-| `PIN_EXPIRY_DAYS` | `30` | Janitor may evict IPFS pins after this threshold |
-
-More env vars and every route: **[api.md](api.md)**.
-
----
-
-## License
-
-**ISC** — free for personal and commercial use.
