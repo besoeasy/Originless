@@ -414,7 +414,7 @@
               </span>
             </div>
 
-            <div v-if="categoryDistribution.length > 0" class="type-track-wrap">
+            <div v-if="(categoryDistribution || []).length > 0" class="type-track-wrap">
               <div class="type-track">
                 <div
                   v-for="cat in categoryDistribution"
@@ -611,7 +611,7 @@
             </div>
             <div class="primitive-card-foot">
               <div class="primitive-metric">
-                <span class="metric-val mono">{{ recordsCount || records.length || 0 }}</span>
+                <span class="metric-val mono">{{ recordsCount || (records || []).length || 0 }}</span>
                 <span class="metric-lbl">Active Records</span>
               </div>
               <span class="primitive-action">Explore Feed &rarr;</span>
@@ -634,7 +634,7 @@
             </div>
             <div class="primitive-card-foot">
               <div class="primitive-metric">
-                <span class="metric-val mono">{{ blobsCount || blobs.length || 0 }} · {{ blobsTotalBytesStr || '0 B' }}</span>
+                <span class="metric-val mono">{{ blobsCount || (blobs || []).length || 0 }} · {{ blobsTotalBytesStr || '0 B' }}</span>
                 <span class="metric-lbl">Retained Blobs</span>
               </div>
               <span class="primitive-action">Drop &amp; Inspect &rarr;</span>
@@ -677,7 +677,7 @@
           >
             <span class="live-indicator-dot" v-if="recordsSseConnected" title="Live SSE Feed Active"></span>
             <span>Quick Records</span>
-            <span class="tab-badge mono">{{ recordsCount || records.length || 0 }}</span>
+            <span class="tab-badge mono">{{ recordsCount || (records || []).length || 0 }}</span>
           </button>
           <button
             class="workspace-tab"
@@ -687,7 +687,7 @@
             @click="setWorkspaceTab('blobs')"
           >
             <span>Binary Blobs</span>
-            <span class="tab-badge mono">{{ blobsCount || blobs.length || 0 }}</span>
+            <span class="tab-badge mono">{{ blobsCount || (blobs || []).length || 0 }}</span>
           </button>
           <button
             class="workspace-tab"
@@ -697,7 +697,7 @@
             @click="setWorkspaceTab('ipfs')"
           >
             <span>IPFS Library</span>
-            <span class="tab-badge mono">{{ filteredHistory.length }}</span>
+            <span class="tab-badge mono">{{ (filteredHistory || []).length }}</span>
           </button>
         </div>
 
@@ -771,7 +771,7 @@
 
       <!-- Quick Records Table & Content -->
       <div v-if="workspaceTab === 'records'">
-        <div v-if="recordsLoading && records.length === 0" class="empty">
+        <div v-if="recordsLoading && (records || []).length === 0" class="empty">
           <div class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="80" height="80" class="empty-svg">
               <circle cx="60" cy="60" r="36" fill="none" stroke="#f5b942" stroke-width="2" stroke-dasharray="6 6" class="orbit-rotate" />
@@ -782,7 +782,7 @@
           <p>Listening to real-time events and indexing records.</p>
         </div>
 
-        <div v-else-if="filteredRecords.length === 0" class="empty">
+        <div v-else-if="(filteredRecords || []).length === 0" class="empty">
           <div class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="90" height="90" class="empty-svg">
               <rect x="35" y="25" width="50" height="70" rx="6" fill="#14141a" stroke="#f5b942" stroke-width="1.8" />
@@ -897,7 +897,7 @@
           </div>
         </div>
 
-        <div v-if="blobsLoading && blobs.length === 0" class="empty">
+        <div v-if="blobsLoading && (blobs || []).length === 0" class="empty">
           <div class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="80" height="80" class="empty-svg">
               <circle cx="60" cy="60" r="36" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6 6" class="orbit-rotate" />
@@ -907,7 +907,7 @@
           <strong>Loading Binary Blobs...</strong>
         </div>
 
-        <div v-else-if="filteredBlobs.length === 0" class="empty">
+        <div v-else-if="(filteredBlobs || []).length === 0" class="empty">
           <div class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="90" height="90" class="empty-svg">
               <path d="M60 20 L95 40 L95 80 L60 100 L25 80 L25 40 Z" fill="#14141a" stroke="#38bdf8" stroke-width="1.8" />
@@ -983,7 +983,7 @@
 
       <!-- IPFS Library View -->
       <div v-else>
-        <div v-if="filteredHistory.length === 0" class="empty">
+        <div v-if="(filteredHistory || []).length === 0" class="empty">
           <div v-if="searchQuery" class="empty-graphic-wrap">
             <svg viewBox="0 0 120 120" width="96" height="96" class="empty-svg">
               <defs>
@@ -1131,7 +1131,7 @@
           <img v-if="inspectItem.showThumb" :src="inspectItem.thumbSrc" :alt="inspectItem.filename" @error="onThumbError(inspectItem.cid)" />
           <video v-else-if="inspectItem.isVideo" :src="inspectItem.thumbSrc" controls></video>
         </div>
-        <div class="qr"><img :src="inspectQrUrl" alt="QR" /></div>
+        <div class="qr"><img :src="inspectQrUrl" alt="QR" @error="$event.target.style.display='none'" /></div>
         <div class="inspect-name">{{ inspectItem.filename || "Untitled" }}</div>
         <div class="inspect-meta">
           {{ inspectItem.sizeLabel }} · {{ inspectItem.unpinned ? "Unpinned" : "Pinned" }} · {{ inspectItem.dateLabel }}
@@ -1232,7 +1232,7 @@
           <div class="kv-row">
             <span class="kv-k">Download Route</span>
             <span class="kv-v mono">/down/{{ inspectBlob.hash }}</span>
-            <button class="btn" type="button" @click="copyText(location.origin + '/down/' + inspectBlob.hash, 'Download URL copied')">Copy</button>
+            <button class="btn" type="button" @click="copyText(originUrl + '/down/' + inspectBlob.hash, 'Download URL copied')">Copy</button>
           </div>
           <div class="kv-row">
             <span class="kv-k">Retention</span>
@@ -1249,7 +1249,7 @@
         <div style="margin-top: 1.25rem;">
           <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--ink-3); margin-bottom: 0.5rem; font-weight: 600;">cURL Fetch Snippet</div>
           <div class="json-code-box">
-            <pre>curl -OJ {{ location.origin }}/down/{{ inspectBlob.hash }}</pre>
+            <pre>curl -OJ {{ originUrl }}/down/{{ inspectBlob.hash }}</pre>
           </div>
         </div>
       </div>
@@ -1267,7 +1267,7 @@
 </div>
 
 <script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
-<script src="/js/app.js?v=20260920"></script>
+<script src="/js/app.js?v=20260921"></script>
 <script>
   Originless.createOriginlessApp({ page: "overview" }).mount("#app");
 </script>

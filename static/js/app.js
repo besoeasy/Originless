@@ -243,8 +243,11 @@
 
   function isBlobProtected(val) {
     if (!val) return false;
-    const dateVal = (val && typeof val === "object" && val.createdAt) ? val.createdAt : val;
-    const d = new Date(dateVal).getTime();
+    const src = (val && typeof val === "object")
+      ? (val.created_at || val.createdAt || val.last_access || val.lastAccess)
+      : val;
+    if (!src) return false;
+    const d = new Date(src).getTime();
     if (isNaN(d)) return false;
     const diffMs = Date.now() - d;
     return diffMs < 7 * 24 * 3600 * 1000;
@@ -453,6 +456,14 @@
       computed: {
         currentOrigin() {
           return window.location.origin;
+        },
+
+        originUrl() {
+          try {
+            return (window.location && window.location.origin) || "";
+          } catch (_) {
+            return "";
+          }
         },
 
         gatewayHost() {
@@ -1356,7 +1367,12 @@ To confirm you have understood this skill, complete this check:
             const res = await fetch("/blobs?limit=50");
             const data = await res.json();
             if (res.ok && data.status === "success") {
-              this.blobs = data.blobs || [];
+              this.blobs = (data.blobs || []).map((b) => ({
+                ...b,
+                sizeStr: formatBytes(b.size),
+                ageLabel: formatRelative(b.created_at),
+                dateLabel: formatDate(b.created_at),
+              }));
               this.blobsCount = data.count || this.blobs.length;
               this.blobsTotalBytes = data.total_bytes || 0;
               this.blobsTotalBytesStr = data.total_bytes_str || formatBytes(this.blobsTotalBytes);
