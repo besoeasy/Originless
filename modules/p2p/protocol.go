@@ -41,7 +41,13 @@ type HelloPayload struct {
 	EventCount int64  `json:"event_count"`
 	BlobCount  int           `json:"blob_count"`
 	ListenPort int           `json:"listen_port"`
-	Peers      []PeerAddress `json:"peers,omitempty"`
+	Peers      []PeerHint    `json:"peers,omitempty"`
+}
+
+// PeerHint is a libp2p peer identity advertised over PEX (not a raw socket address).
+type PeerHint struct {
+	ID    string   `json:"id"`
+	Addrs []string `json:"addrs,omitempty"`
 }
 
 // MissingEventsPayload contains event IDs that a peer needs to receive.

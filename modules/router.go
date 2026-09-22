@@ -26,12 +26,6 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS, p2pBroadcaster ...P2PBroadca
 	mux.HandleFunc("HEAD /blob/{hash}", handler.Down)
 	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, handler.broadcaster))
 
-	if len(p2pBroadcaster) > 0 && p2pBroadcaster[0] != nil {
-		if h, ok := p2pBroadcaster[0].(http.Handler); ok {
-			mux.Handle("GET /p2p", h)
-		}
-	}
-
 	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/agent.txt", http.StatusMovedPermanently)
 	})

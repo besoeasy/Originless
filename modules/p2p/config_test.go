@@ -36,3 +36,16 @@ func TestLoadConfigDefaults(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadConfigBootstrapAndAnnounce(t *testing.T) {
+	t.Setenv("NETWORK_ID", "originless")
+	t.Setenv("BOOTSTRAP_PEERS", "not-valid")
+	t.Setenv("ANNOUNCE_ADDRS", "/ip4/8.8.8.8/tcp/3232/ws")
+	cfg := LoadConfig()
+	if len(cfg.BootstrapPeers) != 0 {
+		t.Fatalf("invalid bootstrap should be skipped, got %d", len(cfg.BootstrapPeers))
+	}
+	if len(cfg.AnnounceAddrs) != 1 {
+		t.Fatalf("expected 1 announce addr, got %d", len(cfg.AnnounceAddrs))
+	}
+}

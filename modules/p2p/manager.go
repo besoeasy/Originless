@@ -1,61 +1,107 @@
 package p2p
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	"context"
 	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/besoeasy/originless/modules"
+	"github.com/libp2p/go-libp2p/core/event"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
+
+// Options configures a P2P manager. Production uses NewManager; tests set extra fields.
+type Options struct {
+	Store            *modules.Store
+	BlobDir          string
+	DataDir          string
+	Broadcaster      *modules.RecordBroadcaster
+	ListenPort       int
+	ListenHost       string
+	HTTPHandler      http.Handler
+	ForcePublic      bool
+	ForcePrivate     bool
+	RelayHop         *bool
+	DisableMDNS      bool
+	DisableDHT       bool
+	DisableQUIC      bool
+	DisableAutoRelay bool
+	StaticRelays     []peer.AddrInfo
+}
 
 // Manager coordinates configuration, peer discovery, transport, and data synchronization.
 type Manager struct {
 	config      Config
+	opts        Options
 	store       *modules.Store
 	broadcaster *modules.RecordBroadcaster
 	engine      *SyncEngine
 	transport   *Transport
-	discovery   *Discovery
+	host        host.Host
+	discovery   *meshDiscovery
 	nodeID      string
+	ownsHTTP    bool
+	reachability atomic.Value // network.Reachability
+	ctx         context.Context
+	cancel      context.CancelFunc
 	stopChan    chan struct{}
 	wg          sync.WaitGroup
 }
 
 // NewManager creates a P2P manager if NETWORK_ID is set.
-// If NETWORK_ID is empty or unset, returns nil (P2P disabled).
-func NewManager(store *modules.Store, blobDir string, broadcaster *modules.RecordBroadcaster, listenPort int) *Manager {
+func NewManager(store *modules.Store, blobDir string, broadcaster *modules.RecordBroadcaster, listenPort int, dataDir string) *Manager {
+	if listenPort <= 0 {
+		listenPort = DefaultP2PPort
+	}
+	return NewManagerWithOptions(Options{
+		Store:       store,
+		BlobDir:     blobDir,
+		DataDir:     dataDir,
+		Broadcaster: broadcaster,
+		ListenPort:  listenPort,
+	})
+}
+
+// NewManagerWithOptions creates a manager from explicit options (used by tests).
+func NewManagerWithOptions(opts Options) *Manager {
 	cfg := LoadConfig()
 	if !cfg.Enabled {
 		return nil
 	}
-
-	// Generate random 16-hex node ID
-	var idBytes [8]byte
-	_, _ = rand.Read(idBytes[:])
-	nodeID := hex.EncodeToString(idBytes[:])
-
-	if listenPort <= 0 {
-		listenPort = DefaultP2PPort
+	relayHop := true
+	if opts.RelayHop != nil {
+		relayHop = *opts.RelayHop
 	}
 
-	engine := NewSyncEngine(store, blobDir, cfg.NetworkID, nodeID, broadcaster)
-	transport := NewTransport(engine, cfg.NetworkID, nodeID, listenPort, cfg.MaxPeers)
+	engine := NewSyncEngine(opts.Store, opts.BlobDir, cfg.NetworkID, "", opts.Broadcaster)
+	transport := NewTransport(engine, cfg.NetworkID, "", opts.ListenPort, cfg.MaxPeers)
 
-	return &Manager{
+	m := &Manager{
 		config:      cfg,
-		store:       store,
-		broadcaster: broadcaster,
+		opts:        opts,
+		store:       opts.Store,
+		broadcaster: opts.Broadcaster,
 		engine:      engine,
 		transport:   transport,
-		nodeID:      nodeID,
 		stopChan:    make(chan struct{}),
 	}
+	m.opts.RelayHop = &relayHop
+	m.reachability.Store(network.ReachabilityUnknown)
+	return m
 }
 
-// SetBroadcaster connects the local SSE record broadcaster to the P2P engine.
+func (m *Manager) SetHTTPHandler(h http.Handler) {
+	if m == nil {
+		return
+	}
+	m.opts.HTTPHandler = h
+}
+
 func (m *Manager) SetBroadcaster(b *modules.RecordBroadcaster) {
 	if m == nil {
 		return
@@ -66,74 +112,126 @@ func (m *Manager) SetBroadcaster(b *modules.RecordBroadcaster) {
 	}
 }
 
-// Start launches the BitTorrent DHT, LSD discovery, and background sync worker.
+func (m *Manager) OwnsListener() bool {
+	return m != nil && m.ownsHTTP
+}
+
+func (m *Manager) Host() host.Host {
+	if m == nil {
+		return nil
+	}
+	return m.host
+}
+
+func (m *Manager) AddrInfo() peer.AddrInfo {
+	if m == nil || m.host == nil {
+		return peer.AddrInfo{}
+	}
+	return peer.AddrInfo{ID: m.host.ID(), Addrs: m.host.Addrs()}
+}
+
+func (m *Manager) Connect(ctx context.Context, info peer.AddrInfo) {
+	if m == nil || m.transport == nil {
+		return
+	}
+	m.transport.ConnectPeer(info)
+}
+
 func (m *Manager) Start() error {
 	if m == nil || !m.config.Enabled {
 		return nil
 	}
 
-	log.Printf("[P2P] Starting node in network=%s (node_id=%s)", m.config.NetworkID, m.nodeID)
+	priv, err := LoadOrCreateIdentity(m.opts.DataDir)
+	if err != nil {
+		return err
+	}
 
-	disc, err := NewDiscovery(m.config.NetworkID, m.config.Port, func(addr PeerAddress) {
-		m.transport.DialPeer(addr)
+	hop := true
+	if m.opts.RelayHop != nil {
+		hop = *m.opts.RelayHop
+	}
+
+	h, err := buildHost(priv, m.config, hostSettings{
+		port:             m.opts.ListenPort,
+		listenHost:       m.opts.ListenHost,
+		httpHandler:      m.opts.HTTPHandler,
+		bootstrap:        m.config.BootstrapPeers,
+		forcePublic:      m.opts.ForcePublic,
+		forcePrivate:     m.opts.ForcePrivate,
+		relayHop:         hop,
+		disableQUIC:      m.opts.DisableQUIC,
+		disableAutoRelay: m.opts.DisableAutoRelay,
+		staticRelays:     m.opts.StaticRelays,
 	})
 	if err != nil {
 		return err
 	}
+
+	m.host = h
+	m.nodeID = h.ID().String()
+	m.ownsHTTP = m.opts.HTTPHandler != nil
+	m.ctx, m.cancel = context.WithCancel(context.Background())
+	m.transport.AttachHost(h)
+
+	if m.opts.ForcePublic {
+		m.reachability.Store(network.ReachabilityPublic)
+	} else if m.opts.ForcePrivate {
+		m.reachability.Store(network.ReachabilityPrivate)
+	}
+
+	disc, err := startMeshDiscovery(m.ctx, h, m.config.NetworkID, m.config.BootstrapPeers, m.opts.DisableDHT, m.opts.DisableMDNS, func(info peer.AddrInfo) {
+		m.transport.ConnectPeer(info)
+	})
+	if err != nil {
+		_ = h.Close()
+		return err
+	}
 	m.discovery = disc
-	disc.Start()
+
+	go m.watchReachability()
 
 	m.wg.Add(1)
 	go m.reconciliationLoop()
 
+	log.Printf("[P2P] Starting node in network=%s (peer_id=%s) addrs=%v", m.config.NetworkID, m.nodeID, h.Addrs())
 	return nil
 }
 
-// Stop shuts down the P2P subsystem.
 func (m *Manager) Stop() {
 	if m == nil || !m.config.Enabled {
 		return
 	}
-	close(m.stopChan)
+	select {
+	case <-m.stopChan:
+	default:
+		close(m.stopChan)
+	}
+	if m.cancel != nil {
+		m.cancel()
+	}
 	if m.discovery != nil {
 		m.discovery.Stop()
 	}
 	if m.transport != nil {
 		m.transport.Stop()
 	}
+	if m.host != nil {
+		_ = m.host.Close()
+	}
 	m.wg.Wait()
 	log.Printf("[P2P] Stopped P2P subsystem")
 }
 
-// Handler returns the HTTP handler for GET /p2p.
-func (m *Manager) Handler() http.Handler {
-	if m == nil || !m.config.Enabled {
-		return nil
-	}
-	return m.transport
-}
-
-// ServeHTTP implements http.Handler for GET /p2p.
-func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if m == nil || !m.config.Enabled || m.transport == nil {
-		http.NotFound(w, r)
-		return
-	}
-	m.transport.ServeHTTP(w, r)
-}
-
-// BroadcastRecord broadcasts a newly published event across connected peers in real time.
 func (m *Manager) BroadcastRecord(rec *modules.Record) {
 	if m == nil || !m.config.Enabled || rec == nil {
 		return
 	}
-	// Record in seen cache so we don't re-process if a peer echoes it
 	if m.engine.seenCache.Add(rec.ID) {
 		m.transport.BroadcastEvent(rec, "")
 	}
 }
 
-// BroadcastBlob broadcasts a newly uploaded blob announcement across connected peers in real time.
 func (m *Manager) BroadcastBlob(hash string, size int64) {
 	if m == nil || !m.config.Enabled || hash == "" {
 		return
@@ -143,7 +241,6 @@ func (m *Manager) BroadcastBlob(hash string, size int64) {
 	}
 }
 
-// Status returns a telemetry map for reporting in /status.
 func (m *Manager) Status() map[string]any {
 	if m == nil || !m.config.Enabled {
 		return map[string]any{
@@ -152,22 +249,74 @@ func (m *Manager) Status() map[string]any {
 	}
 
 	evSynced, bSynced, lastSync := m.engine.Stats()
-	natMapped := false
-	if m.discovery != nil {
-		natMapped = m.discovery.IsNATMapped()
+	r := network.ReachabilityUnknown
+	if v := m.reachability.Load(); v != nil {
+		r = v.(network.Reachability)
+	}
+
+	var listen []string
+	var observed []string
+	if m.host != nil {
+		for _, a := range m.host.Addrs() {
+			listen = append(listen, a.String())
+		}
+		for _, a := range m.host.Network().Peerstore().Addrs(m.host.ID()) {
+			observed = append(observed, a.String())
+		}
+	}
+
+	hop := r == network.ReachabilityPublic
+	if m.opts.RelayHop != nil {
+		hop = hop && *m.opts.RelayHop
+	}
+
+	peers := 0
+	if m.transport != nil {
+		peers = m.transport.ActivePeersCount()
 	}
 
 	return map[string]any{
 		"enabled":         true,
 		"network_id":      m.config.NetworkID,
+		"peer_id":         m.nodeID,
 		"node_id":         m.nodeID,
-		"listen_port":     m.config.Port,
+		"listen_port":     m.opts.ListenPort,
+		"listen_addrs":    listen,
+		"observed_addrs":  observed,
+		"nat":             reachabilityString(r),
+		"relay_hop":       hop,
 		"max_peers":       m.config.MaxPeers,
-		"nat_mapped":      natMapped,
-		"peers_connected": m.transport.ActivePeersCount(),
+		"peers_connected": peers,
 		"events_synced":   evSynced,
 		"blobs_synced":    bSynced,
 		"last_sync":       lastSync,
+	}
+}
+
+func (m *Manager) watchReachability() {
+	if m.host == nil {
+		return
+	}
+	sub, err := m.host.EventBus().Subscribe(new(event.EvtLocalReachabilityChanged))
+	if err != nil {
+		return
+	}
+	defer sub.Close()
+	for {
+		select {
+		case <-m.stopChan:
+			return
+		case e, ok := <-sub.Out():
+			if !ok {
+				return
+			}
+			ev, ok := e.(event.EvtLocalReachabilityChanged)
+			if !ok {
+				continue
+			}
+			m.reachability.Store(ev.Reachability)
+			log.Printf("[P2P] reachability=%s", reachabilityString(ev.Reachability))
+		}
 	}
 }
 

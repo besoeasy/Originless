@@ -4,35 +4,35 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
-// Hardcoded sensible defaults for BitTorrent Mainline DHT & P2P Swarm.
-// Average users never need to configure these knobs.
-var (
-	DefaultDHTBootstrapRouters = []string{
-		"router.bittorrent.com:6881",
-		"dht.transmissionbt.com:6881",
-		"router.utorrent.com:6881",
-		"dht.libtorrent.org:25401",
-		"dht.aelitis.com:6881",
-	}
-
-	DefaultP2PPath         = "/p2p"
+const (
 	DefaultP2PPort         = 3232
 	DefaultNetworkID       = "originless"
 	DefaultMaxPeers        = 8
 	DefaultSyncInterval    = 60 * time.Second
-	DefaultDHTPollInterval = 120 * time.Second
 	DefaultGossipCacheSize = 10000
+	IdentityFileName       = "p2p.key"
+	SyncProtocolID         = "/originless/sync/1.0.0"
+	DHTProtocolPrefix      = "/originless"
+	RendezvousPrefix       = "originless/"
 )
+
+// DefaultBootstrapPeers are public Originless nodes used only to join the
+// NETWORK_ID=originless DHT. They run the same binary as every other node.
+var DefaultBootstrapPeers []string
 
 // Config represents the active P2P configuration.
 type Config struct {
-	Enabled   bool
-	NetworkID string
-	Port      int
-	Routers   []string
-	MaxPeers  int
+	Enabled        bool
+	NetworkID      string
+	Port           int
+	MaxPeers       int
+	BootstrapPeers []peer.AddrInfo
+	AnnounceAddrs  []ma.Multiaddr
 }
 
 // LoadConfig reads the environment to configure the P2P subsystem.
@@ -57,9 +57,62 @@ func LoadConfig() Config {
 		Enabled:   enabled,
 		NetworkID: netID,
 		Port:      DefaultP2PPort,
-		Routers:   DefaultDHTBootstrapRouters,
 		MaxPeers:  DefaultMaxPeers,
+	}
+	if !enabled {
+		return cfg
+	}
+
+	boot := strings.TrimSpace(os.Getenv("BOOTSTRAP_PEERS"))
+	if boot != "" {
+		cfg.BootstrapPeers = parseAddrInfos(boot)
+	} else if netID == DefaultNetworkID {
+		cfg.BootstrapPeers = parseAddrInfos(strings.Join(DefaultBootstrapPeers, ","))
+	}
+
+	if announce := strings.TrimSpace(os.Getenv("ANNOUNCE_ADDRS")); announce != "" {
+		cfg.AnnounceAddrs = parseMultiaddrs(announce)
 	}
 
 	return cfg
+}
+
+func parseAddrInfos(list string) []peer.AddrInfo {
+	var out []peer.AddrInfo
+	for _, part := range strings.Split(list, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		m, err := ma.NewMultiaddr(part)
+		if err != nil {
+			continue
+		}
+		info, err := peer.AddrInfoFromP2pAddr(m)
+		if err != nil {
+			continue
+		}
+		out = append(out, *info)
+	}
+	return out
+}
+
+func parseMultiaddrs(list string) []ma.Multiaddr {
+	var out []ma.Multiaddr
+	for _, part := range strings.Split(list, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		m, err := ma.NewMultiaddr(part)
+		if err != nil {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+func rendezvousNamespace(networkID string) string {
+	return RendezvousPrefix + networkID
 }

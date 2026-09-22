@@ -55,16 +55,15 @@ func main() {
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
 
-	p2pMgr := p2p.NewManager(database, modules.BlobDir, nil, modules.Port)
+	p2pMgr := p2p.NewManager(database, modules.BlobDir, nil, modules.Port, dataDir)
+	router := modules.NewRouter(janitorMgr, uiFS(), p2pMgr)
 	if p2pMgr != nil {
+		p2pMgr.SetHTTPHandler(router)
 		if err := p2pMgr.Start(); err != nil {
 			log.Printf("[STARTUP] P2P initialization failed: %v", err)
-		} else {
-			defer p2pMgr.Stop()
+			p2pMgr = nil
 		}
 	}
-
-	router := modules.NewRouter(janitorMgr, uiFS(), p2pMgr)
 
 	// ReadTimeout/WriteTimeout are intentionally 0: full-body reads must
 	// tolerate slow uploads (there is no upload size cap), and the SSE live
@@ -81,12 +80,17 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	go func() {
-		log.Printf("[STARTUP] SERVER_LISTENING host=%s port=%d url=http://%s:%d", modules.Host, modules.Port, modules.Host, modules.Port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server failed: %v", err)
-		}
-	}()
+	serveHTTP := p2pMgr == nil || !p2pMgr.OwnsListener()
+	if serveHTTP {
+		go func() {
+			log.Printf("[STARTUP] SERVER_LISTENING host=%s port=%d url=http://%s:%d", modules.Host, modules.Port, modules.Host, modules.Port)
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("server failed: %v", err)
+			}
+		}()
+	} else {
+		log.Printf("[STARTUP] SERVER_LISTENING host=%s port=%d url=http://%s:%d p2p=libp2p", modules.Host, modules.Port, modules.Host, modules.Port)
+	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -95,12 +99,17 @@ func main() {
 
 	workerCancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	if p2pMgr != nil {
+		p2pMgr.Stop()
+	}
 
-	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("[SHUTDOWN] HTTP_SERVER_ERROR error=%v", err)
-	} else {
-		log.Printf("[SHUTDOWN] HTTP_SERVER_CLOSED")
+	if serveHTTP {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("[SHUTDOWN] HTTP_SERVER_ERROR error=%v", err)
+		} else {
+			log.Printf("[SHUTDOWN] HTTP_SERVER_CLOSED")
+		}
 	}
 }

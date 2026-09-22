@@ -30,3 +30,6 @@ data/
 
 # Planning documents
 plan.md
+
+# Local Go module cache used in containers
+.gopath/

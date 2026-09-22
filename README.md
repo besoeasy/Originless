@@ -6,7 +6,7 @@
 No accounts. No API keys. Zero complex setup. One single container.
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
-[![P2P Mesh](https://img.shields.io/badge/p2p-BitTorrent%20DHT-orange)](https://github.com/besoeasy/originless)
+[![P2P Mesh](https://img.shields.io/badge/p2p-libp2p-orange)](https://github.com/besoeasy/originless)
 [![Agent Contract](https://img.shields.io/badge/agent%20contract-agent.txt-1f6feb)](static/agent.txt)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/ISC)
 [![Available on Umbrel](https://apps.umbrel.com/api/app/originless/badge-light.svg)](https://apps.umbrel.com/app/originless)
@@ -23,7 +23,7 @@ Instead of running and configuring half a dozen microservices, API keys, and dat
 | :--- | :--- | :--- |
 | **ntfy / Pusher** | Real-time live pub/sub streams via Server-Sent Events (`GET /events/stream?label=...`). | No WebSockets, no server daemons. Subscribe directly in browser `EventSource` or `curl -N`. |
 | **Sentry** | Fire-and-forget signed telemetry and error logs (`POST /events`) with labels and automatic TTL expiry. | Zero auth tokens to provision or rotate. Filter by error tag or live-tail critical alerts. |
-| **Nostr Relays** | Cryptographically signed Ed25519 events with tamper-proof IDs and DHT swarm sync. | No complex NIP protocols, no paid relay operators. Standard HTTP REST + SSE. |
+| **Nostr Relays** | Cryptographically signed Ed25519 events with tamper-proof IDs and libp2p swarm sync. | No complex NIP protocols, no paid relay operators. Standard HTTP REST + SSE. |
 | **0x0.st / Pastebin** | Content-addressed ephemeral binary file drops (`POST /events` with a `blob` part, `GET /blob/<sha256>`). | Deduplicated by SHA-256. Reference-driven retention pins blobs while any signed event links them, then auto-evicts orphans cleanly. |
 | **Redis Pub/Sub** | Ephemeral JSON documents with self-expiring TTLs and real-time streaming. | Pure SQLite WAL storage with microsecond query latency and zero RAM bloat. |
 | **S3 / Object Store** | Content-addressed blob storage with streaming downloads and checksum verification. | Zero IAM policies or bucket configuration. Upload once, verify everywhere. |
@@ -32,12 +32,28 @@ Instead of running and configuring half a dozen microservices, API keys, and dat
 
 ## Run in 10 seconds
 
-Zero configuration. One command starts your node, maps router ports via UPnP, joins the BitTorrent P2P mesh, and starts syncing automatically:
+Zero configuration. One command starts your node, joins the libp2p mesh, and starts syncing automatically:
 
 ### Docker
 ```bash
 docker run -d --name originless --restart unless-stopped \
   -p 3232:3232 -v originless-data:/data \
+  ghcr.io/besoeasy/originless:latest
+```
+
+Publish UDP as well if you want hole punching across NATs:
+
+```bash
+docker run -d --name originless --restart unless-stopped \
+  -p 3232:3232/tcp -p 3232:3232/udp -v originless-data:/data \
+  ghcr.io/besoeasy/originless:latest
+```
+
+Same-LAN wire speed (skips Docker bridge NAT):
+
+```bash
+docker run -d --name originless --restart unless-stopped \
+  --network host -v originless-data:/data \
   ghcr.io/besoeasy/originless:latest
 ```
 
@@ -52,8 +68,8 @@ That's it! Your node is live at **http://localhost:3232**.
 
 ### Mesh Network Options
 
-* **Public Mesh (Default)**: No extra flags needed. By default, `NETWORK_ID` is `originless` — your nodes immediately discover each other across different PCs or cloud servers over BitTorrent Mainline DHT and sync events and blobs.
-* **Private Mesh**: Add `-e NETWORK_ID=my-project` on your containers to create an isolated private swarm.
+* **Public Mesh (Default)**: No extra flags needed. By default, `NETWORK_ID` is `originless` — nodes discover each other over a private libp2p Kad DHT, punch holes when they can, and otherwise relay through any reachable Originless peer.
+* **Private Mesh**: Add `-e NETWORK_ID=my-project` and `-e BOOTSTRAP_PEERS=<multiaddrs>` so isolated swarms can find each other.
 * **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
 
 * **Dashboard**: Open **http://localhost:3232** in your browser.
@@ -61,15 +77,20 @@ That's it! Your node is live at **http://localhost:3232**.
 
 ---
 
-## Automatic P2P Mesh (Torrent Network)
+## Automatic P2P Mesh (libp2p)
 
 Originless is built for zero-config Docker and Podman deployments. With P2P active (`NETWORK_ID=originless` by default):
 
-1. **BitTorrent Mainline DHT (BEP 5)**: Nodes announce themselves to the global BitTorrent DHT swarm under `sha1("originless:" + NETWORK_ID)`.
-2. **Auto UPnP & NAT-PMP Port Forwarding**: On startup, Originless automatically maps port 3232 on your home or office Wi-Fi router.
-3. **Peer Exchange (PEX)**: Connected peers share their peer lists, creating a resilient, fully connected swarm.
-4. **Local Service Discovery (BEP 14 LSD)**: Nodes on the same LAN or Wi-Fi discover each other via UDP multicast and sync at local wire speed.
-5. **Bloom Filter Set Reconciliation**: Upon connection, nodes exchange 1% false-positive Bloom filters to transfer missing records and binary blobs without redundant bandwidth.
+1. **libp2p WebSocket on TCP 3232**: The HTTP API and P2P share one published port. Docker `-p 3232:3232` is enough for outbound mesh join and inbound WS.
+2. **QUIC on UDP 3232** (optional): Enables hole punching when you also publish UDP.
+3. **Private Kad DHT**: Nodes rendezvous under `originless/<NETWORK_ID>` using protocol `/originless/kad/1.0.0` (not the public IPFS DHT).
+4. **AutoNAT, Identify, DCUtR**: Observed addresses replace UPnP. Direct connect first, then hole punch.
+5. **Circuit relay v2**: Any publicly reachable Originless node may hop traffic for NATted Docker peers, with resource caps.
+6. **mDNS**: Same-LAN / `--network host` discovery at local wire speed.
+7. **Bloom Filter Set Reconciliation**: Upon connection, nodes exchange 1% false-positive Bloom filters to transfer missing records and binary blobs without redundant bandwidth.
+8. **Persistent identity**: Peer ID is stored at `/data/p2p.key` so a volume keeps the same node across restarts.
+
+Private meshes set `BOOTSTRAP_PEERS` to one or more libp2p multiaddrs (including `/p2p/<peer-id>`). Optional `ANNOUNCE_ADDRS` overrides advertised listen addresses behind a reverse proxy.
 
 ---
 
@@ -137,7 +158,7 @@ Originless requires no proprietary SDKs or API keys. Complete copy-pasteable gui
 
 | Endpoint | Method | Purpose |
 | :--- | :--- | :--- |
-| `GET /status` | `GET` | Health, event/blob counts, active SSE clients, and P2P mesh status |
+| `GET /status` | `GET` | Health, event/blob counts, active SSE clients, and libp2p mesh status |
 | `POST /events` | `POST` | Publish signed event, or event + one content-addressed blob's bytes (multipart `event` + `blob` parts, event first) |
 | `GET /events` | `GET` | Query events with filtering (`collection`, `label`, `owner`, `since`, `until`, `blob`, `cursor`) |
 | `GET /events/{id}` | `GET` | Fetch event by ID (`?resolve=blob` to inline linked blob) |

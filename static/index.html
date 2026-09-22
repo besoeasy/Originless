@@ -429,7 +429,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <span class="fact-item">DB <b id="teleDbSize">--</b></span>
       <span class="fact-item"><b id="teleSse">0</b> live SSE</span>
       <span class="fact-item" id="teleTrafficItem" style="display:none"><b id="teleReqs">0</b> reqs</span>
-      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span><span id="teleNatPill" class="pill pill-ok" style="display:none;margin-left:6px;font-size:11px">NAT Mapped</span></span>
+      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span><span id="teleNatPill" class="pill pill-ok" style="display:none;margin-left:6px;font-size:11px">Public</span></span>
     </div>
   </div>
 
@@ -1047,7 +1047,12 @@ async function fetchStatus(){
         if($("teleP2pPeers")) $("teleP2pPeers").textContent = d.p2p.peers_connected || 0;
         if($("teleP2pLabel")) $("teleP2pLabel").textContent = "P2P (" + (d.p2p.network_id || "mesh") + ")";
         if($("teleNatPill")){
-          if(d.p2p.nat_mapped){
+          var nat = d.p2p.nat || "unknown";
+          if(nat === "public"){
+            $("teleNatPill").textContent = d.p2p.relay_hop ? "Public · Relay" : "Public";
+            $("teleNatPill").style.display = "inline-flex";
+          } else if(nat === "private"){
+            $("teleNatPill").textContent = "Private NAT";
             $("teleNatPill").style.display = "inline-flex";
           } else {
             $("teleNatPill").style.display = "none";

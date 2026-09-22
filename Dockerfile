@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 ARG VERSION=dev
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN mkdir -p /data && \
 
 USER originless
 
-EXPOSE 3232/tcp 3232/udp 3234/udp
+EXPOSE 3232/tcp 3232/udp
 
 VOLUME ["/data"]
 

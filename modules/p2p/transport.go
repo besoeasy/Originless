@@ -1,25 +1,32 @@
 package p2p
 
 import (
-	"bufio"
+	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
-	"net"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/besoeasy/originless/modules"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	ma "github.com/multiformats/go-multiaddr"
 )
+
+type deadlineRWC interface {
+	io.ReadWriteCloser
+	SetReadDeadline(time.Time) error
+}
 
 // PeerSession represents an active full-duplex P2P connection with a peer node.
 type PeerSession struct {
 	id          string
 	remoteAddr  string
-	conn        net.Conn
+	conn        deadlineRWC
 	engine      *SyncEngine
 	transport   *Transport
 	writeMu     sync.Mutex
@@ -29,7 +36,7 @@ type PeerSession struct {
 	closed      chan struct{}
 }
 
-func newPeerSession(conn net.Conn, remoteAddr string, engine *SyncEngine, transport *Transport, isOutbound bool) *PeerSession {
+func newPeerSession(conn deadlineRWC, remoteAddr string, engine *SyncEngine, transport *Transport, isOutbound bool) *PeerSession {
 	return &PeerSession{
 		id:         remoteAddr,
 		remoteAddr: remoteAddr,
@@ -41,7 +48,6 @@ func newPeerSession(conn net.Conn, remoteAddr string, engine *SyncEngine, transp
 	}
 }
 
-// Send serializes and writes a protocol frame to the peer.
 func (s *PeerSession) Send(msgType byte, payload []byte) error {
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -54,7 +60,6 @@ func (s *PeerSession) SetRemoteHello(hello HelloPayload) {
 	s.remoteHello = hello
 }
 
-// Close gracefully closes the peer session.
 func (s *PeerSession) Close() {
 	s.closeOnce.Do(func() {
 		close(s.closed)
@@ -83,7 +88,7 @@ func (s *PeerSession) readLoop() {
 		_ = s.conn.SetReadDeadline(time.Now().Add(90 * time.Second))
 		msgType, payload, err := ReadFrame(s.conn)
 		if err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") && !strings.Contains(err.Error(), "stream reset") {
 				log.Printf("[P2P-SESSION] Read error from %s: %v", s.remoteAddr, err)
 			}
 			return
@@ -109,19 +114,19 @@ func (s *PeerSession) keepAliveLoop() {
 	}
 }
 
-// Transport manages P2P incoming HTTP upgrades and outgoing peer dials.
+// Transport manages libp2p sync streams.
 type Transport struct {
 	engine     *SyncEngine
 	networkID  string
 	nodeID     string
 	listenPort int
+	host       host.Host
 	sessions   map[string]*PeerSession
 	mu         sync.RWMutex
 	maxPeers   int
 	stopChan   chan struct{}
 }
 
-// NewTransport creates a new Transport layer.
 func NewTransport(engine *SyncEngine, networkID, nodeID string, listenPort, maxPeers int) *Transport {
 	if maxPeers <= 0 {
 		maxPeers = DefaultMaxPeers
@@ -139,7 +144,21 @@ func NewTransport(engine *SyncEngine, networkID, nodeID string, listenPort, maxP
 	return t
 }
 
-// ActivePeersCount returns the number of currently connected peers.
+func (t *Transport) AttachHost(h host.Host) {
+	t.mu.Lock()
+	t.host = h
+	t.nodeID = h.ID().String()
+	t.mu.Unlock()
+	t.engine.nodeID = h.ID().String()
+
+	h.SetStreamHandler(protocol.ID(SyncProtocolID), t.handleIncomingStream)
+	h.Network().Notify(&network.NotifyBundle{
+		ConnectedF: func(_ network.Network, c network.Conn) {
+			go t.maybeOpenSync(c.RemotePeer())
+		},
+	})
+}
+
 func (t *Transport) ActivePeersCount() int {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -170,159 +189,117 @@ func (t *Transport) unregisterSession(id string) {
 	}
 }
 
-// ServeHTTP handles incoming P2P connection upgrades on GET /p2p.
-func (t *Transport) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	netID := r.Header.Get("Originless-Network-ID")
-	if netID != t.networkID {
-		http.Error(w, "Forbidden: network mismatch", http.StatusForbidden)
-		return
-	}
-
-	remoteNodeID := r.Header.Get("Originless-Node-ID")
-	if remoteNodeID != "" && remoteNodeID == t.nodeID {
-		http.Error(w, "Self connection", http.StatusBadRequest)
-		return
-	}
-
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "Webserver doesn't support hijacking", http.StatusInternalServerError)
-		return
-	}
-
-	conn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Write HTTP 101 Switching Protocols response
-	resp := fmt.Sprintf("HTTP/1.1 101 Switching Protocols\r\n"+
-		"Upgrade: originless-p2p\r\n"+
-		"Connection: Upgrade\r\n"+
-		"Originless-Network-ID: %s\r\n"+
-		"Originless-Node-ID: %s\r\n\r\n", t.networkID, t.nodeID)
-
-	if _, err := conn.Write([]byte(resp)); err != nil {
-		_ = conn.Close()
-		return
-	}
-
-	remoteAddr := conn.RemoteAddr().String()
-	sessionID := remoteAddr
-	if remoteNodeID != "" {
-		sessionID = remoteNodeID
-	}
-	session := newPeerSession(conn, remoteAddr, t.engine, t, false)
-	session.id = sessionID
+func (t *Transport) handleIncomingStream(s network.Stream) {
+	pid := s.Conn().RemotePeer().String()
+	session := newPeerSession(s, pid, t.engine, t, false)
+	session.id = pid
 	if !t.registerSession(session) {
-		_ = conn.Close()
+		_ = s.Reset()
 		return
 	}
-
 	session.start()
 	t.sendHello(session)
 }
 
-// DialPeer attempts to establish a direct P2P connection to an advertised peer address.
-func (t *Transport) DialPeer(addr PeerAddress) {
-	peerEndpoint := addr.String()
-
-	t.mu.RLock()
-	if _, exists := t.sessions[peerEndpoint]; exists || len(t.sessions) >= t.maxPeers {
-		t.mu.RUnlock()
+func (t *Transport) maybeOpenSync(pid peer.ID) {
+	if t.host == nil || pid == t.host.ID() {
 		return
 	}
+	if strings.Compare(t.host.ID().String(), pid.String()) > 0 {
+		return
+	}
+	t.mu.RLock()
+	_, exists := t.sessions[pid.String()]
+	atCap := len(t.sessions) >= t.maxPeers
+	stopped := false
+	select {
+	case <-t.stopChan:
+		stopped = true
+	default:
+	}
 	t.mu.RUnlock()
+	if exists || atCap || stopped {
+		return
+	}
+	t.openSyncStream(pid)
+}
 
-	conn, err := net.DialTimeout("tcp", peerEndpoint, 5*time.Second)
+func (t *Transport) openSyncStream(pid peer.ID) {
+	if t.host == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	s, err := t.host.NewStream(ctx, pid, protocol.ID(SyncProtocolID))
 	if err != nil {
 		return
 	}
-
-	// Send HTTP 101 Upgrade request
-	req := fmt.Sprintf("GET %s HTTP/1.1\r\n"+
-		"Host: %s\r\n"+
-		"Upgrade: originless-p2p\r\n"+
-		"Connection: Upgrade\r\n"+
-		"Originless-Network-ID: %s\r\n"+
-		"Originless-Node-ID: %s\r\n\r\n", DefaultP2PPath, peerEndpoint, t.networkID, t.nodeID)
-
-	if _, err := conn.Write([]byte(req)); err != nil {
-		_ = conn.Close()
-		return
-	}
-
-	// Read response status
-	br := bufio.NewReader(conn)
-	statusLine, err := br.ReadString('\n')
-	if err != nil || !strings.Contains(statusLine, "101") {
-		_ = conn.Close()
-		return
-	}
-
-	// Read until end of headers (\r\n\r\n)
-	var remoteNodeID string
-	for {
-		line, err := br.ReadString('\n')
-		if err != nil {
-			_ = conn.Close()
-			return
-		}
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			break
-		}
-		if strings.HasPrefix(strings.ToLower(trimmed), "originless-node-id:") {
-			parts := strings.SplitN(trimmed, ":", 2)
-			if len(parts) == 2 {
-				remoteNodeID = strings.TrimSpace(parts[1])
-			}
-		}
-	}
-
-	if remoteNodeID != "" && remoteNodeID == t.nodeID {
-		// Self connection
-		_ = conn.Close()
-		return
-	}
-
-	sessionID := peerEndpoint
-	if remoteNodeID != "" {
-		sessionID = remoteNodeID
-	}
-
-	session := newPeerSession(conn, peerEndpoint, t.engine, t, true)
-	session.id = sessionID
+	session := newPeerSession(s, pid.String(), t.engine, t, true)
+	session.id = pid.String()
 	if !t.registerSession(session) {
-		_ = conn.Close()
+		_ = s.Reset()
 		return
 	}
-
 	session.start()
 	t.sendHello(session)
+}
+
+func (t *Transport) ConnectPeer(info peer.AddrInfo) {
+	if t.host == nil || info.ID == "" || info.ID == t.host.ID() {
+		return
+	}
+	t.mu.RLock()
+	_, exists := t.sessions[info.ID.String()]
+	atCap := len(t.sessions) >= t.maxPeers
+	t.mu.RUnlock()
+	if exists || atCap {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := t.host.Connect(ctx, info); err != nil {
+		log.Printf("[P2P-TRANSPORT] connect %s: %v", info.ID, err)
+		return
+	}
+	t.maybeOpenSync(info.ID)
+}
+
+func (t *Transport) DialPeerHint(hint PeerHint) {
+	pid, err := peer.Decode(hint.ID)
+	if err != nil {
+		return
+	}
+	info := peer.AddrInfo{ID: pid}
+	for _, a := range hint.Addrs {
+		m, err := ma.NewMultiaddr(a)
+		if err != nil {
+			continue
+		}
+		info.Addrs = append(info.Addrs, m)
+	}
+	t.ConnectPeer(info)
 }
 
 func (t *Transport) sendHello(session *PeerSession) {
 	evCount, _ := t.engine.store.GetRecordCount()
 	bCount, _ := t.engine.store.GetBlobCount()
 
-	var peers []PeerAddress
+	var peers []PeerHint
 	t.mu.RLock()
-	for _, s := range t.sessions {
-		if s.id != session.id && s.remoteAddr != "" {
-			if host, portStr, err := net.SplitHostPort(s.remoteAddr); err == nil {
-				var p int
-				if _, err := fmt.Sscanf(portStr, "%d", &p); err == nil && p > 0 {
-					peers = append(peers, PeerAddress{IP: host, Port: p})
+	h := t.host
+	for id, s := range t.sessions {
+		if s.id == session.id {
+			continue
+		}
+		hint := PeerHint{ID: id}
+		if h != nil {
+			if pid, err := peer.Decode(id); err == nil {
+				for _, a := range h.Peerstore().Addrs(pid) {
+					hint.Addrs = append(hint.Addrs, a.String())
 				}
 			}
 		}
+		peers = append(peers, hint)
 	}
 	t.mu.RUnlock()
 
@@ -339,7 +316,6 @@ func (t *Transport) sendHello(session *PeerSession) {
 	_ = session.Send(MsgHello, data)
 }
 
-// BroadcastEvent relays a newly published event to all connected peers in real time.
 func (t *Transport) BroadcastEvent(rec *modules.Record, excludePeerID string) {
 	data, err := json.Marshal(rec)
 	if err != nil {
@@ -357,7 +333,6 @@ func (t *Transport) BroadcastEvent(rec *modules.Record, excludePeerID string) {
 	}
 }
 
-// BroadcastBlob relays a newly uploaded blob announcement to all connected peers in real time.
 func (t *Transport) BroadcastBlob(hash string, size int64, excludePeerID string) {
 	payload, _ := json.Marshal(BlobBroadcastPayload{Hash: hash, Size: size})
 
@@ -372,9 +347,17 @@ func (t *Transport) BroadcastBlob(hash string, size int64, excludePeerID string)
 	}
 }
 
-// Stop closes all active peer sessions.
 func (t *Transport) Stop() {
+	select {
+	case <-t.stopChan:
+	default:
+		close(t.stopChan)
+	}
+
 	t.mu.Lock()
+	if t.host != nil {
+		t.host.RemoveStreamHandler(protocol.ID(SyncProtocolID))
+	}
 	sessions := make([]*PeerSession, 0, len(t.sessions))
 	for _, s := range t.sessions {
 		sessions = append(sessions, s)
