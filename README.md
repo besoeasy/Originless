@@ -124,11 +124,12 @@ Events are immutable, cryptographically signed JSON documents. You own the priva
   "created_at": 1758420000,
   "expires_at": 1789956000,
   "data": { "service": "api", "error": "database connection timeout" },
-  "blob": "<64 hex sha256> (optional top-level attachment pointer, omit or null for none)",
+  "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "labels": ["severity:critical", "env:prod"],
   "sig": "<128 hex chars>"
 }
 ```
+(`blob` is the optional top-level attachment pointer — a SHA-256 hex string. Omit it or send `null` for blob-less events.)
 
 ### 2. Blobs — Opaque Binary Files (`.bin`, Content-Addressed)
 Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it with immutable caching headers.
@@ -143,8 +144,8 @@ Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it 
 * **Retention**: Reference-driven, size-neutral. A blob is pinned while any unexpired signed event references it; once the last event expires it becomes an orphan and is auto-evicted after `BlobOrphanGraceDays` (default 7).
 * **Link to Events**: Set the top-level `blob = "<sha256>"` field before signing. The hash feeds the event ID, so a linked blob can't be silently swapped — and `data` stays 100% yours, no reserved keys inside it.
 
-#### Why `.bin` Only? (Abuse Immunity & Security)
-Originless strictly accepts `.bin` files and rejects renderable/textual payloads (`text/*`, `image/*`, `application/pdf`). All downloads are served as `application/octet-stream` with `X-Content-Type-Options: nosniff`:
+#### Opaque Bytes Only (Abuse Immunity & Security)
+Originless accepts only opaque binary bytes and rejects renderable/textual payloads (`text/*`, `image/*`, `application/pdf`) by sniffing content, not filenames. All downloads are served as `application/octet-stream` with `X-Content-Type-Options: nosniff`:
 
 * **No Free Media CDN / Hotlinking**: Prevents third-party sites from embedding images or streaming video through your node, protecting your bandwidth.
 * **Immunity to XSS & Phishing**: Browsers never execute, parse, or inline-render uploaded files under your origin. Malicious HTML, scripts, or weaponized SVGs are completely neutralized.
@@ -225,9 +226,9 @@ curl -N "http://localhost:3232/events/stream?collection=agent-tasks&label=status
 
 ## Signing an Event (Python Example)
 
-Event IDs are deterministic:
+Event IDs are deterministic (note the `blob` segment — empty for blob-less events):
 ```text
-id = sha256(owner + ":" + collection + ":" + created_at + ":" + expires_at + ":" + canonical(data) + ":" + labels.join(","))
+id = sha256(owner + ":" + collection + ":" + created_at + ":" + expires_at + ":" + canonical(data) + ":" + blob + ":" + labels.join(","))
 ```
 Sign the raw 32 SHA-256 hash bytes using Ed25519:
 
@@ -242,13 +243,14 @@ created = int(time.time())
 expires = created + 86400  # 24 hour TTL
 data = {"status": "ok", "message": "All systems operational"}
 labels = ["env:prod", "team:ops"]
+blob = ""  # top-level attachment pointer; sha256 hex when linking bytes
 
 canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
-payload = f"{owner}:status:{created}:{expires}:{canonical}:{','.join(labels)}"
+payload = f"{owner}:status:{created}:{expires}:{canonical}:{blob}:{','.join(labels)}"
 id_bytes = hashlib.sha256(payload.encode()).digest()
 sig = sk.sign(id_bytes).signature.hex()
 
-res = requests.post("http://localhost:3232/events", json={
+event = {
     "owner": owner,
     "collection": "status",
     "created_at": created,
@@ -256,8 +258,20 @@ res = requests.post("http://localhost:3232/events", json={
     "data": data,
     "labels": labels,
     "sig": sig,
-})
+}
+if blob:
+    event["blob"] = blob  # omit entirely when blob-less
+
+res = requests.post("http://localhost:3232/events", json=event)
 print(res.status_code, res.json())
+
+# With bytes: sign first (blob = sha256 of the file), then send both
+# parts in one request — event part FIRST:
+#   blob_bytes = open("save.bin", "rb").read()
+#   h = hashlib.sha256(blob_bytes).hexdigest()
+#   ... sign with blob=h, include "blob": h in the event ...
+#   requests.post(url, files=[("event", (None, json.dumps(event))),
+#                            ("blob", ("save.bin", blob_bytes))])
 ```
 
 ---
