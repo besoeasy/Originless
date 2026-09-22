@@ -22,19 +22,19 @@ func TestRecordBlobHashFormat(t *testing.T) {
 		t.Fatalf("absent: h=%q err=%v", h, err)
 	}
 	// explicit null -> absent
-	if h, err := RecordBlobHash(json.RawMessage(`{"_blob":null}`)); err != nil || h != "" {
+	if h, err := RecordBlobHash(json.RawMessage(`{"bin":null}`)); err != nil || h != "" {
 		t.Fatalf("null: h=%q err=%v", h, err)
 	}
 	// valid, uppercased -> normalized lowercase
-	if h, err := RecordBlobHash(json.RawMessage(`{"_blob":"` + strings.ToUpper(refBlobHash) + `"}`)); err != nil || h != refBlobHash {
+	if h, err := RecordBlobHash(json.RawMessage(`{"bin":"` + strings.ToUpper(refBlobHash) + `"}`)); err != nil || h != refBlobHash {
 		t.Fatalf("valid: h=%q err=%v", h, err)
 	}
-	// malformed values -> error
+	// malformed values -> error (bin is a reserved key)
 	for _, data := range []string{
-		`{"_blob":"xyz"}`,
-		`{"_blob":"abc"}`,
-		`{"_blob":123}`,
-		`{"_blob":["` + refBlobHash + `"]}`,
+		`{"bin":"xyz"}`,
+		`{"bin":"abc"}`,
+		`{"bin":123}`,
+		`{"bin":["` + refBlobHash + `"]}`,
 	} {
 		if _, err := RecordBlobHash(json.RawMessage(data)); err == nil {
 			t.Fatalf("expected error for %s", data)
@@ -51,11 +51,11 @@ func TestValidateRecordBodyRejectsBadBlobRef(t *testing.T) {
 	now := time.Now().Unix()
 	created := now - 10
 	payload := signRecord(t, priv, owner, "saves", created, created+3600,
-		map[string]any{"slot": 1, "_blob": "not-a-hash"}, []string{})
+		map[string]any{"slot": 1, "bin": "not-a-hash"}, []string{})
 	delete(payload, "_id")
 	raw, _ := json.Marshal(payload)
 	if _, err := ValidateRecordBody(raw, now); err == nil {
-		t.Fatal("expected _blob format error")
+		t.Fatal("expected bin format error")
 	}
 }
 
@@ -83,14 +83,14 @@ func TestPublishRecordBlobRefExistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	ok := signRecord(t, priv, owner, "saves", created, created+3600,
-		map[string]any{"slot": 1, "_blob": refBlobHash}, []string{})
+		map[string]any{"slot": 1, "bin": refBlobHash}, []string{})
 	if rec := postRecord(t, h, ok); rec.Code != http.StatusCreated {
 		t.Fatalf("linked publish status=%d body=%s", rec.Code, rec.Body.String())
 	}
 
 	// Unknown blob -> 400 with hash echoed.
 	bad := signRecord(t, priv, owner, "saves", created, created+3600,
-		map[string]any{"slot": 2, "_blob": loneBlobHash}, []string{})
+		map[string]any{"slot": 2, "bin": loneBlobHash}, []string{})
 	rec := postRecord(t, h, bad)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
@@ -113,7 +113,7 @@ func TestGetRecordResolveBlob(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload := signRecord(t, priv, owner, "saves", now-5, now+3600,
-		map[string]any{"slot": 1, "_blob": refBlobHash}, []string{})
+		map[string]any{"slot": 1, "bin": refBlobHash}, []string{})
 	id := payload["_id"].(string)
 	if rec := postRecord(t, h, payload); rec.Code != http.StatusCreated {
 		t.Fatalf("publish status=%d body=%s", rec.Code, rec.Body.String())
@@ -189,12 +189,12 @@ func TestJanitorHonorsBlobReferences(t *testing.T) {
 		if err := os.WriteFile(BlobPath(dir, hx), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		// Max-size rows: 30-day retention, backdated past it.
-		if _, err := st.UpsertBlob(hx, BlobMaxSizeBytes); err != nil {
+		if _, err := st.UpsertBlob(hx, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// Referenced blob scanned first (older) to prove exemption isn't luck.
+	// Both past orphan grace; the referenced one is older to prove the
+	// exemption isn't luck of scan order.
 	backdateBlob(t, st, refBlobHash, 32*24*time.Hour)
 	backdateBlob(t, st, loneBlobHash, 31*24*time.Hour)
 
@@ -202,7 +202,7 @@ func TestJanitorHonorsBlobReferences(t *testing.T) {
 	_, priv, owner := testKeys(t)
 	now := time.Now().Unix()
 	payload := signRecord(t, priv, owner, "saves", now-5, now+3600,
-		map[string]any{"slot": 1, "_blob": refBlobHash}, []string{})
+		map[string]any{"slot": 1, "bin": refBlobHash}, []string{})
 	delete(payload, "_id")
 	raw, _ := json.Marshal(payload)
 	rec, err := ValidateRecordBody(raw, now)
@@ -237,7 +237,7 @@ func TestGetReferencedBlobHashes(t *testing.T) {
 	now := time.Now().Unix()
 
 	live := signRecord(t, priv, owner, "saves", now-5, now+3600,
-		map[string]any{"_blob": refBlobHash}, []string{})
+		map[string]any{"bin": refBlobHash}, []string{})
 	delete(live, "_id")
 	rawLive, _ := json.Marshal(live)
 	recLive, err := ValidateRecordBody(rawLive, now)
@@ -251,7 +251,7 @@ func TestGetReferencedBlobHashes(t *testing.T) {
 	// Expired record's reference must not protect.
 	oldCreated := now - 7200
 	dead := signRecord(t, priv, owner, "saves", oldCreated, oldCreated+100,
-		map[string]any{"_blob": loneBlobHash}, []string{})
+		map[string]any{"bin": loneBlobHash}, []string{})
 	delete(dead, "_id")
 	rawDead, _ := json.Marshal(dead)
 	recDead, err := ValidateRecordBody(rawDead, oldCreated+10)

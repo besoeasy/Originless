@@ -711,6 +711,14 @@ func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 	if offset < 0 {
 		offset = 0
 	}
+	// Fetch reference deadlines before opening the blob scan: the store
+	// runs on a single DB connection (MaxOpenConns=1), so a second query
+	// while rows are open would deadlock.
+	now := time.Now()
+	deadlines, derr := s.GetReferencedBlobDeadlines(now.Unix())
+	if derr != nil {
+		return nil, derr
+	}
 	rows, err := s.db.Query(
 		`SELECT hash, size, created_at, last_access, access_count FROM blobs
 		 ORDER BY created_at DESC LIMIT ? OFFSET ?`,
@@ -720,11 +728,6 @@ func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	now := time.Now()
-	deadlines, derr := s.GetReferencedBlobDeadlines(now.Unix())
-	if derr != nil {
-		return nil, derr
-	}
 	var out []BlobMeta
 	for rows.Next() {
 		var m BlobMeta

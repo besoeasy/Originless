@@ -25,50 +25,94 @@ func withBlobDir(t *testing.T, dir string) {
 	}
 }
 
-func postBin(t *testing.T, h *Handler, filename string, content []byte) *httptest.ResponseRecorder {
+// publishEventWithBlob signs an event that claims data.bin = sha256(content)
+// and issues one combined multipart POST /events carrying both parts.
+// Overrides data map with the bin hash; returns the event id and response.
+// mangle wraps text with non-UTF8 leading bytes so http sniffing reports
+// application/octet-stream instead of text/plain.
+func mangle(s string) []byte {
+	return append([]byte{0xff, 0x00, 0x01}, []byte(s)...)
+}
+
+func publishEventWithBlob(t *testing.T, h *Handler, content []byte, data map[string]any) (string, *httptest.ResponseRecorder) {
 	t.Helper()
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	part, err := w.CreateFormFile("file", filename)
+	sum := sha256.Sum256(content)
+	bin := hex.EncodeToString(sum[:])
+	if data == nil {
+		data = map[string]any{}
+	}
+	data["bin"] = bin
+
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+	payload := signRecord(t, priv, owner, "blobs", now-5, now+3600, data, []string{})
+	id := payload["_id"].(string)
+	delete(payload, "_id")
+	ev, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := part.Write(content); err != nil {
+
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	evPart, err := w.CreateFormField("event")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := evPart.Write(ev); err != nil {
+		t.Fatal(err)
+	}
+	dataPart, err := w.CreateFormFile("data", "blob.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dataPart.Write(content); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/up", &body)
+
+	req := httptest.NewRequest(http.MethodPost, "/events", &body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rec := httptest.NewRecorder()
-	h.Up(rec, req)
-	return rec
+	h.PublishRecord(rec, req)
+	return id, rec
 }
 
-func TestUpDownRoundTrip(t *testing.T) {
+func TestCombinedPublishDownRoundTrip(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
 	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
 	content := []byte("hello-blob-world\x00\xff\x89\x01")
-	rec := postBin(t, h, "data.bin", content)
+	id, rec := publishEventWithBlob(t, h, content, nil)
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST /up status=%d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("POST /events status=%d body=%s", rec.Code, rec.Body.String())
 	}
 	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
+	if resp["id"] != id {
+		t.Fatalf("id=%v want %v", resp["id"], id)
+	}
 	sum := sha256.Sum256(content)
 	wantHash := hex.EncodeToString(sum[:])
-	if resp["hash"] != wantHash {
-		t.Fatalf("hash=%v want %v", resp["hash"], wantHash)
-	}
-	// File on disk at <hash>.bin
+	// File on disk at <hash>.bin, account row present, events+blob linked.
 	if _, err := os.Stat(filepath.Join(BlobDir, wantHash+".bin")); err != nil {
 		t.Fatalf("blob file missing: %v", err)
+	}
+	if _, err := st.GetBlob(wantHash); err != nil {
+		t.Fatalf("blob row missing: %v", err)
+	}
+	refs, err := st.GetReferencedBlobHashes(time.Now().Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !refs[wantHash] {
+		t.Fatal("published blob should be referenced by the live event")
 	}
 
 	// GET /down/{hash}
@@ -86,15 +130,23 @@ func TestUpDownRoundTrip(t *testing.T) {
 		t.Fatalf("content-type=%q", ct)
 	}
 
-	// Duplicate upload -> 200 duplicate=true
-	dup := postBin(t, h, "other.bin", content)
-	if dup.Code != http.StatusOK {
-		t.Fatalf("dup status=%d body=%s", dup.Code, dup.Body.String())
+	// Same bytes, new event (different created_at): dedupe to one file.
+	_, rec2 := publishEventWithBlob(t, h, content, map[string]any{"note": "again"})
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("dedupe publish status=%d body=%s", rec2.Code, rec2.Body.String())
 	}
-	var dupResp map[string]any
-	_ = json.Unmarshal(dup.Body.Bytes(), &dupResp)
-	if dupResp["duplicate"] != true || dupResp["hash"] != wantHash {
-		t.Fatalf("dup resp=%v", dupResp)
+	info, err := os.Stat(filepath.Join(BlobDir, wantHash+".bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() != int64(len(content)) {
+		t.Fatalf("dedupe must not duplicate bytes: size=%d", info.Size())
+	}
+	if n, _ := st.GetBlobCount(); n != 1 {
+		t.Fatalf("blob count=%d want 1 (content-addressed dedupe)", n)
+	}
+	if n, _ := st.GetRecordCount(); n != 2 {
+		t.Fatalf("record count=%d want 2 (two distinct events sharing one blob)", n)
 	}
 
 	// HEAD works
@@ -107,19 +159,7 @@ func TestUpDownRoundTrip(t *testing.T) {
 	}
 }
 
-func TestUpRejectsNonBin(t *testing.T) {
-	st := testStore(t)
-	withBlobDir(t, t.TempDir())
-	h := NewHandler(nil, NewMetrics())
-	h.SetStore(st)
-
-	rec := postBin(t, h, "photo.png", []byte("x"))
-	if rec.Code != http.StatusUnsupportedMediaType {
-		t.Fatalf("expected 415, got %d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestUpRejectsSniffedNonBinary(t *testing.T) {
+func TestCombinedRejectsSniffedNonBinary(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
 	h := NewHandler(nil, NewMetrics())
@@ -138,7 +178,7 @@ func TestUpRejectsSniffedNonBinary(t *testing.T) {
 		{"text", []byte("just some plain pasted text for the bin store"), "text/plain"},
 	}
 	for _, tc := range cases {
-		rec := postBin(t, h, "payload.bin", tc.content)
+		_, rec := publishEventWithBlob(t, h, tc.content, nil)
 		if rec.Code != http.StatusUnsupportedMediaType {
 			t.Fatalf("%s: expected 415, got %d body=%s", tc.name, rec.Code, rec.Body.String())
 		}
@@ -158,16 +198,126 @@ func TestUpRejectsSniffedNonBinary(t *testing.T) {
 		append([]byte("PK\x03\x04"), bytes.Repeat([]byte{0xAA}, 64)...),
 		append([]byte("\x1A\x45\xDF\xA3"), bytes.Repeat([]byte{0x10}, 64)...), // ebml
 	} {
-		rec := postBin(t, h, "opaque.bin", content)
-		if rec.Code != http.StatusCreated && rec.Code != http.StatusOK {
+		_, rec := publishEventWithBlob(t, h, content, nil)
+		if rec.Code != http.StatusCreated {
 			t.Fatalf("binary should pass, got %d body=%s", rec.Code, rec.Body.String())
 		}
 	}
 
-	// Empty files still hit the empty-file 400, not the sniff 415.
-	empty := postBin(t, h, "empty.bin", []byte{})
+	// Empty data still hits the empty-file 400, not the sniff 415.
+	_, empty := publishEventWithBlob(t, h, []byte{}, nil)
 	if empty.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for empty, got %d body=%s", empty.Code, empty.Body.String())
+	}
+}
+
+func TestCombinedBlobHashMismatch(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	// Event claims a valid-format hash that does NOT match the bytes.
+	sentinel := strings.Repeat("ab", 32) // 64 hex chars, not the content hash
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+	payload := signRecord(t, priv, owner, "blobs", now-5, now+3600,
+		map[string]any{"bin": sentinel}, []string{})
+	delete(payload, "_id")
+	ev, _ := json.Marshal(payload)
+
+	content := mangle("real bytes with a different digest")
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	p1, _ := w.CreateFormField("event")
+	p1.Write(ev)
+	p2, _ := w.CreateFormFile("data", "blob.bin")
+	p2.Write(content)
+	w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/events", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+	h.PublishRecord(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on hash mismatch, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp["error"] != "blob hash mismatch" {
+		t.Fatalf("error=%v", resp["error"])
+	}
+	// Nothing must be stored: blob row, file, and temp all absent.
+	realSum := sha256.Sum256(content)
+	realHash := hex.EncodeToString(realSum[:])
+	if _, err := os.Stat(filepath.Join(BlobDir, realHash+".bin")); !os.IsNotExist(err) {
+		t.Fatal("mismatched bytes must not be committed")
+	}
+	if _, err := st.GetBlob(realHash); err == nil {
+		t.Fatal("mismatched blob row must not exist")
+	}
+	entries, _ := os.ReadDir(BlobDir)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "up-") {
+			t.Fatalf("staged temp left behind: %s", e.Name())
+		}
+	}
+}
+
+func TestCombinedRequiresBinWhenDataPresent(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	// Event data has no bin key but a data part is attached.
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+	payload := signRecord(t, priv, owner, "blobs", now-5, now+3600,
+		map[string]any{"text": "no binary claim"}, []string{})
+	delete(payload, "_id")
+	ev, _ := json.Marshal(payload)
+
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	p1, _ := w.CreateFormField("event")
+	p1.Write(ev)
+	p2, _ := w.CreateFormFile("data", "blob.bin")
+	p2.Write(mangle("unsignable bytes"))
+	w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/events", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+	h.PublishRecord(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp["error"] != "data part requires data.bin in the event" {
+		t.Fatalf("error=%v", resp["error"])
+	}
+}
+
+func TestCombinedRejectsMissingEventPart(t *testing.T) {
+	st := testStore(t)
+	withBlobDir(t, t.TempDir())
+	h := NewHandler(nil, NewMetrics())
+	h.SetStore(st)
+
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	p2, _ := w.CreateFormFile("data", "blob.bin")
+	p2.Write(mangle("bytes but no event"))
+	w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/events", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+	h.PublishRecord(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -178,13 +328,12 @@ func TestDownSendsNosniff(t *testing.T) {
 	h.SetStore(st)
 
 	content := []byte("nosniff-probe\x00\xff")
-	up := postBin(t, h, "probe.bin", content)
+	_, up := publishEventWithBlob(t, h, content, nil)
 	if up.Code != http.StatusCreated {
-		t.Fatalf("POST /up status=%d body=%s", up.Code, up.Body.String())
+		t.Fatalf("publish status=%d body=%s", up.Code, up.Body.String())
 	}
-	var resp map[string]any
-	_ = json.Unmarshal(up.Body.Bytes(), &resp)
-	hash, _ := resp["hash"].(string)
+	sum := sha256.Sum256(content)
+	hash := hex.EncodeToString(sum[:])
 
 	req := httptest.NewRequest(http.MethodGet, "/down/"+hash, nil)
 	req.SetPathValue("hash", hash)
@@ -252,65 +401,62 @@ func TestDownBadHashAndMissing(t *testing.T) {
 	}
 }
 
-func TestBlobEvictionRespectsRetention(t *testing.T) {
+func TestBlobOrphanEviction(t *testing.T) {
 	st := testStore(t)
 	dir := t.TempDir()
 	withBlobDir(t, dir)
 
-	// Big blob (max_size => 30-day retention, backdated 31d: expired) and
-	// small blob (tiny => ~1-year retention, backdated 31d: protected),
-	// plus a fresh blob (protected).
-	oldHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	smallHash := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-	newHash := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	oldContent := []byte("old-bytes")
-	smallContent := []byte("small-bytes")
-	newContent := []byte("new-bytes")
-	if err := os.WriteFile(BlobPath(dir, oldHash), oldContent, 0o644); err != nil {
+	// orphanHash: backdated past grace, unreferenced -> evicted.
+	// refHash: backdated past grace but pinned by a live event -> survives.
+	// freshHash: just uploaded, unreferenced -> survives (grace not elapsed).
+	orphanHash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	refHash := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	freshHash := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	for _, hx := range []string{orphanHash, refHash, freshHash} {
+		if err := os.WriteFile(BlobPath(dir, hx), []byte(hx[:9]), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.UpsertBlob(hx, 9); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Backdate orphan + referenced past the 7-day orphan grace.
+	backdateBlob(t, st, orphanHash, 8*24*time.Hour)
+	backdateBlob(t, st, refHash, 8*24*time.Hour)
+
+	// Live event pins the referenced blob.
+	_, priv, owner := testKeys(t)
+	now := time.Now().Unix()
+	payload := signRecord(t, priv, owner, "saves", now-5, now+3600,
+		map[string]any{"bin": refHash}, []string{})
+	delete(payload, "_id")
+	raw, _ := json.Marshal(payload)
+	rec, err := ValidateRecordBody(raw, now)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(BlobPath(dir, smallHash), smallContent, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(BlobPath(dir, newHash), newContent, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// DB sizes drive retention: max-size blob expires in 30d, tiny blob in ~1y.
-	if _, err := st.UpsertBlob(oldHash, BlobMaxSizeBytes); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.UpsertBlob(smallHash, int64(len(smallContent))); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.UpsertBlob(newHash, int64(len(newContent))); err != nil {
-		t.Fatal(err)
-	}
-	// Backdate the big + small rows (big 32d ago, small 31d ago) past 30d.
-	oldTime := time.Now().Add(-32 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
-	smallTime := time.Now().Add(-31 * 24 * time.Hour).UTC().Format("2006-01-02 15:04:05")
-	if _, err := st.db.Exec(`UPDATE blobs SET created_at = ?, last_access = ? WHERE hash = ?`, oldTime, oldTime, oldHash); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := st.db.Exec(`UPDATE blobs SET created_at = ?, last_access = ? WHERE hash = ?`, smallTime, smallTime, smallHash); err != nil {
+	if _, _, err := st.InsertRecord(rec); err != nil {
 		t.Fatal(err)
 	}
 
-	// Only the retention-expired big blob is eligible for eviction.
 	mgr := NewJanitor(st)
 	if err := mgr.EvictBlobs(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.GetBlob(oldHash); err == nil {
-		t.Fatal("expired big blob should have been evicted")
+	if _, err := st.GetBlob(orphanHash); err == nil {
+		t.Fatal("expired orphan blob should have been evicted")
 	}
-	if _, err := os.Stat(BlobPath(dir, oldHash)); !os.IsNotExist(err) {
-		t.Fatal("expired big blob file should be gone")
+	if _, err := os.Stat(BlobPath(dir, orphanHash)); !os.IsNotExist(err) {
+		t.Fatal("expired orphan blob file should be gone")
 	}
-	if _, err := st.GetBlob(smallHash); err != nil {
-		t.Fatalf("small blob inside ~1y retention must survive: %v", err)
+	if _, err := st.GetBlob(refHash); err != nil {
+		t.Fatalf("referenced blob must survive orphan grace: %v", err)
 	}
-	if _, err := st.GetBlob(newHash); err != nil {
-		t.Fatalf("fresh blob must survive retention: %v", err)
+	if _, err := os.Stat(BlobPath(dir, refHash)); err != nil {
+		t.Fatalf("referenced blob file must survive: %v", err)
+	}
+	if _, err := st.GetBlob(freshHash); err != nil {
+		t.Fatalf("fresh blob inside orphan grace must survive: %v", err)
 	}
 }
 
@@ -374,7 +520,7 @@ func TestListBlobsAndCounts(t *testing.T) {
 		t.Fatalf("expected count=0, got %v", resp["count"])
 	}
 
-	postBin(t, h, "test.bin", []byte("blobby-data\x00\xff"))
+	publishEventWithBlob(t, h, []byte("blobby-data\x00\xff"), nil)
 
 	rec2 := httptest.NewRecorder()
 	h.ListBlobs(rec2, req)
