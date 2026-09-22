@@ -34,41 +34,13 @@ Instead of running and configuring half a dozen microservices, API keys, and dat
 
 Zero configuration. One command starts your node, joins the libp2p mesh, and starts syncing automatically:
 
-### Docker
-```bash
-docker run -d --name originless --restart unless-stopped \
-  -p 3232:3232 -v originless-data:/data \
-  ghcr.io/besoeasy/originless:latest
-```
-
-Publish UDP as well if you want hole punching across NATs:
-
 ```bash
 docker run -d --name originless --restart unless-stopped \
   -p 3232:3232/tcp -p 3232:3232/udp -v originless-data:/data \
   ghcr.io/besoeasy/originless:latest
 ```
 
-Same-LAN wire speed (skips Docker bridge NAT):
-
-```bash
-docker run -d --name originless --restart unless-stopped \
-  --network host -v originless-data:/data \
-  ghcr.io/besoeasy/originless:latest
-```
-
-### Podman
-```bash
-podman run -d --name originless --restart unless-stopped \
-  -p 3232:3232 -p 3232:3232/udp -v originless-data:/data \
-  ghcr.io/besoeasy/originless:latest
-```
-
-Or use the included runner script to build and run locally:
-
-```bash
-./podman.sh -d
-```
+*(Works identically with `podman` by replacing `docker` with `podman`.)*
 
 That's it! Your node is live at **http://localhost:3232**.
 
