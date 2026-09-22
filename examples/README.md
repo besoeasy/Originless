@@ -2,11 +2,13 @@
 
 Single-file HTML web applications demonstrating zero-auth decentralized apps using [Originless](https://originless.space).
 
+Live deployment: **[https://originless.besoeasy.com/](https://originless.besoeasy.com/)**
+
 Every example:
-- Runs directly in the browser with **no build steps or bundlers**.
+- Runs directly in the browser with **no build steps, node modules, or bundlers**.
 - Uses [esm.sh](https://esm.sh/) to import `@noble/curves` for client-side **Ed25519 signing**.
 - Generates and stores identity keypairs in `localStorage`.
-- Connects to `https://originless.space` (or a local `http://localhost:3232` node).
+- Connects to `https://originless.space` (or any local `http://localhost:3232` node).
 - Syncs state in real time using Server-Sent Events (`/events/stream`).
 
 ---
@@ -27,18 +29,28 @@ A real-time multiplayer Tic-Tac-Toe game.
 - Replays full move history on load; updates turns live over SSE.
 - Fully decentralized with zero game server backend logic.
 
+### 3. [Collaborative Pixel Canvas (`pixel-canvas.html`)](./pixel-canvas.html)
+A shared r/place style collaborative pixel art grid.
+- Pick from a palette of vibrant colors or use custom hex codes.
+- Every pixel placement publishes a signed Ed25519 event.
+- Live canvas updates stream simultaneously to all viewers over SSE.
+- Export your completed canvas directly to PNG.
+
+### 4. [Zero-Knowledge Pastebin (`encrypted-pastebin.html`)](./encrypted-pastebin.html)
+Client-side end-to-end encrypted secret note sharing.
+- Encrypts text locally using WebCrypto **AES-256-GCM**.
+- Decryption key resides exclusively in the URL fragment (`#key`) and is never sent to the server.
+- Configurable auto-destruct TTL (1 hour to 30 days) purged automatically by Originless.
+
 ---
 
-## How to Run
+## Live Demo & Local Testing
 
-Simply open any of the HTML files directly in your web browser, or serve them locally:
+- **Live URL**: [https://originless.besoeasy.com/](https://originless.besoeasy.com/)
+- **Launcher Hub**: [examples/index.html](./index.html)
 
+To run locally:
 ```bash
-# Using Python
 python3 -m http.server 8080
-
-# Then open in browser:
-# http://localhost:8080/examples/
+# Open http://localhost:8080/examples/
 ```
-
-Or open the launcher hub directly: [examples/index.html](./index.html).
