@@ -311,14 +311,15 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
         <li>Each event expires on its own <code>expires_at</code> time</li>
         <li>Filter with <code class="g">GET /events?collection=&amp;label=&amp;search=</code></li>
         <li>Follow new events live at <code class="g">/events/stream</code></li>
-        <li>Link a file by adding <code>"_blob": "&lt;sha256&gt;"</code> to the data</li>
+        <li>Link a file by adding <code>"bin": "&lt;sha256&gt;"</code> to the data</li>
       </ul>
     </div>
     <div class="panel b">
       <h3>Binary blobs</h3>
       <p>Any <code>.bin</code> file, stored under the SHA-256 of its contents. Upload the same bytes twice and you get one copy.</p>
       <ul>
-        <li>Upload once with <code class="c">POST /up</code>, fetch with <code class="c">GET /down/&lt;hash&gt;</code></li>
+        <li>Upload bytes and the event in one request; reference it by adding <code>"bin": "&lt;sha256&gt;"</code> to the data</li>
+        <li>Fetch the bytes back with <code class="c">GET /down/&lt;hash&gt;</code></li>
         <li>No size cap on the pool, so storage is limited only by your disk</li>
         <li>Served with <code>immutable</code> caching, so CDNs and browsers keep them for a day</li>
         <li>Clients can verify the download by hashing it again</li>
@@ -499,7 +500,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <div class="dropzone" id="blobDropzone">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cy)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <strong id="dropzoneText">Drop any .bin file here or click to upload</strong>
-        <p>SHA-256 deduplicated, size-weighted retention up to 1 year</p>
+        <p>SHA-256 deduplicated; pinned by signed event links (data.bin), orphans auto-evict after 7 days</p>
       </div>
       <div class="tbl">
         <table id="blobsTable">
@@ -529,10 +530,11 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
 <section id="retention">
   <div class="ret">
     <div>
-      <h2>Small files stay for a year. Big ones make room.</h2>
-      <p class="sub" style="margin-bottom:8px">Blob retention shrinks with size on a cubic curve, from one year for near-empty files to 30 days at 512 MiB. An hourly janitor removes what has expired.</p>
-      <div class="readout"><div><span>Blob size</span><b id="sz">64 MB</b></div><div><span>Kept for</span><b id="dy" class="g">125 days</b></div></div>
-      <input id="rng" type="range" min="0" max="100" value="62" aria-label="Blob size">
+      <h2>Blobs live as long as something points at them.</h2>
+      <p class="sub" style="margin-bottom:8px">A blob is pinned while any unexpired signed event carries its hash as <code>data.bin</code>, the signature-protected reserved key. Once the last referencing event expires (30 days default TTL), the blob becomes an orphan and auto-evicts after <code>BlobOrphanGraceDays</code> (default 7).</p>
+      <div class="readout"><div><span>Pinned by</span><b id="dy" class="g">event link</b></div><div><span>Orphan grace</span><b>7 days</b></div></div>
+      <p class="sub" style="margin-bottom:8px">Move the slider to see a blob survive while its signed event lives, then become an orphan and get evicted after the grace window.</p>
+      <input id="rng" type="range" min="0" max="2" value="0" aria-label="Reference status toggle">
     </div>
     <div class="chart">
       <svg viewBox="0 0 560 240" role="img" aria-label="Retention in days against blob size">
@@ -555,7 +557,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <tr><td class="g">POST /events</td><td>Publish a signed JSON event with an expiry time.</td></tr>
       <tr><td class="g">GET /events</td><td>List events, filtered by collection, label, or search text.</td></tr>
       <tr><td class="g">GET /events/stream</td><td>Receive new events as they arrive over Server-Sent Events.</td></tr>
-      <tr><td class="c">POST /up</td><td>Store a <code>.bin</code> file in a multipart field named <code>file</code>. Returns its SHA-256 hash.</td></tr>
+      <tr><td class="c">POST /events</td><td>Publish a signed event; add a second multipart part named <code>data</code> to carry raw bytes in the same request.</td></tr>
       <tr><td class="c">GET /down/&lt;hash&gt;</td><td>Download a blob by hash.</td></tr>
       <tr><td>GET /status</td><td>Read the node version, blob count, stored bytes, and event count.</td></tr>
     </tbody></table></div>
@@ -616,7 +618,7 @@ function o(){
 /* Terminal snippet templates */
 var T={
 event:function(){return 'curl -X POST '+o()+'/events \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "owner": "ed25519:<public key hex>",\n    "collection": "notes",\n    "created_at": 1767225600,\n    "expires_at": 1769817600,\n    "data": { "text": "hello" },\n    "labels": ["demo"],\n    "sig": "<signature hex>"\n  }\''},
-blob:function(){return '# store any .bin file\ncurl -X POST -F "file=@data.bin" '+o()+'/up\n\n# the reply includes its SHA-256 address\n# fetch it back from any machine\ncurl -OJ '+o()+'/down/<sha256>'},
+  blob:function(){return '# publish raw bytes + the signed event in one request\nHASH=$(sha256sum save.bin | cut -d" " -f1)\nDATA=$(printf \'{"bin":"%s"}\' "$HASH")\nEVENT=$(build_signed_event_json data="$DATA")\ncurl -X POST '+o()+'/events \\\n  -F "event=$EVENT;type=application/json" \\\n  -F "data=@save.bin;type=application/octet-stream"\n\n# fetch it back from any machine\ncurl -OJ '+o()+'/down/<sha256>'},
 stream:function(){return '# follow new events live\ncurl -N '+o()+'/events/stream\n\n# or read what is already there\ncurl "'+o()+'/events?collection=notes&limit=50"'},
 status:function(){return 'curl '+o()+'/status'}};
 
@@ -634,7 +636,7 @@ function draw(){
 }
 
 function agent(){
-  return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519)\n- POST '+o()+'/up  .bin blob (SHA-256), form field "file"\n- GET  '+o()+'/events/stream  live Server-Sent Events\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
+  return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519); add raw bytes as the "data" multipart part to store a content-addressed blob in the same request\n- GET  '+o()+'/events/stream  live Server-Sent Events\n- GET  '+o()+'/down/<sha256>  fetch stored bytes\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
 }
 
 document.querySelectorAll(".tab").forEach(function(b){
@@ -703,14 +705,8 @@ $("copySnip").onclick=function(){cp(S.textContent,this)};
 $("copyAgent").onclick=function(){cp(agent(),this)};
 $("copyAgent2").onclick=function(){cp(agent(),this)};
 
-/* Retention cubic curve slider & SVG */
-var MIN=30,MAX=365,SZ=512*1048576;
-function days(s){
-  if(s<=0)return MAX;
-  if(s>=SZ)return MIN;
-  var r=s/SZ-1;
-  return Math.min(MAX,Math.max(MIN,MIN+(MIN-MAX)*Math.pow(r,3)));
-}
+/* Retention — orphan-grace reference demo */
+var GRACE=7; // BlobOrphanGraceDays
 function fmt(b){
   if(!b || b<=0) return "0 B";
   if(b<1024)return Math.round(b)+" B";
@@ -718,20 +714,16 @@ function fmt(b){
   var v=b/Math.pow(1024,i+1);
   return(v>=100?Math.round(v):Math.round(v*10)/10)+" "+u[i];
 }
-function X(s){return 44+504*s/SZ}
-function Y(d){return 220-200*(d-MIN)/(MAX-MIN)}
-var p="";for(var i=0;i<=60;i++){var s=SZ*i/60;p+=(i?"L":"M")+X(s).toFixed(1)+" "+Y(days(s)).toFixed(1)+" "}
-$("curve").setAttribute("d",p);
-
-function upd(){
-  var v=+$("rng").value,s=1024*Math.pow(SZ/1024,v/100),d=days(s);
-  $("sz").textContent=fmt(s);$("dy").textContent=Math.round(d)+" days";
-  var x=X(s),y=Y(d);
-  $("dot").setAttribute("cx",x);$("dot").setAttribute("cy",y);
-  $("vl").setAttribute("x1",x);$("vl").setAttribute("x2",x);
+function upd(){ // 0 = pinned by live event link, 1 = last event expired (orphan), 2 = past grace (evicted)
+  var v=+$("rng").value;
+  $("st").textContent="Live event link";
+  $("dg").textContent="Pinned — never evicted";
+  $("vl").setAttribute("x1",118);$("vl").setAttribute("x2",118);
+  if(v===1){$("st").textContent="Orphan (last event expired)";$("dg").textContent="Evicts after "+GRACE+"d grace";$("vl").setAttribute("x1",306);$("vl").setAttribute("x2",306);}
+  if(v===2){$("st").textContent="Past grace";$("dg").textContent="Evicted by janitor";$("vl").setAttribute("x1",498);$("vl").setAttribute("x2",498);}
 }
 $("rng").addEventListener("input",upd);
-draw();upd();
+upd();
 
 /* =========================================================================
    LIVE API TELEMETRY, EVENTS STREAM, & BLOB VAULT
@@ -1296,7 +1288,7 @@ window.__inspectEvent = function(id){
   if(!r) return;
   var jsonStr = JSON.stringify(r, null, 2);
   var dataStr = typeof r.data === "string" ? r.data : JSON.stringify(r.data, null, 2);
-  var linkedBlob = (r.data && typeof r.data === "object" && r.data._blob) ? r.data._blob : "";
+  var linkedBlob = (r.data && typeof r.data === "object" && r.data.bin) ? r.data.bin : "";
 
   var body = '<div class="kv-group">'
     + '<div class="kv-row"><span class="kv-k">Event ID</span><span class="kv-v" title="'+r.id+'">'+r.id+'</span></div>'

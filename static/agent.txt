@@ -10,11 +10,12 @@ Base URL: the origin you fetched this file from.
 
 Endpoints (all relative to base URL)
 ------------------------------------
-POST /events          Store a signed JSON event (8 KB max). Alias: /records
+POST /events          Store a signed JSON event (8 KB max). Alias: /records.
+                      Add a second multipart part named `data` to carry raw
+                      bytes alongside the event (content-addressed blobs).
 GET  /events          Query events, newest-first. Alias: /records
 GET  /events/stream   Live Server-Sent Events feed. Alias: /records/stream
 GET  /events/{id}     Fetch one event by ID. Add ?resolve=blob to inline linked blob.
-POST /up              Store a .bin blob, content-addressed by SHA-256
 GET  /blobs           List blobs, newest-first (?limit=50&offset=0)
 GET  /down/{hash}     Download blob by 64-char hex SHA-256 (HEAD also allowed)
 GET  /status          Node snapshot (blobs, events, SSE clients)
@@ -23,7 +24,7 @@ GET  /agent.txt       This file. GET /agent redirects here.
 
 1) Signed events
 ----------------
-Content-Type: application/json. Body <= 8192 bytes.
+Events are JSON; bodies <= 8192 bytes.
 Never send `id`; server computes:
   id = sha256(owner:collection:created_at:expires_at:canonical(data):labels)
 
@@ -39,13 +40,25 @@ Fields:
 Responses: 201 created, 200 duplicate (same payload = same id),
 401 bad signature, 400 schema/TTL, 413 over 8 KB.
 
-Link a blob: upload first via POST /up, then set data._blob = "<sha256>".
-The hash is covered by the signature. Add label "blob:<hash>" to query it.
+Link a blob in one step: compute sha256 of the bytes locally, set
+data.bin = "<sha256>" (a reserved key), sign the event, then send it
+as multipart. Server re-hashes the bytes; a mismatch is a 400 and
+nothing is stored. The hash is covered by the signature.
+Add label "blob:<hash>" to query it.
 Blobs linked from live (unexpired) events are exempt from eviction.
 
-curl:
+curl (JSON only):
   curl -X POST $BASE/events -H "Content-Type: application/json" \
     -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
+
+curl (event + blob in one request):
+  HASH=$(sha256sum save.bin | cut -d' ' -f1)
+  DATA=$(printf '{"bin":"%s"}' "$HASH")
+  EVENT=$(build_signed_event_json with data="$DATA")   # your signing step
+  curl -X POST $BASE/events \
+    -F "event=$EVENT;type=application/json" \
+    -F "data=@save.bin;type=application/octet-stream"
+  # {"status":"created","id":"sha256...","stored_at":...}
 
 Query:
   curl "$BASE/events?collection=chat&label=room:general&limit=20"
@@ -58,32 +71,37 @@ Stream (SSE):
 
 2) Binary blobs
 ---------------
-Only `.bin` files, multipart field `file`. Head bytes are sniffed:
-text/*, image/*, application/pdf are rejected (415) even if renamed.
-Identical bytes dedupe to the same hash. Max 3 concurrent uploads (503 beyond).
-No per-file cap, no total quota. Retention is size-weighted:
-  30 days at 512 MiB -> 1 year at 0 bytes
-  retention = min_age + (min_age - max_age) * (size/max_size - 1)^3
-Expired blobs are evicted hourly by the janitor. Downloads refresh
-last_access but do not extend retention (retention uses created_at).
+Blobs are written through POST /events as the raw-byte multipart part
+named `data`, keyed by the event's data.bin (its SHA-256, reserved key).
+Head bytes are sniffed: text/*, image/*, application/pdf are rejected
+(415) even if renamed. Empty bodies are a 400. Identical bytes dedupe
+to the same hash; several events can share one blob. Max 3 concurrent
+blob uploads (503 beyond). No per-file cap, no total quota.
 
-curl:
-  curl -X POST -F "file=@save.bin" $BASE/up
-  # {"status":"success","hash":"e3b0...85","size":4096,"url":"/down/e3b0...85"}
+Lifecycle is reference-driven, not size-weighted. A blob is pinned while
+any unexpired event references it; once the last referencing event
+expires, the blob becomes an orphan and is evicted by the janitor after
+BlobOrphanGraceDays (default 7). Re-publishing the same bytes after
+eviction recreates the blob. Downloads refresh last_access.
+
+curl (download):
   curl -O "$BASE/down/<sha256>"
 
 python:
-  import requests
+  import requests, hashlib
   BASE = "http://localhost:3232"
-  with open("save.bin", "rb") as f:
-      r = requests.post(f"{BASE}/up", files={"file": ("save.bin", f)})
-      print(r.json()["hash"])
+  blob = open("save.bin", "rb").read()
+  h = hashlib.sha256(blob).hexdigest()
+  event = build_signed_event_json(data={"bin": h})        # your signing step
+  r = requests.post(f"{BASE}/events", files=[("event", (None, event)),
+                                             ("data", ("save.bin", blob))])
+  print(r.json())
 
 3) Rules for agents
 -------------------
 - Use this node for all event and blob operations.
 - Generate an Ed25519 keypair locally; never ask the server for keys.
-- Keep event bodies <= 8 KB; put large bytes in blobs, link via data._blob.
+- Keep event bodies <= 8 KB; put large bytes in blobs, link via data.bin.
 - For replaceable state (profile, save slot): publish a new event per change,
   read with ?limit=1 (latest wins, older fade via expires_at).
 - Multi-node sync: Nodes with the same NETWORK_ID (defaults to 'originless')

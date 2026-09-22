@@ -39,8 +39,12 @@ rand_str() { # $1 = length; alnum only (avoids Go canonical escaping edge cases)
   head -c 64 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c "$1"
 }
 
-post_event() { # $1=collection $2=canonical-data-json $3=comma-labels $4=labels-json-array
-  local col="$1" data_canon="$2" labels_csv="$3" labels_json="$4"
+# publish() — sign + POST /events. $1=collection $2=canonical-data-json $3=labels_csv
+#                 $4=labels_json-array $5=optional path to attach as the `data` part.
+# Prints the raw server response. With a blob attached the response is the event
+# publish result (the blob hash is data.bin inside the signed event).
+publish() {
+  local col="$1" data_canon="$2" labels_csv="$3" labels_json="$4" attach="${5:-}"
   local created expires idin sighex
   created="$(date +%s)"
   expires="$((created + 2592000))" # 30d, within 1y max TTL
@@ -51,51 +55,68 @@ post_event() { # $1=collection $2=canonical-data-json $3=comma-labels $4=labels-
   jq -n --arg o "$OWNER" --arg c "$col" --argjson cr "$created" --argjson ex "$expires" \
     --argjson d "$data_canon" --argjson l "$labels_json" --arg s "$sighex" \
     '{owner:$o,collection:$c,created_at:$cr,expires_at:$ex,data:$d,labels:$l,sig:$s}' > "$TMP/ev.json"
-  curl -s -m 20 -X POST "$NODE/events" -H "Content-Type: application/json" -d @"$TMP/ev.json"
+  if [ -n "$attach" ] && [ -f "$attach" ]; then
+    curl -s -m 60 -X POST "$NODE/events" \
+      -F "event=@$TMP/ev.json;type=application/json" \
+      -F "data=@$attach;type=application/octet-stream"
+  else
+    curl -s -m 60 -X POST "$NODE/events" -H "Content-Type: application/json" -d @"$TMP/ev.json"
+  fi
 }
 
 i=0
 while true; do
   i=$((i + 1))
 
-  # ---- random blob (1–17 KB of crypto-random bytes, passes .bin sniff) ----
+  # ---- blob (bytes) + the signed event that owns them, in ONE request ----
+  # The `data` part carries the raw bytes; data.bin inside the signed event is
+  # their SHA-256, covered by the signature (server re-hashes, mismatch -> 400).
   SIZE="$((1024 + RANDOM % 16384))"
   openssl rand -out "$TMP/load.bin" "$SIZE" 2>/dev/null
-  BLOB_RESP="$(curl -s -m 60 -X POST "$NODE/up" \
-    -F "file=@$TMP/load.bin;filename=load-$i.bin;type=application/octet-stream")"
-  BHASH="$(printf '%s' "$BLOB_RESP" | jq -r '.hash // empty' 2>/dev/null)"
-  if [ -n "$BHASH" ]; then
+  BHASH="$(sha256sum "$TMP/load.bin" | cut -d' ' -f1)"
+  MSG="$(rand_str 6)"
+  RND="$(rand_str 12)"
+  SEED_HASH="$(printf '%s' "$BHASH$RND" | openssl dgst -sha256 2>/dev/null)"
+  COL="${COLS[$((RANDOM % ${#COLS[@]}))]}"
+  TT="topic:$COL,client:testsh,blob:yes"
+  LT='["topic:'"$COL"'","client:testsh","blob:yes"]'
+  D_CANON="$(jq -c -S -n --arg b "$BHASH" --arg m "$MSG" '{bin:$b,note:$m}')"
+  PUB_RESP="$(publish "$COL" "$D_CANON" "topic:$COL,client:testsh" \
+    '["topic:'"$COL"'","client:testsh"]' "$TMP/load.bin")"
+  if printf '%s' "$PUB_RESP" | jq -e '.status == "success"' >/dev/null 2>&1; then
     ok_blobs=$((ok_blobs + 1)); LAST_BLOB="$BHASH"
-    echo "[$i] blob ok  size=$SIZE hash=${BHASH:0:12}..."
+    echo "[$i] blob+ev ok  col=$COL size=$SIZE hash=${BHASH:0:12}... (events=$ok_events blobs=$ok_blobs)"
   else
-    echo "[$i] blob FAIL size=$SIZE resp=$(printf '%s' "$BLOB_RESP" | head -c 160)"
+    echo "[$i] blob+ev FAIL size=$SIZE resp=$(printf '%s' "$PUB_RESP" | head -c 200)"
   fi
 
-  # ---- random signed event ----
+  # ---- random signed event (label-shifted, occasionally links LAST_BLOB) ----
   COL="${COLS[$((RANDOM % ${#COLS[@]}))]}"
   MSG="$(rand_str 6)"
   RND="$(rand_str 12)"
   SCORE="$((RANDOM % 10000))"
   LEVEL="$((1 + RANDOM % 50))"
-  if [ -n "$LAST_BLOB" ] && [ $((i % 5)) -eq 0 ]; then
-    # every 5th event links the last blob -> janitor-exempt while event lives
-    DATA_C="$(jq -c -S -n --arg b "$LAST_BLOB" --arg m "$MSG" '{_blob:$b,note:$m}')"
+  if [ -n "$LAST_BLOB" ] && [ $((i % 6)) -eq 0 ]; then
+    # every 6th event links the last blob as data.bin (reserved key): as long as
+    # this event lives, the janitor treats the blob as referenced (link-only).
+    D_CANON="$(jq -c -S -n --arg b "$LAST_BLOB" --arg m "$MSG" '{bin:$b,note:$m}')"
     LBL_CSV="topic:$COL,client:testsh"
     LBL_JSON='["topic:'"$COL"'","client:testsh"]'
+    PUB_RESP="$(publish "$COL" "$D_CANON" "$LBL_CSV" "$LBL_JSON")"
   else
-    DATA_C="$(jq -c -S -n --arg m "$MSG" --arg r "$RND" --argjson s "$SCORE" --argjson l "$LEVEL" \
-      '{level:$l,msg:$m,rand:$r,score:$s}')"
+    D_CANON="$(jq -c -S -n --arg m "$MSG" --arg r "$RND" --argjson s "$SCORE" --argjson l "$LEVEL" \
+      '{msg:$m,rand:$r,score:$s,lvl:$l}')"
     RUN="$(rand_str 4)"
     LBL_CSV="topic:$COL,client:testsh,run:$RUN"
     LBL_JSON='["topic:'"$COL"'","client:testsh","run:'"$RUN"'"]'
+    PUB_RESP="$(publish "$COL" "$D_CANON" "$LBL_CSV" "$LBL_JSON")"
   fi
-  EV_RESP="$(post_event "$COL" "$DATA_C" "$LBL_CSV" "$LBL_JSON")"
-  if printf '%s' "$EV_RESP" | jq -e '.status == "success"' >/dev/null 2>&1; then
+  if printf '%s' "$PUB_RESP" | jq -e '.status == "success"' >/dev/null 2>&1; then
     ok_events=$((ok_events + 1))
-    EID="$(printf '%s' "$EV_RESP" | jq -r '.id[0:12]')"
+    EID="$(printf '%s' "$PUB_RESP" | jq -r '.id[0:12]')"
     echo "[$i] event ok col=$COL id=$EID... (events=$ok_events blobs=$ok_blobs)"
   else
-    echo "[$i] event FAIL resp=$(printf '%s' "$EV_RESP" | head -c 200)"
+    echo "[$i] event FAIL resp=$(printf '%s' "$PUB_RESP" | head -c 200)"
   fi
 
   sleep 1
