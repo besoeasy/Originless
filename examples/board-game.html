@@ -156,15 +156,48 @@
       font-size: 0.9rem;
     }
 
-    .player-tag {
-      font-weight: 700;
+    .role-group {
       display: inline-flex;
       align-items: center;
       gap: 6px;
     }
 
-    .player-x { color: var(--x-color); }
-    .player-o { color: var(--o-color); }
+    .role-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .role-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .role-btn.active[data-role="X"] {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--x-color);
+      color: var(--x-color);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    }
+
+    .role-btn.active[data-role="O"] {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--o-color);
+      color: var(--o-color);
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+    }
+
+    .role-btn.active[data-role="Both"] {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: #a78bfa;
+      color: #c4b5fd;
+    }
 
     /* Board */
     .board {
@@ -264,15 +297,17 @@
 
     <!-- Status Bar -->
     <div class="turn-bar">
-      <div>
-        <span>You are: </span>
-        <strong id="myRoleDisplay" class="player-tag player-x">Assigning...</strong>
+      <div class="role-group">
+        <span style="font-size:0.8rem;color:var(--text-muted);">Play as:</span>
+        <button class="role-btn active" data-role="X">X</button>
+        <button class="role-btn" data-role="O">O</button>
+        <button class="role-btn" data-role="Both" title="Play both sides in this tab (solo test)">Both</button>
       </div>
       <div>
-        <span id="turnDisplay">Waiting for opponent...</span>
+        <span id="turnDisplay">⚡ X's Turn</span>
       </div>
       <div>
-        <button id="resetGameBtn" class="btn btn-secondary" style="padding:4px 8px;font-size:0.75rem;">Reset Board</button>
+        <button id="resetGameBtn" class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem;">Reset Board</button>
       </div>
     </div>
 
@@ -416,6 +451,8 @@
     }
 
     function updateUI() {
+      const canMove = !isGameOver && (myRole === "Both" || currentTurn === myRole);
+
       // Render cells
       cells.forEach((cell, idx) => {
         const val = boardState[idx];
@@ -423,9 +460,14 @@
         cell.className = "cell";
         if (val === "X") cell.classList.add("x", "filled");
         if (val === "O") cell.classList.add("o", "filled");
-        if (isGameOver || val || currentTurn !== myRole) {
+        if (isGameOver || val || !canMove) {
           cell.classList.add("disabled");
         }
+      });
+
+      // Update role buttons active state
+      document.querySelectorAll(".role-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.role === myRole);
       });
 
       // Check win
@@ -440,15 +482,14 @@
         }
       } else {
         isGameOver = false;
-        if (currentTurn === myRole) {
+        if (myRole === "Both") {
+          turnDisplay.textContent = `⚡ Turn: ${currentTurn} (Playing Both)`;
+        } else if (currentTurn === myRole) {
           turnDisplay.textContent = `⚡ Your turn (${myRole})`;
         } else {
           turnDisplay.textContent = `⏳ Opponent's turn (${currentTurn})`;
         }
       }
-
-      myRoleDisplay.textContent = myRole;
-      myRoleDisplay.className = `player-tag ${myRole === "X" ? "player-x" : "player-o"}`;
     }
 
     function applyMove(moveData) {
@@ -472,10 +513,12 @@
 
     async function handleCellClick(e) {
       const idx = parseInt(e.target.dataset.idx, 10);
-      if (isNaN(idx) || boardState[idx] || isGameOver || currentTurn !== myRole) return;
+      if (isNaN(idx) || boardState[idx] || isGameOver) return;
+      if (myRole !== "Both" && currentTurn !== myRole) return;
 
-      const symbol = myRole;
-      applyMove({ idx, symbol, turn: symbol === "X" ? "O" : "X" });
+      const symbol = currentTurn;
+      const nextTurn = symbol === "X" ? "O" : "X";
+      applyMove({ idx, symbol, turn: nextTurn });
 
       try {
         const event = await signEvent({
@@ -594,6 +637,13 @@
     }
 
     // --- Event Listeners ---
+    document.querySelectorAll(".role-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        myRole = btn.dataset.role;
+        updateUI();
+      });
+    });
+
     cells.forEach(cell => cell.addEventListener("click", handleCellClick));
 
     joinBtn.addEventListener("click", () => loadGame(gameInput.value));
