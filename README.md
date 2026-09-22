@@ -60,15 +60,21 @@ docker run -d --name originless --restart unless-stopped \
 ### Podman
 ```bash
 podman run -d --name originless --restart unless-stopped \
-  -p 3232:3232 -v originless-data:/data \
+  -p 3232:3232 -p 3232:3232/udp -v originless-data:/data \
   ghcr.io/besoeasy/originless:latest
+```
+
+Or use the included runner script to build and run locally:
+
+```bash
+./podman.sh -d
 ```
 
 That's it! Your node is live at **http://localhost:3232**.
 
 ### Mesh Network Options
 
-* **Public Mesh (Default)**: No extra flags needed. By default, `NETWORK_ID` is `originless` — nodes discover each other over a private libp2p Kad DHT, punch holes when they can, and otherwise relay through any reachable Originless peer.
+* **Public Mesh (Default)**: Zero configuration. By default, `NETWORK_ID` is `originless` — nodes automatically join the global libp2p Kad DHT via built-in bootstrap peers, rendezvous under `originless/originless`, punch holes across NATs, and relay through peers when needed.
 * **Private Mesh**: Add `-e NETWORK_ID=my-project` and `-e BOOTSTRAP_PEERS=<multiaddrs>` so isolated swarms can find each other.
 * **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
 
@@ -83,7 +89,7 @@ Originless is built for zero-config Docker and Podman deployments. With P2P acti
 
 1. **libp2p WebSocket on TCP 3232**: The HTTP API and P2P share one published port. Docker `-p 3232:3232` is enough for outbound mesh join and inbound WS.
 2. **QUIC on UDP 3232** (optional): Enables hole punching when you also publish UDP.
-3. **Private Kad DHT**: Nodes rendezvous under `originless/<NETWORK_ID>` using protocol `/originless/kad/1.0.0` (not the public IPFS DHT).
+3. **Kad DHT Rendezvous**: Nodes automatically join the global Kad DHT via built-in public bootstrap peers and rendezvous under `originless/<NETWORK_ID>` with zero configuration. Private meshes (`NETWORK_ID != originless`) isolate under `/originless/kad/1.0.0` with custom bootstrap peers.
 4. **AutoNAT, Identify, DCUtR**: Observed addresses replace UPnP. Direct connect first, then hole punch.
 5. **Circuit relay v2**: Any publicly reachable Originless node may hop traffic for NATted Docker peers, with resource caps.
 6. **mDNS**: Same-LAN / `--network host` discovery at local wire speed.

@@ -25,6 +25,8 @@ Environment Variables:
   DATA_VOLUME     Named volume or host directory to mount at /data (optional)
   NETWORK_ID      P2P swarm network ID (optional, default: originless, set 'off' to disable)
   NETWORK         Podman network to attach (default: podman)
+  BOOTSTRAP_PEERS Multiaddrs to bootstrap P2P connection (optional)
+  ANNOUNCE_ADDRS  Public advertised addresses override (optional)
   SKIP_BUILD      Set to 1 to skip image build and run immediately (default: 0)
 
 Examples:
@@ -52,16 +54,27 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   echo "==> image build successful"
 fi
 
-RUN_ARGS=("--rm")
+RUN_ARGS=()
 
-# Check if caller passed detached mode
+# Do not pass --rm if caller explicitly passed --restart
+HAS_RESTART=0
+HAS_RM=0
 IS_DETACHED=0
 for arg in "$@"; do
+  if [[ "$arg" == "--restart" || "$arg" == --restart=* ]]; then
+    HAS_RESTART=1
+  fi
+  if [[ "$arg" == "--rm" ]]; then
+    HAS_RM=1
+  fi
   if [[ "$arg" == "-d" || "$arg" == "--detach" ]]; then
     IS_DETACHED=1
-    break
   fi
 done
+
+if [ "$HAS_RESTART" -eq 0 ] && [ "$HAS_RM" -eq 0 ]; then
+  RUN_ARGS+=("--rm")
+fi
 
 # Allocate pseudo-TTY if interactive terminal and not detached
 if [ "$IS_DETACHED" -eq 0 ] && [ -t 0 ] && [ -t 1 ]; then
@@ -111,20 +124,40 @@ for arg in "$@"; do
 done
 
 if [ "$HAS_NETWORK" -eq 0 ] && [ -n "$NETWORK" ]; then
+  if ! podman network exists "$NETWORK" 2>/dev/null; then
+    podman network create "$NETWORK" >/dev/null 2>&1 || true
+  fi
   RUN_ARGS+=("--network" "$NETWORK")
 fi
 
-# Optional volume mount
+# Optional volume mount (auto-appends :Z for host path SELinux support)
 if [ -n "${DATA_VOLUME:-}" ]; then
-  RUN_ARGS+=("-v" "${DATA_VOLUME}:/data")
+  VOL_SPEC="$DATA_VOLUME"
+  if [[ "$VOL_SPEC" == /* || "$VOL_SPEC" == .* ]]; then
+    if [[ "$VOL_SPEC" != *:Z && "$VOL_SPEC" != *:z ]]; then
+      VOL_SPEC="${VOL_SPEC}:Z"
+    fi
+  fi
+  RUN_ARGS+=("-v" "${VOL_SPEC}:/data")
 fi
 
-# Optional NETWORK_ID environment override
+# Optional environment overrides
 if [ -n "${NETWORK_ID:-}" ]; then
   RUN_ARGS+=("-e" "NETWORK_ID=${NETWORK_ID}")
 fi
+if [ -n "${BOOTSTRAP_PEERS:-}" ]; then
+  RUN_ARGS+=("-e" "BOOTSTRAP_PEERS=${BOOTSTRAP_PEERS}")
+fi
+if [ -n "${ANNOUNCE_ADDRS:-}" ]; then
+  RUN_ARGS+=("-e" "ANNOUNCE_ADDRS=${ANNOUNCE_ADDRS}")
+fi
 
-echo "==> starting $CONTAINER_NAME in --rm mode..."
-echo "==> node available at http://127.0.0.1:$PORT (Ctrl-C to stop)"
+if [ "$IS_DETACHED" -eq 1 ]; then
+  echo "==> starting $CONTAINER_NAME in background..."
+  echo "==> node available at http://127.0.0.1:$PORT (view logs: podman logs -f $CONTAINER_NAME)"
+else
+  echo "==> starting $CONTAINER_NAME..."
+  echo "==> node available at http://127.0.0.1:$PORT (Ctrl-C to stop)"
+fi
 
 exec podman run "${RUN_ARGS[@]}" "$@" "$IMAGE_NAME"
