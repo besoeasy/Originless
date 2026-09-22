@@ -73,35 +73,6 @@ Originless is built for zero-config Docker and Podman deployments. With P2P acti
 
 ---
 
-## 30-Second Tour
-
-```bash
-BASE=http://localhost:3232
-
-# 1. Health check: active events, blobs, and connected P2P peers
-curl $BASE/status
-
-# 2. Publish a signed event AND raw bytes in one request (event part first).
-# The event below carries top-level "blob": "<sha256>" (signed); the server
-# validates the signature before staging any bytes, then re-hashes them.
-head -c 64 /dev/urandom > firmware.dump
-HASH=$(sha256sum firmware.dump | cut -d' ' -f1)
-curl -X POST -F "event=@event.json;type=application/json" \
-     -F "blob=@firmware.dump;type=application/octet-stream" $BASE/events
-
-# 3. Any machine in the swarm can fetch the bytes back by content address:
-curl -O $BASE/blob/$HASH
-
-# 4. Query signed events (filtered by collection, label, or blob link)
-curl "$BASE/events?collection=chat&label=room:general&limit=20"
-curl "$BASE/events?blob=$HASH"
-
-# 5. Live stream events (Server-Sent Events — no WebSocket required)
-curl -N "$BASE/events/stream?collection=chat&label=room:general"
-```
-
----
-
 ## The Two Primitives
 
 ### 1. Events — Signed JSON Documents (8 KB max, TTL ≤ 1 year)
