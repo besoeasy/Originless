@@ -222,43 +222,45 @@ main.app-content {
 }
 
 /* ========================================================
-   SPELLS ORIGINLESS & SVG NODE VITALS STUDIO SECTION
+   HERO SECTION: SPELLS ORIGINLESS & DYNAMIC SVG NODE VITALS
    ======================================================== */
-.spells-section {
+.hero-section {
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 24px;
 }
-.spells-header {
-  padding: 18px 22px 14px 22px;
-  border-bottom: 1px solid var(--border);
+
+.hero-header {
+  padding: 24px 28px 18px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   background: #ffffff;
+  border-bottom: 1px solid var(--border);
 }
-.spells-heading-group {
+.hero-branding {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
 }
-.spells-word {
-  font-size: 21px;
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hero-title {
+  font-size: 26px;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   color: var(--text-main);
   font-family: var(--font-mono);
+  line-height: 1;
 }
-.spells-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.spells-badge {
+.hero-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -271,53 +273,57 @@ main.app-content {
   border-radius: 9999px;
   font-family: var(--font-mono);
 }
-.pulse-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green-600);
-  box-shadow: 0 0 0 2px var(--green-border);
+.hero-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
-/* 10 Letter Tiles Grid spelling ORIGINLESS */
-.letter-grid {
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 10 Letter Hero Tiles Grid */
+.hero-letter-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
   background: var(--border-light);
   gap: 1px;
 }
-@media (max-width: 1024px) {
-  .letter-grid { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) {
+  .hero-letter-grid { grid-template-columns: repeat(5, 1fr); }
 }
 @media (max-width: 600px) {
-  .letter-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-letter-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-.letter-cell {
+.hero-tile {
   background: #ffffff;
-  padding: 14px 10px;
+  padding: 16px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
+  gap: 6px;
   transition: all 0.15s ease;
   position: relative;
 }
-.letter-cell:hover {
+.hero-tile:hover {
   background: var(--bg-subtle);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   z-index: 2;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-.letter-char {
-  font-size: 24px;
+
+.tile-char {
+  font-size: 26px;
   font-weight: 800;
   font-family: var(--font-mono);
   line-height: 1;
 }
-.letter-value {
-  font-size: 12px;
+.tile-val {
+  font-size: 13px;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-main);
@@ -326,7 +332,7 @@ main.app-content {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.letter-title {
+.tile-label {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
@@ -334,29 +340,29 @@ main.app-content {
   color: var(--text-subtle);
 }
 
-/* Individual letter accent hues */
-.letter-c1 .letter-char { color: #2563eb; } /* O */
-.letter-c2 .letter-char { color: #4f46e5; } /* R */
-.letter-c3 .letter-char { color: #7c3aed; } /* I */
-.letter-c4 .letter-char { color: #059669; } /* G */
-.letter-c5 .letter-char { color: #0d9488; } /* I */
-.letter-c6 .letter-char { color: #0284c7; } /* N */
-.letter-c7 .letter-char { color: #0ea5e9; } /* L */
-.letter-c8 .letter-char { color: #d97706; } /* E */
-.letter-c9 .letter-char { color: #c026d3; } /* S */
-.letter-c10 .letter-char { color: #0f172a; } /* S */
+/* Distinct letter colors */
+.tile-o .tile-char { color: #2563eb; }
+.tile-r .tile-char { color: #4f46e5; }
+.tile-i1 .tile-char { color: #7c3aed; }
+.tile-g .tile-char { color: #059669; }
+.tile-i2 .tile-char { color: #0d9488; }
+.tile-n .tile-char { color: #0284c7; }
+.tile-l .tile-char { color: #0ea5e9; }
+.tile-e .tile-char { color: #d97706; }
+.tile-s1 .tile-char { color: #c026d3; }
+.tile-s2 .tile-char { color: #0f172a; }
 
 /* Modern SVG Graphics Telemetry Grid */
-.svg-telemetry-grid {
+.hero-telemetry-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  padding: 20px 22px;
+  padding: 22px 24px;
   background: #ffffff;
   border-top: 1px solid var(--border);
 }
 @media (max-width: 900px) {
-  .svg-telemetry-grid { grid-template-columns: 1fr; }
+  .hero-telemetry-grid { grid-template-columns: 1fr; }
 }
 
 .svg-telemetry-card {
@@ -761,6 +767,91 @@ textarea.input-textarea {
   padding: 5px 12px;
 }
 
+/* AI Agent & GitHub Cards Grid */
+.cards-dual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+@media (max-width: 840px) {
+  .cards-dual-grid { grid-template-columns: 1fr; }
+}
+
+.feature-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  transition: all 0.15s ease;
+}
+.feature-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.feature-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.feature-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.icon-ai {
+  background: var(--purple-50);
+  color: var(--purple-600);
+  border: 1px solid var(--purple-border);
+}
+.icon-github {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.feature-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+.feature-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-top: 4px;
+}
+.feature-desc code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--text-main);
+}
+
+.feature-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.feature-meta {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-subtle);
+}
+
 /* Full Width Events Explorer Panel */
 .events-panel {
   background: #ffffff;
@@ -1055,6 +1146,14 @@ footer.app-footer {
           <span class="status-indicator online" id="status-dot"></span>
           <span id="conn-text">Connecting...</span>
         </div>
+        <a href="/agent.txt" target="_blank" class="btn-icon" title="Teach AI Agents (/agent.txt)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        </a>
+        <a href="https://github.com/besoeasy/originless" target="_blank" class="btn-icon" title="View Source on GitHub">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+        </a>
         <button class="btn-icon" id="btn-refresh" title="Refresh Node Data">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
         </button>
@@ -1067,75 +1166,82 @@ footer.app-footer {
 <main class="app-content">
   <div class="container">
 
-    <!-- Section 1: SPELLS ORIGINLESS & DYNAMIC SVG NODE VITALS STUDIO -->
-    <section class="spells-section">
-      <div class="spells-header">
-        <div class="spells-heading-group">
-          <span class="spells-word">O R I G I N L E S S</span>
-          <span class="spells-sub">Decentralized Runtime & Node Telemetry</span>
+    <!-- Hero Section: SPELLS ORIGINLESS & DYNAMIC SVG NODE VITALS -->
+    <section class="hero-section" id="hero">
+      <div class="hero-header">
+        <div class="hero-branding">
+          <div class="hero-title-row">
+            <h1 class="hero-title">O R I G I N L E S S</h1>
+            <span class="hero-pill">
+              <span class="status-indicator online"></span>
+              <span>Live Mesh Node</span>
+            </span>
+          </div>
+          <div class="hero-subtitle">Decentralized Event Engine, Content Vault & Autonomous Agent Infrastructure</div>
         </div>
-        <div class="spells-badge">
-          <span class="pulse-dot"></span>
-          <span>Live Telemetry</span>
+
+        <div class="hero-actions">
+          <a href="#publish-storage" class="btn btn-outline btn-sm">Sign & Publish</a>
+          <a href="/agent.txt" target="_blank" class="btn btn-outline btn-sm">/agent.txt</a>
         </div>
       </div>
 
-      <!-- 10 Tiles Spelling ORIGINLESS with Node Vitals -->
-      <div class="letter-grid">
-        <div class="letter-cell letter-c1" title="Operations & Node Uptime">
-          <span class="letter-char">O</span>
-          <span class="letter-value" id="letter-val-o">-</span>
-          <span class="letter-title">Uptime</span>
+      <!-- 10 Hero Letter Tiles Spelling ORIGINLESS -->
+      <div class="hero-letter-grid">
+        <div class="hero-tile tile-o" title="Node Uptime">
+          <span class="tile-char">O</span>
+          <span class="tile-val" id="letter-val-o">-</span>
+          <span class="tile-label">Uptime</span>
         </div>
-        <div class="letter-cell letter-c2" title="RAM Allocation in Memory">
-          <span class="letter-char">R</span>
-          <span class="letter-value" id="letter-val-r">-</span>
-          <span class="letter-title">RAM Alloc</span>
+        <div class="hero-tile tile-r" title="RAM Allocation in Memory">
+          <span class="tile-char">R</span>
+          <span class="tile-val" id="letter-val-r">-</span>
+          <span class="tile-label">RAM Alloc</span>
         </div>
-        <div class="letter-cell letter-c3" title="Inbound Traffic Requests">
-          <span class="letter-char">I</span>
-          <span class="letter-value" id="letter-val-i1">-</span>
-          <span class="letter-title">Inbound</span>
+        <div class="hero-tile tile-i1" title="Inbound Traffic Requests">
+          <span class="tile-char">I</span>
+          <span class="tile-val" id="letter-val-i1">-</span>
+          <span class="tile-label">Inbound</span>
         </div>
-        <div class="letter-cell letter-c4" title="Active Goroutines Workers">
-          <span class="letter-char">G</span>
-          <span class="letter-value" id="letter-val-g">-</span>
-          <span class="letter-title">Goroutines</span>
+        <div class="hero-tile tile-g" title="Active Goroutines Workers">
+          <span class="tile-char">G</span>
+          <span class="tile-val" id="letter-val-g">-</span>
+          <span class="tile-label">Goroutines</span>
         </div>
-        <div class="letter-cell letter-c5" title="Identity Ed25519 Peer ID">
-          <span class="letter-char">I</span>
-          <span class="letter-value" id="letter-val-i2">-</span>
-          <span class="letter-title">Identity</span>
+        <div class="hero-tile tile-i2" title="Identity Ed25519 Peer ID">
+          <span class="tile-char">I</span>
+          <span class="tile-val" id="letter-val-i2">-</span>
+          <span class="tile-label">Identity</span>
         </div>
-        <div class="letter-cell letter-c6" title="Network Swarm Peers">
-          <span class="letter-char">N</span>
-          <span class="letter-value" id="letter-val-n">-</span>
-          <span class="letter-title">Network</span>
+        <div class="hero-tile tile-n" title="Network Swarm Peers">
+          <span class="tile-char">N</span>
+          <span class="tile-val" id="letter-val-n">-</span>
+          <span class="tile-label">Network</span>
         </div>
-        <div class="letter-cell letter-c7" title="Live SSE Streaming Subscribers">
-          <span class="letter-char">L</span>
-          <span class="letter-value" id="letter-val-l">-</span>
-          <span class="letter-title">Live SSE</span>
+        <div class="hero-tile tile-l" title="Live SSE Streaming Subscribers">
+          <span class="tile-char">L</span>
+          <span class="tile-val" id="letter-val-l">-</span>
+          <span class="tile-label">Live SSE</span>
         </div>
-        <div class="letter-cell letter-c8" title="Events Stored in Database">
-          <span class="letter-char">E</span>
-          <span class="letter-value" id="letter-val-e">-</span>
-          <span class="letter-title">Events</span>
+        <div class="hero-tile tile-e" title="Events Stored in Database">
+          <span class="tile-char">E</span>
+          <span class="tile-val" id="letter-val-e">-</span>
+          <span class="tile-label">Events</span>
         </div>
-        <div class="letter-cell letter-c9" title="Storage Blobs on Disk">
-          <span class="letter-char">S</span>
-          <span class="letter-value" id="letter-val-s1">-</span>
-          <span class="letter-title">Storage</span>
+        <div class="hero-tile tile-s1" title="Storage Blobs on Disk">
+          <span class="tile-char">S</span>
+          <span class="tile-val" id="letter-val-s1">-</span>
+          <span class="tile-label">Storage</span>
         </div>
-        <div class="letter-cell letter-c10" title="System CPU Architecture">
-          <span class="letter-char">S</span>
-          <span class="letter-value" id="letter-val-s2">-</span>
-          <span class="letter-title">System</span>
+        <div class="hero-tile tile-s2" title="System CPU Architecture">
+          <span class="tile-char">S</span>
+          <span class="tile-val" id="letter-val-s2">-</span>
+          <span class="tile-label">System</span>
         </div>
       </div>
 
       <!-- Modern SVG Graphics Telemetry Grid (Generated from /status) -->
-      <div class="svg-telemetry-grid">
+      <div class="hero-telemetry-grid">
         <!-- SVG Card 1: Memory Donut Gauge -->
         <div class="svg-telemetry-card">
           <div class="svg-card-head">
@@ -1304,6 +1410,69 @@ footer.app-footer {
             </div>
           </div>
 
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: AI AGENTS & GITHUB OPEN SOURCE CARDS -->
+    <section class="cards-dual-grid" id="integrations">
+      <!-- Card 1: Teach your AI agent to use Originless -->
+      <div class="feature-card">
+        <div>
+          <div class="feature-card-header">
+            <div class="feature-icon-wrap icon-ai">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+                <rect x="4" y="8" width="16" height="12" rx="2"/>
+                <circle cx="9" cy="13" r="1.5" fill="currentColor"/>
+                <circle cx="15" cy="13" r="1.5" fill="currentColor"/>
+                <line x1="9" y1="17" x2="15" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="feature-title">Teach your AI agent to use Originless</h3>
+              <p class="feature-desc">Every node serves its own skill instructions at <code>/agent.txt</code>. Provide <code>static/agent.txt</code> to Cursor, Claude, Copilot, ChatGPT, or Antigravity and your agent will autonomously publish signed events and store binary blobs on your node without API keys.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-actions">
+          <a class="btn btn-primary" href="/agent.txt" target="_blank">
+            <span>Open static/agent.txt &rarr;</span>
+          </a>
+          <button class="btn btn-outline" id="btn-copy-agent" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>Copy agent prompt</span>
+          </button>
+          <span class="feature-meta">GET /agent.txt</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Open Source on GitHub -->
+      <div class="feature-card">
+        <div>
+          <div class="feature-card-header">
+            <div class="feature-icon-wrap icon-github">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="feature-title">Open Source on GitHub</h3>
+              <p class="feature-desc">Originless is 100% open source under Apache 2.0 / MIT. Build self-sovereign backends, run zero-account mesh swarms, or contribute to the core Go engine and libp2p P2P replication.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-actions">
+          <a class="btn btn-primary" href="https://github.com/besoeasy/originless" target="_blank">
+            <span>View on GitHub &rarr;</span>
+          </a>
+          <button class="btn btn-outline" id="btn-copy-clone" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <span>Copy git clone</span>
+          </button>
+          <span class="feature-meta">besoeasy/originless</span>
         </div>
       </div>
     </section>
@@ -1606,11 +1775,29 @@ function updateVitalsStudio(data) {
   const events = data.events || {};
 
   // 1. Update the 10 Letters Spelling ORIGINLESS
-  const elO = $('letter-val-o'); if (elO) elO.textContent = data.uptime || '0s';
+  function formatHeroUptime(uptimeStr, secs) {
+    if (uptimeStr) {
+      return uptimeStr.replace(/([0-9]+)([a-z]+)/g, '$1$2 ').trim();
+    }
+    if (!secs) return '0s';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    if (m === 0) return s + 's';
+    const h = Math.floor(m / 60);
+    if (h === 0) return `${m}m ${s}s`;
+    return `${h}h ${m % 60}m`;
+  }
+  function formatHeroPeerId(pid) {
+    if (!pid || pid === 'unknown') return 'unknown';
+    if (pid.length <= 18) return pid;
+    return pid.slice(0, 8) + '...' + pid.slice(-6);
+  }
+
+  const elO = $('letter-val-o'); if (elO) elO.textContent = formatHeroUptime(data.uptime, data.uptime_secs);
   const elR = $('letter-val-r'); if (elR) elR.textContent = vitals.alloc_str || '0 MB';
   const elI1 = $('letter-val-i1'); if (elI1) elI1.textContent = (traffic.total_requests || 0) + ' req';
   const elG = $('letter-val-g'); if (elG) elG.textContent = (vitals.goroutines || 0).toLocaleString();
-  const elI2 = $('letter-val-i2'); if (elI2) elI2.textContent = truncate(p2p.peer_id || 'unknown', 8);
+  const elI2 = $('letter-val-i2'); if (elI2) elI2.textContent = formatHeroPeerId(p2p.peer_id);
   const elN = $('letter-val-n'); if (elN) elN.textContent = `${p2p.peers_connected || 0}/${p2p.max_peers || 8}`;
   const elL = $('letter-val-l'); if (elL) elL.textContent = `${sse.clients || 0} live`;
   const elE = $('letter-val-e'); if (elE) elE.textContent = (events.count || 0).toLocaleString();
@@ -2092,6 +2279,24 @@ $('swarm-peer-id').onclick = () => {
     showToast('Copied Peer ID to clipboard');
   }
 };
+
+// Copy Agent Prompt & Git Clone
+const btnAgent = $('btn-copy-agent');
+if (btnAgent) {
+  btnAgent.onclick = () => {
+    const promptText = `Teach your AI agent to use Originless:\nEvery node serves its own skill instructions at ${window.location.origin}/agent.txt.\nProvide static/agent.txt to Cursor, Claude, Copilot, ChatGPT, or Antigravity and your agent will autonomously publish signed events and store binary blobs on your node without API keys.`;
+    navigator.clipboard.writeText(promptText);
+    showToast('Copied agent prompt to clipboard');
+  };
+}
+
+const btnClone = $('btn-copy-clone');
+if (btnClone) {
+  btnClone.onclick = () => {
+    navigator.clipboard.writeText('git clone https://github.com/besoeasy/originless.git');
+    showToast('Copied git clone command to clipboard');
+  };
+}
 
 // Startup
 ensureKeypair();
