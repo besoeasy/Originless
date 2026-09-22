@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Originless — Single-File HTML Examples</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.3);
+      --text: #f9fafb;
+      --text-muted: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #1e1b4b, var(--bg) 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 20px;
+    }
+
+    .example-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .example-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 12px 28px var(--accent-glow);
+    }
+
+    .card-icon {
+      font-size: 2rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      color: #cbd5e1;
+    }
+
+    .btn-launch {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #60a5fa;
+    }
+
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 8px;
+      margin-top: 10px;
+    }
+
+    .ideas-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .idea-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .idea-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #f3f4f6;
+    }
+
+    .idea-card p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="badge">Zero-Auth Frontend</div>
+      <h1>Originless Web Examples</h1>
+      <p class="subtitle">Single-file HTML apps that run directly in the browser with zero backend build steps. Sign events client-side using WebCrypto & noble curves via esm.sh, synced live over originless.space.</p>
+    </header>
+
+    <div class="grid">
+      <!-- Comment Box -->
+      <a href="./comment-box.html?room=general" class="example-card">
+        <div class="card-icon">💬</div>
+        <div class="card-title">Real-Time Room Comments</div>
+        <div class="card-desc">Decentralized comment box and live chat room. Users hold unique local Ed25519 keypairs, sign every message client-side, and receive live comments over Server-Sent Events (SSE).</div>
+        <div class="card-tags">
+          <span class="tag">Chat</span>
+          <span class="tag">SSE Streams</span>
+          <span class="tag">Ed25519</span>
+        </div>
+        <div class="btn-launch">Open Comment Box &rarr;</div>
+      </a>
+
+      <!-- Board Game -->
+      <a href="./board-game.html" class="example-card">
+        <div class="card-icon">🎮</div>
+        <div class="card-title">2-Player Board Game</div>
+        <div class="card-desc">Real-time multiplayer Tic-Tac-Toe. Share the game link with a friend; both players sign moves client-side and sync turns in real-time with zero centralized game server.</div>
+        <div class="card-tags">
+          <span class="tag">Multiplayer</span>
+          <span class="tag">Turn-Based</span>
+          <span class="tag">Real-Time</span>
+        </div>
+        <div class="btn-launch">Play Board Game &rarr;</div>
+      </a>
+    </div>
+
+    <div>
+      <h2 class="section-title">💡 More Zero-Auth App Concepts</h2>
+      <div class="ideas-list" style="margin-top: 16px;">
+        <div class="idea-card">
+          <h3>🎨 Collaborative Pixel Canvas</h3>
+          <p>A shared 64x64 grid where players place colored pixels. Each stroke is a signed event; board state syncs live across all visitors.</p>
+        </div>
+        <div class="idea-card">
+          <h3>🗳️ Live Deduplicated Poll</h3>
+          <p>Real-time voting where each user votes once per Ed25519 keypair. Live animated bar charts update instantly as votes roll in.</p>
+        </div>
+        <div class="idea-card">
+          <h3>🔒 Ephemeral Pastebin (E2EE)</h3>
+          <p>End-to-end encrypted notes with AES-GCM in the browser. Encryption key in URL hash (`#key`), auto-purged via Originless TTL.</p>
+        </div>
+        <div class="idea-card">
+          <h3>📋 Shared Kanban / Sticky Notes</h3>
+          <p>Trello-like board with drag-and-drop cards. Sync task status and updates live across devices with zero authentication setup.</p>
+        </div>
+        <div class="idea-card">
+          <h3>📦 Binary File Drop</h3>
+          <p>Drag and drop archives or datasets to store content-addressed blobs pinned by signed metadata events on the mesh.</p>
+        </div>
+        <div class="idea-card">
+          <h3>🤖 AI Agent Task Dispatcher</h3>
+          <p>Post signed instructions for AI agents and watch autonomous agents pick up jobs and stream back results in real-time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
