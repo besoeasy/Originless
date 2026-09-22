@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Originless — Collaborative Pixel Canvas</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at top center, #172554, var(--bg) 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Header card */
+    .card {
+      width: 100%;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6b7280;
+    }
+
+    .status-dot.connected {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .input-field {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Palette Bar */
+    .palette-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 12px 16px;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .color-swatch.active {
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+      transform: scale(1.12);
+    }
+
+    .custom-color-input {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    /* Canvas Frame */
+    .canvas-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: #0f172a;
+      border: 2px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .canvas-info {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 512px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0 4px;
+    }
+
+    /* Info Bar */
+    .meta-card {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mono {
+      font-family: monospace;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="card">
+      <div class="header-bar">
+        <h1>🎨 Collaborative Pixel Canvas</h1>
+        <div class="status-badge">
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <label style="font-size:0.85rem;color:var(--text-muted)">Canvas:</label>
+        <input type="text" id="canvasInput" class="input-field" style="width: 130px;" value="main">
+        <button id="switchCanvasBtn" class="btn btn-secondary">Switch</button>
+        <button id="exportBtn" class="btn btn-secondary" title="Save as PNG">Export PNG</button>
+        <button id="shareBtn" class="btn btn-secondary">Share</button>
+      </div>
+    </div>
+
+    <!-- Palette -->
+    <div class="card palette-card">
+      <span style="font-size:0.82rem;color:var(--text-muted);margin-right:6px;">Color:</span>
+      <div id="paletteSwatches" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      <input type="color" id="customColor" class="custom-color-input" value="#3b82f6" title="Custom color picker">
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrap">
+      <div class="canvas-container">
+        <canvas id="pixelCanvas" width="512" height="512"></canvas>
+      </div>
+      <div class="canvas-info">
+        <span id="coordsDisplay">Hover to inspect (X, Y)</span>
+        <span id="pixelStats">Grid: 32x32 &bull; Real-time sync</span>
+      </div>
+    </div>
+
+    <!-- Metadata & Identity -->
+    <div class="card meta-card">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+        <span>Your Ed25519 Pubkey:</span>
+        <span id="ownerDisplay" class="mono">Generating...</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        <span>Originless Node:</span>
+        <input type="text" id="nodeInput" class="input-field" style="font-size:0.75rem;padding:4px 8px;width:210px;" value="https://originless.space">
+      </div>
+      <div style="margin-top:2px;">
+        <span>Every pixel placement is cryptographically signed and broadcasted live to all peers via Server-Sent Events.</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ed25519 } from "https://esm.sh/@noble/curves@1.4.0/ed25519";
+
+    // --- Configuration ---
+    const GRID_SIZE = 32; // 32x32 grid
+    const CANVAS_PX = 512;
+    const CELL_PX = CANVAS_PX / GRID_SIZE;
+
+    const PALETTE = [
+      "#ffffff", "#94a3b8", "#475569", "#0f172a",
+      "#ef4444", "#f97316", "#eab308", "#10b981",
+      "#06b6d4", "#3b82f6", "#6366f1", "#a855f7",
+      "#ec4899", "#84cc16", "#14b8a6", "#78350f"
+    ];
+
+    // --- State ---
+    let nodeUrl = (localStorage.getItem("originless_node") || "https://originless.space").replace(/\/$/, "");
+    let canvasId = new URLSearchParams(window.location.search).get("canvas") || "main";
+    let selectedColor = PALETTE[7]; // default green
+    let pixels = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill("#0f172a"));
+    let seenEventIds = new Set();
+    let eventSource = null;
+
+    // --- DOM Elements ---
+    const canvas = document.getElementById("pixelCanvas");
+    const ctx = canvas.getContext("2d");
+    const canvasInput = document.getElementById("canvasInput");
+    const switchCanvasBtn = document.getElementById("switchCanvasBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const paletteContainer = document.getElementById("paletteSwatches");
+    const customColorInput = document.getElementById("customColor");
+    const coordsDisplay = document.getElementById("coordsDisplay");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const ownerDisplay = document.getElementById("ownerDisplay");
+    const nodeInput = document.getElementById("nodeInput");
+
+    canvasInput.value = canvasId;
+    nodeInput.value = nodeUrl;
+
+    // --- Build Palette UI ---
+    PALETTE.forEach(c => {
+      const swatch = document.createElement("div");
+      swatch.className = "color-swatch" + (c === selectedColor ? " active" : "");
+      swatch.style.background = c;
+      swatch.addEventListener("click", () => {
+        document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
+        swatch.classList.add("active");
+        selectedColor = c;
+        customColorInput.value = c;
+      });
+      paletteContainer.appendChild(swatch);
+    });
+
+    customColorInput.addEventListener("input", (e) => {
+      document.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("active"));
+      selectedColor = e.target.value;
+    });
+
+    // --- Identity (Ed25519) ---
+    function getOrCreateIdentity() {
+      let privHex = localStorage.getItem("originless_privkey");
+      let privBytes;
+      if (!privHex) {
+        privBytes = ed25519.utils.randomPrivateKey();
+        privHex = Array.from(privBytes, b => b.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem("originless_privkey", privHex);
+      } else {
+        privBytes = new Uint8Array(privHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      }
+      const pubBytes = ed25519.getPublicKey(privBytes);
+      const pubHex = Array.from(pubBytes, b => b.toString(16).padStart(2, "0")).join("");
+      return {
+        privateKey: privBytes,
+        owner: `ed25519:${pubHex}`,
+        shortOwner: `ed25519:${pubHex.slice(0, 6)}...${pubHex.slice(-4)}`
+      };
+    }
+
+    const identity = getOrCreateIdentity();
+    ownerDisplay.textContent = identity.shortOwner;
+    ownerDisplay.title = identity.owner;
+
+    // --- Canonical JSON & Signing ---
+    function canonicalJSON(obj) {
+      if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+      if (Array.isArray(obj)) return `[${obj.map(canonicalJSON).join(",")}]`;
+      const keys = Object.keys(obj).sort();
+      return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJSON(obj[k])}`).join(",")}}`;
+    }
+
+    async function signEvent({ collection, data, labels = [], ttlSeconds = 86400 * 30 }) {
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = now + ttlSeconds;
+      const canonicalData = canonicalJSON(data);
+      const sortedLabels = [...labels].sort();
+      const blob = "";
+
+      const idString = `${identity.owner}:${collection}:${now}:${expiresAt}:${canonicalData}:${blob}:${sortedLabels.join(",")}`;
+      const encoder = new TextEncoder();
+      const idDigestBuf = await crypto.subtle.digest("SHA-256", encoder.encode(idString));
+      const idDigest = new Uint8Array(idDigestBuf);
+
+      const sigBytes = ed25519.sign(idDigest, identity.privateKey);
+      const sigHex = Array.from(sigBytes, b => b.toString(16).padStart(2, "0")).join("");
+
+      return {
+        owner: identity.owner,
+        collection,
+        created_at: now,
+        expires_at: expiresAt,
+        data,
+        labels: sortedLabels,
+        sig: sigHex
+      };
+    }
+
+    // --- Canvas Rendering ---
+    function drawGrid() {
+      ctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
+
+      // Draw pixels
+      for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+          ctx.fillStyle = pixels[y][x];
+          ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+        }
+      }
+
+      // Draw subtle grid lines
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * CELL_PX, 0);
+        ctx.lineTo(i * CELL_PX, CANVAS_PX);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL_PX);
+        ctx.lineTo(CANVAS_PX, i * CELL_PX);
+        ctx.stroke();
+      }
+    }
+
+    function setPixel(x, y, color) {
+      if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+      pixels[y][x] = color;
+      ctx.fillStyle = color;
+      ctx.fillRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+
+      // Re-draw grid cell border
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.strokeRect(x * CELL_PX, y * CELL_PX, CELL_PX, CELL_PX);
+    }
+
+    // --- Place Pixel (Client Click) ---
+    async function placePixel(x, y) {
+      const color = selectedColor;
+      setPixel(x, y, color);
+
+      try {
+        const event = await signEvent({
+          collection: "canvas",
+          data: { canvasId, x, y, color, ts: Date.now() },
+          labels: [`canvas:${canvasId}`]
+        });
+
+        await fetch(`${nodeUrl}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event)
+        });
+      } catch (err) {
+        console.error("Failed to publish pixel:", err);
+      }
+    }
+
+    // --- Event Handling ---
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const px = (e.clientX - rect.left) * scaleX;
+      const py = (e.clientY - rect.top) * scaleY;
+      const x = Math.floor(px / CELL_PX);
+      const y = Math.floor(py / CELL_PX);
+      return { x, y };
+    }
+
+    canvas.addEventListener("mousemove", (e) => {
+      const { x, y } = getCanvasCoords(e);
+      if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
+        coordsDisplay.textContent = `Pixel: (${x}, ${y}) — Color: ${pixels[y][x]}`;
+      }
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      coordsDisplay.textContent = "Hover to inspect (X, Y)";
+    });
+
+    let isMouseDown = false;
+    canvas.addEventListener("mousedown", (e) => {
+      isMouseDown = true;
+      const { x, y } = getCanvasCoords(e);
+      placePixel(x, y);
+    });
+
+    window.addEventListener("mouseup", () => { isMouseDown = false; });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (isMouseDown) {
+        const { x, y } = getCanvasCoords(e);
+        placePixel(x, y);
+      }
+    });
+
+    // --- Load Canvas & Connect SSE ---
+    async function loadCanvas(id) {
+      canvasId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+      if (!canvasId) canvasId = "main";
+      canvasInput.value = canvasId;
+
+      const url = new URL(window.location);
+      url.searchParams.set("canvas", canvasId);
+      window.history.replaceState({}, "", url);
+
+      // Reset local grid
+      pixels = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill("#0f172a"));
+      seenEventIds.clear();
+      drawGrid();
+
+      statusDot.className = "status-dot";
+      statusText.textContent = "Loading pixels...";
+
+      // 1. Fetch recent pixel events
+      try {
+        const queryUrl = `${nodeUrl}/events?collection=canvas&label=canvas:${encodeURIComponent(canvasId)}&limit=100`;
+        const res = await fetch(queryUrl);
+        if (res.ok) {
+          const json = await res.json();
+          const events = (json.events || json.records || []).slice().reverse();
+          events.forEach(ev => {
+            if (!seenEventIds.has(ev.id)) {
+              seenEventIds.add(ev.id);
+              if (ev.data && typeof ev.data.x === "number" && typeof ev.data.y === "number") {
+                setPixel(ev.data.x, ev.data.y, ev.data.color || "#ffffff");
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Could not fetch canvas events:", err);
+      }
+
+      // 2. Connect Live Stream (SSE)
+      if (eventSource) eventSource.close();
+      const streamUrl = `${nodeUrl}/events/stream?collection=canvas&label=canvas:${encodeURIComponent(canvasId)}`;
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.onopen = () => {
+        statusDot.className = "status-dot connected";
+        statusText.textContent = `Live: #${canvasId}`;
+      };
+
+      eventSource.addEventListener("event", (e) => {
+        try {
+          const record = JSON.parse(e.data);
+          if (record && !seenEventIds.has(record.id)) {
+            seenEventIds.add(record.id);
+            if (record.data && typeof record.data.x === "number" && typeof record.data.y === "number") {
+              setPixel(record.data.x, record.data.y, record.data.color || "#ffffff");
+            }
+          }
+        } catch (err) {
+          console.error("Stream parse error:", err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        statusDot.className = "status-dot";
+        statusText.textContent = "Reconnecting...";
+      };
+    }
+
+    // --- Controls ---
+    switchCanvasBtn.addEventListener("click", () => loadCanvas(canvasInput.value));
+    canvasInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loadCanvas(canvasInput.value);
+    });
+
+    shareBtn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(window.location.href);
+      shareBtn.textContent = "Copied!";
+      setTimeout(() => { shareBtn.textContent = "Share"; }, 1500);
+    });
+
+    exportBtn.addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = `pixel-canvas-${canvasId}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+
+    nodeInput.addEventListener("change", () => {
+      nodeUrl = nodeInput.value.trim().replace(/\/$/, "");
+      localStorage.setItem("originless_node", nodeUrl);
+      loadCanvas(canvasId);
+    });
+
+    // Start
+    loadCanvas(canvasId);
+  </script>
+</body>
+</html>
