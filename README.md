@@ -42,6 +42,24 @@ docker run -d --name originless --restart unless-stopped \
 
 *(Works identically with `podman` by replacing `docker` with `podman`.)*
 
+Or using **`compose.yml`**:
+
+```yaml
+services:
+  originless:
+    image: ghcr.io/besoeasy/originless:latest
+    container_name: originless
+    restart: unless-stopped
+    ports:
+      - "3232:3232/tcp"
+      - "3232:3232/udp"
+    volumes:
+      - originless-data:/data
+
+volumes:
+  originless-data:
+```
+
 That's it! Your node is live at **http://localhost:3232**.
 
 ### Mesh Network Options
