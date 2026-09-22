@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Originless Control Panel</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --panel-alt: #f1f5f9;
+  --panel-hover: #f8fafc;
+  --border: #e2e8f0;
+  --border-subtle: #edf2f7;
+  --border-focus: #0284c7;
+  
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+  
+  --primary: #0284c7;
+  --primary-light: #e0f2fe;
+  --primary-dark: #0369a1;
+  --primary-hover: #0ea5e9;
+  
+  --success: #059669;
+  --success-light: #ecfdf5;
+  --success-border: #a7f3d0;
+  
+  --warning: #d97706;
+  --warning-light: #fffbeb;
+  
+  --danger: #dc2626;
+  --danger-light: #fef2f2;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  display: flex;
+}
+
+/* App Shell Layout */
+#app-sidebar {
+  width: 260px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  z-index: 40;
+}
+
+#app-main {
+  margin-left: 260px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+/* Sidebar Branding */
+.brand {
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-title {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+.brand-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-left: auto;
+}
+
+/* Nav Menu */
+.nav-menu {
+  padding: 16px 12px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+.nav-item:hover {
+  background: var(--panel-alt);
+  color: var(--text-main);
+}
+.nav-item.active {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+.nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.nav-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--panel-alt);
+  color: var(--text-muted);
+}
+.nav-item.active .nav-badge {
+  background: white;
+  color: var(--primary);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-left: auto;
+  box-shadow: 0 0 0 2px var(--success-light);
+  animation: pulse-ring 2s infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+}
+
+/* Sidebar Footer / Node Info */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--panel);
+}
+.node-quick-card {
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+}
+.node-quick-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+.node-quick-row:last-child { margin-bottom: 0; }
+.node-quick-row b { color: var(--text-main); }
+
+/* Top Header Bar */
+#app-header {
+  height: 64px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.header-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Global Buttons & Inputs */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-main);
+  text-decoration: none;
+}
+.btn:hover {
+  background: var(--panel-alt);
+  border-color: #cbd5e1;
+}
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary-dark);
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.btn-icon {
+  padding: 8px;
+  border-radius: 7px;
+}
+
+.input-text {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input-text:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+/* Main Content Views */
+.view-container {
+  padding: 28px;
+  flex: 1;
+}
+.view-panel {
+  display: none;
+}
+.view-panel.active {
+  display: block;
+}
+
+/* Dashboard Metric Cards */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.metric-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.metric-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.metric-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-alt);
+  color: var(--primary);
+}
+.metric-val {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-main);
+}
+.metric-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Panels & Cards */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-body {
+  padding: 20px;
+}
+
+/* Modern Data Table */
+.table-container {
+  overflow-x: auto;
+  border-radius: 0 0 12px 12px;
+}
+table.app-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+table.app-table th {
+  background: var(--panel-alt);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.app-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  vertical-align: middle;
+}
+table.app-table tbody tr {
+  transition: background 0.15s;
+}
+table.app-table tbody tr:hover {
+  background: var(--panel-hover);
+}
+table.app-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Badges & Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.pill-success {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+.pill-primary {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+.pill-muted {
+  background: var(--panel-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.pill-tag {
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+/* Monospace Helpers */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.hash-truncate {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--primary-dark);
+  cursor: pointer;
+  text-decoration: none;
+}
+.hash-truncate:hover {
+  text-decoration: underline;
+}
+
+/* Filter Toolbars */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+.search-box svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-subtle);
+  width: 15px;
+  height: 15px;
+}
+.search-box input {
+  padding-left: 32px;
+  width: 100%;
+}
+
+/* Modal Drawer */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.active {
+  display: flex;
+}
+.modal-content {
+  background: var(--panel);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-body {
+  padding: 22px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.code-block {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.6;
+}
+
+/* Live Stream Feed Items */
+.stream-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stream-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: all 0.2s ease;
+  animation: slide-in 0.2s ease-out;
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stream-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Toast Notification */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0f172a;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  z-index: 200;
+}
+
+/* Drag and Drop Upload Zone */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 36px 20px;
+  text-align: center;
+  background: var(--panel-alt);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+@media(max-width: 860px) {
+  #app-sidebar { width: 70px; }
+  #app-sidebar .brand-title, #app-sidebar .brand-badge, #app-sidebar span.nav-text, #app-sidebar .sidebar-footer { display: none; }
+  #app-main { margin-left: 70px; }
+  .nav-item { justify-content: center; padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Left Navigation Sidebar -->
+<aside id="app-sidebar">
+  <div class="brand">
+    <div class="brand-logo">
+      <img src="/logo.svg" alt="Originless Logo" width="28" height="28">
+    </div>
+    <div class="brand-title">Originless</div>
+    <span class="brand-badge" id="side-version">v1.0.1</span>
+  </div>
+
+  <nav class="nav-menu">
+    <a class="nav-item active" data-view="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span class="nav-text">Dashboard</span>
+    </a>
+    <a class="nav-item" data-view="stream">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+      <span class="nav-text">Live Stream</span>
+      <div class="live-dot" title="SSE Stream connected"></div>
+    </a>
+    <a class="nav-item" data-view="events">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span class="nav-text">Events</span>
+      <span class="nav-badge" id="nav-badge-events">0</span>
+    </a>
+    <a class="nav-item" data-view="blobs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span class="nav-text">Blob Vault</span>
+      <span class="nav-badge" id="nav-badge-blobs">0</span>
+    </a>
+    <a class="nav-item" data-view="p2p">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      <span class="nav-text">P2P Mesh</span>
+      <span class="nav-badge" id="nav-badge-peers">0</span>
+    </a>
+    <a class="nav-item" data-view="publisher">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span class="nav-text">Sign & Publish</span>
+    </a>
+    <a class="nav-item" data-view="diagnostics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="nav-text">API & System</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="node-quick-card">
+      <div class="node-quick-row">
+        <span>Uptime</span>
+        <b id="side-uptime">--</b>
+      </div>
+      <div class="node-quick-row">
+        <span>Memory</span>
+        <b id="side-ram">--</b>
+      </div>
+      <div class="node-quick-row">
+        <span>Database</span>
+        <b id="side-db">--</b>
+      </div>
+      <div class="node-quick-row">
+        <span>Network</span>
+        <b id="side-net">originless</b>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Workspace Panel -->
+<main id="app-main">
+  <!-- Top Bar -->
+  <header id="app-header">
+    <div class="header-left">
+      <div>
+        <div class="header-title" id="page-title">Dashboard Overview</div>
+        <div class="header-subtitle" id="page-subtitle">Real-time telemetry and node vitals</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="pill pill-success" id="node-status-pill">
+        <span class="live-dot" style="position:static;animation:none;"></span>
+        <span id="node-status-text">Node Online</span>
+      </span>
+      <button class="btn btn-sm" id="btn-refresh-all" title="Refresh all data">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span>Refresh</span>
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-header-publish">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Publish Event</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Views Area -->
+  <div class="view-container">
+
+    <!-- VIEW 1: DASHBOARD OVERVIEW -->
+    <div class="view-panel active" id="view-dashboard">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Stored Events</span>
+            <div class="metric-icon" style="color:#0284c7;background:#e0f2fe;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+          </div>
+          <div class="metric-val" id="dash-events-count">0</div>
+          <div class="metric-sub">Cryptographically signed records</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Content Blobs</span>
+            <div class="metric-icon" style="color:#059669;background:#ecfdf5;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+          </div>
+          <div class="metric-val" id="dash-blobs-count">0</div>
+          <div class="metric-sub" id="dash-blobs-size">0 Bytes stored</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">P2P Swarm</span>
+            <div class="metric-icon" style="color:#7c3aed;background:#f5f3ff;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </div>
+          </div>
+          <div class="metric-val" id="dash-peers-count">0</div>
+          <div class="metric-sub" id="dash-reachability">DHT: Connecting...</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Live Subscribers</span>
+            <div class="metric-icon" style="color:#d97706;background:#fffbeb;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/></svg>
+            </div>
+          </div>
+          <div class="metric-val" id="dash-sse-count">0</div>
+          <div class="metric-sub" id="dash-traffic-reqs">0 total HTTP requests</div>
+        </div>
+      </div>
+
+      <!-- Quick Recent Events & Blobs Split -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Events</span>
+            <button class="btn btn-sm" onclick="switchView('events')">View All</button>
+          </div>
+          <div class="table-container">
+            <table class="app-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Collection</th>
+                  <th>Age</th>
+                </tr>
+              </thead>
+              <tbody id="dash-recent-events-tbody">
+                <tr><td colspan="3" style="text-align:center;color:var(--text-subtle);padding:24px;">No events recorded yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Blobs</span>
+            <button class="btn btn-sm" onclick="switchView('blobs')">View All</button>
+          </div>
+          <div class="table-container">
+            <table class="app-table">
+              <thead>
+                <tr>
+                  <th>SHA-256 Hash</th>
+                  <th>Size</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="dash-recent-blobs-tbody">
+                <tr><td colspan="3" style="text-align:center;color:var(--text-subtle);padding:24px;">No binary blobs stored</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: LIVE STREAM (SSE) -->
+    <div class="view-panel" id="view-stream">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>Real-time SSE Stream (`GET /events/stream`)</span>
+            <span class="pill pill-success" style="font-size:11px;">
+              <span class="live-dot" style="position:static;animation:none;width:6px;height:6px;"></span> Connected
+            </span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" id="btn-pause-stream">Pause Stream</button>
+            <button class="btn btn-sm" id="btn-clear-stream">Clear</button>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="input-text" id="stream-filter-input" placeholder="Filter stream by collection or label...">
+          </div>
+        </div>
+        <div class="card-body" style="background:var(--panel-alt);min-height:420px;max-height:680px;overflow-y:auto;" id="stream-container">
+          <div class="stream-list" id="stream-items-list">
+            <div style="text-align:center;padding:48px;color:var(--text-muted);">
+              Listening for events published across the node & P2P swarm...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: EVENTS EXPLORER -->
+    <div class="view-panel" id="view-events">
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="input-text" id="events-search-input" placeholder="Search events by ID, content, or blob hash...">
+          </div>
+          <input type="text" class="input-text" id="events-col-input" placeholder="Collection filter" style="max-width:160px;">
+          <input type="text" class="input-text" id="events-label-input" placeholder="Label filter" style="max-width:140px;">
+          <button class="btn btn-sm" id="btn-events-refresh">Refresh</button>
+        </div>
+        <div class="table-container">
+          <table class="app-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Collection</th>
+                <th>Data Preview</th>
+                <th>Blob Attachment</th>
+                <th>Labels</th>
+                <th>Age</th>
+                <th>Expires</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Loading events...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--panel);">
+          <span style="font-size:12px;color:var(--text-muted);" id="events-page-info">Showing 0-0 of 0</span>
+          <div style="display:flex;gap:6px;" id="events-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: BLOB VAULT -->
+    <div class="view-panel" id="view-blobs">
+      <!-- Drag & Drop Upload Zone -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-body">
+          <div class="dropzone" id="blob-dropzone">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">Upload & Store Content-Addressed Blob</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Drag and drop any binary file, or click to browse</div>
+            <input type="file" id="blob-file-input" style="display:none;">
+            <button class="btn btn-sm" type="button" onclick="document.getElementById('blob-file-input').click()">Select File</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blob List -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Stored Binary Blobs (Deduplicated by SHA-256)</span>
+          <button class="btn btn-sm" id="btn-blobs-refresh">Refresh</button>
+        </div>
+        <div class="table-container">
+          <table class="app-table">
+            <thead>
+              <tr>
+                <th>SHA-256 Checksum</th>
+                <th>File Size</th>
+                <th>Uploaded</th>
+                <th>Retention</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="blobs-tbody">
+              <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Loading stored blobs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 5: P2P MESH NETWORK -->
+    <div class="view-panel" id="view-p2p">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Network ID</div>
+          <div class="metric-val mono" style="font-size:20px;" id="p2p-net-id">originless</div>
+          <div class="metric-sub">Active libp2p swarm namespace</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Peers Connected</div>
+          <div class="metric-val" id="p2p-connected-peers">0</div>
+          <div class="metric-sub">Full-duplex live sync sessions</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">NAT Reachability</div>
+          <div class="metric-val" id="p2p-nat-status" style="font-size:20px;">Unknown</div>
+          <div class="metric-sub" id="p2p-relay-info">DCUtR Hole Punching Active</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Records Reconciled</div>
+          <div class="metric-val" id="p2p-synced-count">0</div>
+          <div class="metric-sub" id="p2p-last-sync">Bloom filter sync ready</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Node Network Identity & Addresses</span>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:14px;font-size:13px;">
+            <div>
+              <span style="color:var(--text-muted);display:block;margin-bottom:4px;font-weight:500;">Local Peer ID:</span>
+              <span class="mono" style="background:var(--panel-alt);padding:6px 10px;border-radius:6px;border:1px solid var(--border);display:inline-block;" id="p2p-peer-id">Loading...</span>
+            </div>
+            <div>
+              <span style="color:var(--text-muted);display:block;margin-bottom:4px;font-weight:500;">Observed Public Addresses (Advertised to DHT):</span>
+              <div id="p2p-addrs-list" style="display:flex;flex-direction:column;gap:4px;">
+                <span class="mono" style="color:var(--text-muted);">None detected yet</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 6: SIGN & PUBLISH STUDIO -->
+    <div class="view-panel" id="view-publisher">
+      <div class="card" style="max-width:800px;margin:0 auto;">
+        <div class="card-header">
+          <span class="card-title">In-Browser Cryptographic Publisher</span>
+          <span class="pill pill-primary" style="font-size:11px;">Ed25519 Zero-Auth</span>
+        </div>
+        <div class="card-body">
+          <form id="publish-form" onsubmit="return false;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Collection Name</label>
+                <input type="text" class="input-text" id="pub-col" value="notes" style="width:100%;" required>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Labels (comma-separated)</label>
+                <input type="text" class="input-text" id="pub-labels" value="demo, web-panel" style="width:100%;">
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Event Data (JSON Object)</label>
+              <textarea class="input-text mono" id="pub-data" style="width:100%;height:140px;resize:vertical;" spellcheck="false">{
+  "message": "Hello from Originless modern panel!",
+  "app": "originless-console"
+}</textarea>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Attach Binary Blob (Optional)</label>
+              <input type="file" id="pub-file" class="input-text" style="width:100%;">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When selected, file is hashed via SHA-256 and uploaded atomically in the same multipart request.</div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+              <button class="btn" type="button" id="btn-pub-demo">Load Sample</button>
+              <button class="btn btn-primary" type="button" id="btn-pub-submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <span>Sign & Publish Event</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 7: API & SYSTEM DIAGNOSTICS -->
+    <div class="view-panel" id="view-diagnostics">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm active" id="btn-diag-status">GET /status</button>
+            <button class="btn btn-sm" id="btn-diag-metrics">GET /metrics</button>
+            <button class="btn btn-sm" id="btn-diag-agent">GET /agent.txt</button>
+          </div>
+          <button class="btn btn-sm" id="btn-diag-copy">Copy Output</button>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <pre class="code-block" style="border-radius:0;max-height:600px;" id="diag-output">Loading system diagnostics...</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Event Details Inspector Modal -->
+<div class="modal-overlay" id="event-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div style="font-weight:700;font-size:16px;">Event Details</div>
+      <button class="btn btn-sm btn-icon" onclick="closeModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;">
+        <span class="mono" style="font-size:13px;font-weight:600;word-break:break-all;" id="modal-event-id"></span>
+      </div>
+      <pre class="code-block" id="modal-event-json" style="max-height:420px;overflow-y:auto;"></pre>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button class="btn btn-sm" id="modal-copy-id">Copy ID</button>
+        <button class="btn btn-primary btn-sm" id="modal-copy-json">Copy JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Box -->
+<div id="toast">
+  <span id="toast-text">Message</span>
+</div>
+
+<script>
+// Originless App State & Logic
+const App = {
+  currentView: 'dashboard',
+  origin: window.location.origin && window.location.origin !== "null" ? window.location.origin : "http://localhost:3232",
+  statusData: null,
+  streamEventSource: null,
+  isStreamPaused: false,
+  eventsCache: [],
+  blobsCache: [],
+  ed25519Key: null
+};
+
+// Utilities
+function $(id) { return document.getElementById(id); }
+function truncate(str, len = 12) {
+  if (!str) return '';
+  if (str.length <= len) return str;
+  return str.slice(0, 6) + '…' + str.slice(-6);
+}
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+function formatAgo(unix) {
+  if (!unix) return '';
+  const sec = Math.floor((Date.now() / 1000) - unix);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+function showToast(msg) {
+  const t = $('toast');
+  $('toast-text').textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(() => { t.style.display = 'none'; }, 2400);
+}
+function copyText(txt) {
+  navigator.clipboard.writeText(txt).then(() => {
+    showToast('Copied to clipboard!');
+  });
+}
+
+// Navigation View Switcher
+function switchView(viewName) {
+  App.currentView = viewName;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === viewName);
+  });
+  document.querySelectorAll('.view-panel').forEach(el => {
+    el.classList.toggle('active', el.id === 'view-' + viewName);
+  });
+
+  const titles = {
+    dashboard: ['Dashboard Overview', 'Real-time telemetry and node vitals'],
+    stream: ['Live Stream Feed', 'Real-time Server-Sent Events live feed'],
+    events: ['Events Explorer', 'Query, filter, and inspect signed JSON documents'],
+    blobs: ['Content-Addressed Blobs', 'Deduplicated binary storage verified by SHA-256'],
+    p2p: ['P2P Swarm & Mesh', 'Connected peers, DHT routing, and synchronization'],
+    publisher: ['Sign & Publish Studio', 'Zero-auth Ed25519 client-side event signer'],
+    diagnostics: ['System Diagnostics', 'Raw endpoints and Prometheus metrics']
+  };
+  if (titles[viewName]) {
+    $('page-title').textContent = titles[viewName][0];
+    $('page-subtitle').textContent = titles[viewName][1];
+  }
+
+  if (viewName === 'events') loadEvents();
+  if (viewName === 'blobs') loadBlobs();
+  if (viewName === 'diagnostics') loadDiagnostics('status');
+}
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => switchView(el.dataset.view));
+});
+$('btn-header-publish').addEventListener('click', () => switchView('publisher'));
+$('btn-refresh-all').addEventListener('click', refreshAll);
+
+// Refresh Telemetry / Status
+async function fetchStatus() {
+  try {
+    const res = await fetch(App.origin + '/status');
+    const data = await res.json();
+    App.statusData = data;
+
+    // Sidebar & header
+    $('side-version').textContent = 'v' + (data.version || '1.0.1');
+    $('side-uptime').textContent = data.uptime || '--';
+    $('side-ram').textContent = data.vitals?.alloc_str || '--';
+    $('side-db').textContent = data.storage?.db_size_str || '--';
+    $('side-net').textContent = data.p2p?.network_id || 'originless';
+
+    // Dashboard metrics
+    const evCount = data.events?.count ?? data.records?.count ?? 0;
+    const blobCount = data.blobs?.count ?? 0;
+    const blobSize = data.blobs?.sizeStr ?? formatBytes(data.blobs?.size || 0);
+    const peerCount = data.p2p?.peers_connected ?? 0;
+    const sseCount = data.sse?.clients ?? 0;
+
+    $('dash-events-count').textContent = evCount;
+    $('dash-blobs-count').textContent = blobCount;
+    $('dash-blobs-size').textContent = blobSize + ' stored';
+    $('dash-peers-count').textContent = peerCount;
+    $('dash-sse-count').textContent = sseCount;
+    $('dash-traffic-reqs').textContent = (data.traffic?.total_requests || 0) + ' total HTTP requests';
+    
+    // Badges
+    $('nav-badge-events').textContent = evCount;
+    $('nav-badge-blobs').textContent = blobCount;
+    $('nav-badge-peers').textContent = peerCount;
+
+    // P2P Screen
+    $('p2p-net-id').textContent = data.p2p?.network_id || 'originless';
+    $('p2p-connected-peers').textContent = peerCount;
+    $('p2p-nat-status').textContent = data.p2p?.nat ? (data.p2p.nat.toUpperCase()) : 'ACTIVE';
+    $('p2p-peer-id').textContent = data.p2p?.peer_id || '--';
+    $('p2p-synced-count').textContent = data.p2p?.events_synced || 0;
+    $('p2p-last-sync').textContent = data.p2p?.last_sync ? ('Last synced: ' + data.p2p.last_sync) : 'Ready';
+
+    const addrsContainer = $('p2p-addrs-list');
+    if (data.p2p?.observed_addrs && data.p2p.observed_addrs.length) {
+      addrsContainer.innerHTML = data.p2p.observed_addrs.map(a => `<span class="mono" style="background:var(--panel-alt);padding:4px 8px;border-radius:4px;">${a}</span>`).join('');
+    }
+
+    $('node-status-text').textContent = 'Node Online';
+    $('node-status-pill').className = 'pill pill-success';
+  } catch (err) {
+    $('node-status-text').textContent = 'Node Disconnected';
+    $('node-status-pill').className = 'pill pill-muted';
+  }
+}
+
+// Fetch Events
+async function loadEvents() {
+  const search = $('events-search-input').value.trim();
+  const col = $('events-col-input').value.trim();
+  const label = $('events-label-input').value.trim();
+
+  let url = `${App.origin}/events?limit=25`;
+  if (col) url += `&collection=${encodeURIComponent(col)}`;
+  if (label) url += `&label=${encodeURIComponent(label)}`;
+  if (/^[0-9a-fA-F]{64}$/.test(search)) {
+    url += `&blob=${encodeURIComponent(search.toLowerCase())}`;
+  } else if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+
+  const tbody = $('events-tbody');
+  try {
+    const res = await fetch(url);
+    const d = await res.json();
+    const list = d.events || d.records || [];
+    App.eventsCache = list;
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">No events found matching query.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(ev => {
+      const dataStr = typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data);
+      const labels = (ev.labels || []).map(l => `<span class="pill-tag">${l}</span>`).join(' ') || '—';
+      const blobPart = ev.blob ? `<a class="hash-truncate" href="${App.origin}/blob/${ev.blob}" target="_blank" download>${truncate(ev.blob, 10)}</a>` : '—';
+      return `
+        <tr>
+          <td><span class="hash-truncate" onclick="openModal('${ev.id}')">${truncate(ev.id, 12)}</span></td>
+          <td><span class="pill pill-primary" style="font-size:11px;">${ev.collection}</span></td>
+          <td class="mono" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${dataStr.replace(/"/g, '&quot;')}">${dataStr}</td>
+          <td>${blobPart}</td>
+          <td>${labels}</td>
+          <td>${formatAgo(ev.created_at)}</td>
+          <td>${ev.expires_at ? formatAgo(ev.expires_at).replace('ago', 'left') : '—'}</td>
+          <td><button class="btn btn-sm" onclick="openModal('${ev.id}')">Inspect</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    $('events-page-info').textContent = `Showing ${list.length} events`;
+
+    // Also populate recent events on Dashboard
+    const dashTbody = $('dash-recent-events-tbody');
+    if (dashTbody && list.length) {
+      dashTbody.innerHTML = list.slice(0, 5).map(ev => `
+        <tr>
+          <td><span class="hash-truncate" onclick="openModal('${ev.id}')">${truncate(ev.id, 10)}</span></td>
+          <td><span class="pill pill-primary" style="font-size:10px;">${ev.collection}</span></td>
+          <td>${formatAgo(ev.created_at)}</td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger);">Error fetching events: ${err.message}</td></tr>`;
+  }
+}
+
+// Fetch Blobs
+async function loadBlobs() {
+  const tbody = $('blobs-tbody');
+  try {
+    const res = await fetch(`${App.origin}/blobs?limit=25`);
+    const d = await res.json();
+    const list = d.blobs || [];
+    App.blobsCache = list;
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">No binary blobs stored yet. Drop a file above to upload!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(b => `
+      <tr>
+        <td>
+          <a class="hash-truncate" href="${App.origin}/blob/${b.hash}" target="_blank" download>${b.hash}</a>
+          <button class="btn btn-sm" style="margin-left:8px;padding:2px 6px;" onclick="copyText('${b.hash}')">Copy</button>
+        </td>
+        <td><b>${formatBytes(b.size)}</b></td>
+        <td>${formatAgo(b.created_at || b.stored_at)}</td>
+        <td><span class="pill pill-success" style="font-size:11px;">Active</span></td>
+        <td>
+          <a class="btn btn-sm btn-primary" href="${App.origin}/blob/${b.hash}" download="${b.hash}.bin">Download</a>
+        </td>
+      </tr>
+    `).join('');
+
+    // Dashboard preview
+    const dashTbody = $('dash-recent-blobs-tbody');
+    if (dashTbody && list.length) {
+      dashTbody.innerHTML = list.slice(0, 5).map(b => `
+        <tr>
+          <td><span class="mono">${truncate(b.hash, 12)}</span></td>
+          <td>${formatBytes(b.size)}</td>
+          <td><a class="btn btn-sm" href="${App.origin}/blob/${b.hash}" download>Get</a></td>
+        </tr>
+      `).join('');
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--danger);">Error loading blobs: ${err.message}</td></tr>`;
+  }
+}
+
+// Real-Time SSE Stream Handler
+function initStream() {
+  if (App.streamEventSource) App.streamEventSource.close();
+  const source = new EventSource(`${App.origin}/events/stream`);
+  App.streamEventSource = source;
+
+  source.onmessage = function(e) {
+    if (App.isStreamPaused) return;
+    try {
+      const ev = JSON.parse(e.data);
+      const container = $('stream-items-list');
+      if (container.children.length === 1 && container.children[0].textContent.includes('Listening')) {
+        container.innerHTML = '';
+      }
+      const dataStr = typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data, null, 2);
+      const item = document.createElement('div');
+      item.className = 'stream-item';
+      item.innerHTML = `
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <span class="pill pill-primary" style="font-size:11px;">${ev.collection}</span>
+            <span class="mono" style="font-weight:600;font-size:12px;">${truncate(ev.id, 14)}</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">${formatAgo(ev.created_at)}</span>
+          </div>
+          <pre class="mono" style="font-size:12px;color:var(--text-main);white-space:pre-wrap;background:var(--panel-alt);padding:8px 12px;border-radius:6px;border:1px solid var(--border);">${dataStr}</pre>
+        </div>
+      `;
+      container.insertBefore(item, container.firstChild);
+      if (container.children.length > 50) container.removeChild(container.lastChild);
+    } catch (_) {}
+  };
+}
+
+$('btn-pause-stream').onclick = function() {
+  App.isStreamPaused = !App.isStreamPaused;
+  this.textContent = App.isStreamPaused ? 'Resume Stream' : 'Pause Stream';
+};
+$('btn-clear-stream').onclick = function() {
+  $('stream-items-list').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted);">Stream cleared. Listening for new events...</div>';
+};
+
+// Event Modal Inspector
+function openModal(id) {
+  const ev = App.eventsCache.find(x => x.id === id);
+  if (!ev) return;
+  $('modal-event-id').textContent = ev.id;
+  $('modal-event-json').textContent = JSON.stringify(ev, null, 2);
+  $('event-modal').classList.add('active');
+  $('modal-copy-id').onclick = () => copyText(ev.id);
+  $('modal-copy-json').onclick = () => copyText(JSON.stringify(ev, null, 2));
+}
+function closeModal() {
+  $('event-modal').classList.remove('active');
+}
+$('event-modal').onclick = function(e) {
+  if (e.target === this) closeModal();
+};
+
+// Diagnostics View
+async function loadDiagnostics(type) {
+  const out = $('diag-output');
+  out.textContent = 'Fetching ' + type + '...';
+  try {
+    let res, text;
+    if (type === 'status') {
+      res = await fetch(App.origin + '/status');
+      text = JSON.stringify(await res.json(), null, 2);
+    } else if (type === 'metrics') {
+      res = await fetch(App.origin + '/metrics');
+      text = await res.text();
+    } else if (type === 'agent') {
+      res = await fetch(App.origin + '/agent.txt');
+      text = await res.text();
+    }
+    out.textContent = text;
+  } catch (err) {
+    out.textContent = 'Error: ' + err.message;
+  }
+}
+$('btn-diag-status').onclick = () => loadDiagnostics('status');
+$('btn-diag-metrics').onclick = () => loadDiagnostics('metrics');
+$('btn-diag-agent').onclick = () => loadDiagnostics('agent');
+$('btn-diag-copy').onclick = () => copyText($('diag-output').textContent);
+
+// Client-Side In-Browser Ed25519 Signer & Publisher
+async function ensureKeypair() {
+  if (!App.ed25519Key) {
+    App.ed25519Key = await window.crypto.subtle.generateKey(
+      { name: "Ed25519" },
+      true,
+      ["sign", "verify"]
+    );
+  }
+  return App.ed25519Key;
+}
+
+$('btn-pub-submit').onclick = async function() {
+  const btn = this;
+  const col = $('pub-col').value.trim() || 'notes';
+  let dataVal;
+  try {
+    dataVal = JSON.parse($('pub-data').value);
+  } catch (err) {
+    alert('Invalid JSON in data payload: ' + err.message);
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing & Publishing...';
+
+  try {
+    const key = await ensureKeypair();
+    const pubRaw = await window.crypto.subtle.exportKey("raw", key.publicKey);
+    const pubHex = Array.from(new Uint8Array(pubRaw)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const owner = "ed25519:" + pubHex;
+
+    const created = Math.floor(Date.now() / 1000);
+    const expires = created + (30 * 86400);
+
+    const labels = $('pub-labels').value.split(',').map(s => s.trim()).filter(Boolean);
+    const labelsCsv = labels.join(',');
+
+    const fileInput = $('pub-file');
+    let blobHash = '';
+    let fileBlob = null;
+    if (fileInput.files && fileInput.files[0]) {
+      fileBlob = fileInput.files[0];
+      const arrayBuf = await fileBlob.arrayBuffer();
+      const hashBuf = await window.crypto.subtle.digest("SHA-256", arrayBuf);
+      blobHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Canonical JSON (sorted keys)
+    function canonicalSort(obj) {
+      if (typeof obj !== 'object' || obj === null) return obj;
+      if (Array.isArray(obj)) return obj.map(canonicalSort);
+      return Object.keys(obj).sort().reduce((acc, k) => {
+        acc[k] = canonicalSort(obj[k]);
+        return acc;
+      }, {});
+    }
+    const dataCanon = JSON.stringify(canonicalSort(dataVal));
+
+    const idInput = `${owner}:${col}:${created}:${expires}:${dataCanon}:${blobHash}:${labelsCsv}`;
+    const idHash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(idInput));
+    const sigRaw = await window.crypto.subtle.sign({ name: "Ed25519" }, key.privateKey, idHash);
+    const sigHex = Array.from(new Uint8Array(sigRaw)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const eventPayload = {
+      owner: owner,
+      collection: col,
+      created_at: created,
+      expires_at: expires,
+      data: dataVal,
+      labels: labels,
+      sig: sigHex
+    };
+    if (blobHash) eventPayload.blob = blobHash;
+
+    let res;
+    if (fileBlob) {
+      const fd = new FormData();
+      fd.append("event", new Blob([JSON.stringify(eventPayload)], { type: "application/json" }));
+      fd.append("blob", fileBlob);
+      res = await fetch(App.origin + '/events', { method: 'POST', body: fd });
+    } else {
+      res = await fetch(App.origin + '/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(eventPayload)
+      });
+    }
+
+    const pubRes = await res.json();
+    if (res.ok && pubRes.status === 'success') {
+      showToast('Event published successfully!');
+      refreshAll();
+      switchView('events');
+    } else {
+      alert('Publish failed: ' + (pubRes.error || JSON.stringify(pubRes)));
+    }
+  } catch (err) {
+    alert('Signing error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span>Sign & Publish Event</span>`;
+  }
+};
+
+// Drag & Drop Upload Handler
+const dropzone = $('blob-dropzone');
+dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
+dropzone.ondragleave = () => { dropzone.classList.remove('dragover'); };
+dropzone.ondrop = async (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    uploadBlobFile(e.dataTransfer.files[0]);
+  }
+};
+$('blob-file-input').onchange = function() {
+  if (this.files && this.files[0]) uploadBlobFile(this.files[0]);
+};
+
+async function uploadBlobFile(file) {
+  showToast('Signing & uploading ' + file.name + '...');
+  try {
+    const key = await ensureKeypair();
+    const pubRaw = await window.crypto.subtle.exportKey("raw", key.publicKey);
+    const pubHex = Array.from(new Uint8Array(pubRaw)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const owner = "ed25519:" + pubHex;
+
+    const arrayBuf = await file.arrayBuffer();
+    const hashBuf = await window.crypto.subtle.digest("SHA-256", arrayBuf);
+    const blobHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const created = Math.floor(Date.now() / 1000);
+    const expires = created + (30 * 86400);
+    const dataVal = { filename: file.name, size: file.size, type: file.type || "application/octet-stream" };
+    const dataCanon = JSON.stringify(dataVal);
+    const labelsCsv = "type:blob,filename:" + file.name;
+
+    const idInput = `${owner}:blobs:${created}:${expires}:${dataCanon}:${blobHash}:${labelsCsv}`;
+    const idHash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(idInput));
+    const sigRaw = await window.crypto.subtle.sign({ name: "Ed25519" }, key.privateKey, idHash);
+    const sigHex = Array.from(new Uint8Array(sigRaw)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const eventPayload = {
+      owner: owner,
+      collection: "blobs",
+      created_at: created,
+      expires_at: expires,
+      data: dataVal,
+      labels: ["type:blob", "filename:" + file.name],
+      blob: blobHash,
+      sig: sigHex
+    };
+
+    const fd = new FormData();
+    fd.append("event", new Blob([JSON.stringify(eventPayload)], { type: "application/json" }));
+    fd.append("blob", file);
+
+    const res = await fetch(App.origin + '/events', { method: 'POST', body: fd });
+    if (res.ok) {
+      showToast('Blob uploaded: ' + truncate(blobHash, 12));
+      loadBlobs();
+      fetchStatus();
+    } else {
+      const err = await res.json();
+      alert('Upload failed: ' + (err.error || JSON.stringify(err)));
+    }
+  } catch (err) {
+    alert('Upload error: ' + err.message);
+  }
+}
+
+// Search debounce
+let filterTimeout;
+$('events-search-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
+$('events-col-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
+$('events-label-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
+$('btn-events-refresh').onclick = loadEvents;
+$('btn-blobs-refresh').onclick = loadBlobs;
+
+function refreshAll() {
+  fetchStatus();
+  if (App.currentView === 'events') loadEvents();
+  if (App.currentView === 'blobs') loadBlobs();
+  if (App.currentView === 'dashboard') { loadEvents(); loadBlobs(); }
+}
+
+// Startup
+fetchStatus();
+loadEvents();
+loadBlobs();
+initStream();
+setInterval(fetchStatus, 5000);
+</script>
+</body>
+</html>
