@@ -7,45 +7,45 @@
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   /* Pure White Base */
   --bg-page: #ffffff;
   --bg-card: #ffffff;
   --bg-subtle: #f8fafc;
-  --bg-hover: #f1f5f9;
+  --bg-hover: #262626;
   
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --border-focus: #2563eb;
+  --border: #262626;
+  --border-light: #262626;
+  --border-focus: #3291FF;
   
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-subtle: #94a3b8;
+  --text-main: #FAFAFA;
+  --text-muted: #5C5E66;
+  --text-subtle: #71717A;
   
   /* Tasteful Color Accents */
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-  --blue-50: #eff6ff;
-  --blue-100: #dbeafe;
-  --blue-border: #bfdbfe;
+  --blue-600: #3291FF;
+  --blue-700: #3A30B8;
+  --blue-50: #0B1A2E;
+  --blue-100: #DAD5F8;
+  --blue-border: #C7C0F2;
   
-  --purple-600: #7c3aed;
-  --purple-700: #6d28d9;
-  --purple-50: #f5f3ff;
-  --purple-100: #ede9fe;
-  --purple-border: #ddd6fe;
+  --purple-600: #F5A623;
+  --purple-700: #8F5209;
+  --purple-50: #FBF1E1;
+  --purple-100: #F5E1BE;
+  --purple-border: #EBCE95;
   
-  --green-600: #059669;
-  --green-50: #ecfdf5;
-  --green-100: #d1fae5;
-  --green-border: #a7f3d0;
+  --green-600: #22C55E;
+  --green-50: #0F2A1B;
+  --green-100: #CBEADB;
+  --green-border: #A6DCC3;
   
-  --amber-600: #d97706;
-  --amber-50: #fffbeb;
-  --amber-100: #fef3c7;
-  --amber-border: #fde68a;
+  --amber-600: #F5A623;
+  --amber-50: #FBF1E1;
+  --amber-100: #F5E1BE;
+  --amber-border: #EBCE95;
   
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -96,7 +96,7 @@ body {
 
 /* Top Minimal Header (Section Links Removed) */
 header.app-header {
-  background: #ffffff;
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -158,7 +158,7 @@ header.app-header {
   padding: 5px 12px;
   border-radius: 9999px;
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-muted);
 }
 .status-indicator {
@@ -180,7 +180,7 @@ header.app-header {
   justify-content: center;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -188,7 +188,7 @@ header.app-header {
 .btn-icon:hover {
   background: var(--bg-subtle);
   color: var(--text-main);
-  border-color: #cbd5e1;
+  border-color: #3F3F3F;
 }
 
 /* Page Spacing */
@@ -225,7 +225,7 @@ main.app-content {
    HERO SECTION: SPELLS ORIGINLESS & DYNAMIC SVG NODE VITALS
    ======================================================== */
 .hero-section {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -239,7 +239,7 @@ main.app-content {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
-  background: #ffffff;
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border);
 }
 .hero-branding {
@@ -284,47 +284,38 @@ main.app-content {
   gap: 8px;
 }
 
-/* 10 Letter Hero Tiles Grid */
-.hero-letter-grid {
+/* Node Vitals — a plain stat-card grid */
+.stats-grid {
   display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  background: var(--border-light);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1px;
+  background: var(--border-light);
 }
-@media (max-width: 1100px) {
-  .hero-letter-grid { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
 }
-@media (max-width: 600px) {
-  .hero-letter-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 560px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-.hero-tile {
-  background: #ffffff;
-  padding: 16px 8px;
+.stat-card {
+  background: var(--bg-card);
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 6px;
-  transition: all 0.15s ease;
-  position: relative;
+  gap: 8px;
+  transition: background 0.15s ease;
 }
-.hero-tile:hover {
-  background: var(--bg-subtle);
-  transform: translateY(-2px);
-  z-index: 2;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
+.stat-card:hover { background: var(--bg-hover); }
 
-.tile-char {
-  font-size: 26px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  line-height: 1;
+.stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-subtle);
 }
-.tile-val {
-  font-size: 13px;
-  font-weight: 700;
+.stat-value {
+  font-size: 17px;
+  font-weight: 600;
   font-family: var(--font-mono);
   color: var(--text-main);
   white-space: nowrap;
@@ -332,25 +323,6 @@ main.app-content {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.tile-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-subtle);
-}
-
-/* Distinct letter colors */
-.tile-o .tile-char { color: #2563eb; }
-.tile-r .tile-char { color: #4f46e5; }
-.tile-i1 .tile-char { color: #7c3aed; }
-.tile-g .tile-char { color: #059669; }
-.tile-i2 .tile-char { color: #0d9488; }
-.tile-n .tile-char { color: #0284c7; }
-.tile-l .tile-char { color: #0ea5e9; }
-.tile-e .tile-char { color: #d97706; }
-.tile-s1 .tile-char { color: #c026d3; }
-.tile-s2 .tile-char { color: #0f172a; }
 
 /* Modern SVG Graphics Telemetry Grid */
 .hero-telemetry-grid {
@@ -358,7 +330,7 @@ main.app-content {
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   padding: 22px 24px;
-  background: #ffffff;
+  background: var(--bg-card);
   border-top: 1px solid var(--border);
 }
 @media (max-width: 900px) {
@@ -369,7 +341,7 @@ main.app-content {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px;
-  background: #ffffff;
+  background: var(--bg-card);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -377,7 +349,7 @@ main.app-content {
   transition: all 0.15s ease;
 }
 .svg-telemetry-card:hover {
-  border-color: #cbd5e1;
+  border-color: #3F3F3F;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 .svg-card-head {
@@ -429,7 +401,7 @@ main.app-content {
    COMBINED "PUBLISH & STORAGE" UNIFIED PANEL
    ======================================================== */
 .combined-panel {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -443,7 +415,7 @@ main.app-content {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 .panel-head-brand {
   display: flex;
@@ -513,7 +485,7 @@ main.app-content {
 .combined-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 @media (max-width: 960px) {
   .combined-content { grid-template-columns: 1fr; }
@@ -612,7 +584,7 @@ main.app-content {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--text-main);
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
@@ -645,7 +617,7 @@ textarea.input-textarea {
   border: 1.5px dashed var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
-  background: #ffffff;
+  background: var(--bg-card);
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
@@ -683,7 +655,7 @@ textarea.input-textarea {
 }
 .dropzone-standalone:hover, .dropzone-standalone.dragover {
   border-color: var(--purple-600);
-  background: #ede9fe;
+  background: #F5E1BE;
 }
 
 /* Blob Vault List */
@@ -693,7 +665,7 @@ textarea.input-textarea {
   overflow: hidden;
   max-height: 220px;
   overflow-y: auto;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 .blob-table {
   width: 100%;
@@ -750,13 +722,13 @@ textarea.input-textarea {
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
 }
 .btn-outline {
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-main);
   border-color: var(--border);
 }
 .btn-outline:hover {
   background: var(--bg-subtle);
-  border-color: #cbd5e1;
+  border-color: #3F3F3F;
 }
 .btn-xs {
   font-size: 11px;
@@ -779,7 +751,7 @@ textarea.input-textarea {
 }
 
 .feature-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 22px;
@@ -790,7 +762,7 @@ textarea.input-textarea {
   transition: all 0.15s ease;
 }
 .feature-card:hover {
-  border-color: #cbd5e1;
+  border-color: #3F3F3F;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
@@ -814,7 +786,7 @@ textarea.input-textarea {
   border: 1px solid var(--purple-border);
 }
 .icon-github {
-  background: #0f172a;
+  background: #FAFAFA;
   color: #ffffff;
 }
 
@@ -854,7 +826,7 @@ textarea.input-textarea {
 
 /* Full Width Events Explorer Panel */
 .events-panel {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -866,7 +838,7 @@ textarea.input-textarea {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 .search-input-wrap {
   position: relative;
@@ -891,7 +863,7 @@ textarea.input-textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   outline: none;
-  background: #ffffff;
+  background: var(--bg-card);
 }
 .search-input:focus {
   border-color: var(--border-focus);
@@ -980,7 +952,7 @@ textarea.input-textarea {
 
 /* P2P Swarm Panel */
 .swarm-panel {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 18px 22px;
@@ -1025,7 +997,7 @@ textarea.input-textarea {
   display: flex;
 }
 .modal-card {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -1057,7 +1029,7 @@ textarea.input-textarea {
   gap: 14px;
 }
 .json-viewer {
-  background: #0f172a;
+  background: #FAFAFA;
   color: #f8fafc;
   padding: 14px;
   border-radius: var(--radius-sm);
@@ -1074,7 +1046,7 @@ textarea.input-textarea {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #0f172a;
+  background: #FAFAFA;
   color: #ffffff;
   padding: 10px 18px;
   border-radius: var(--radius-sm);
@@ -1117,6 +1089,131 @@ footer.app-footer {
 .footer-links a:hover {
   color: var(--blue-600);
   text-decoration: underline;
+}
+
+/* ============================================================
+   Pure dark, Vercel-inspired system. True black canvas, cards
+   lifted one step with a hairline border (never a shadow), one
+   electric-blue accent for action/identity, amber reserved for
+   stored content, green reserved strictly for "connected/live".
+   ============================================================ */
+:root {
+  --bg-page: #000000;
+  --bg-card: #0A0A0A;
+  --bg-subtle: #111111;
+  --bg-hover: #1A1A1A;
+
+  --border: #262626;
+  --border-light: #1F1F1F;
+  --border-focus: #3291FF;
+
+  --text-main: #FAFAFA;
+  --text-muted: #A1A1A1;
+  --text-subtle: #6E6E6E;
+
+  --blue-600: #3291FF;
+  --blue-700: #1C7CE0;
+  --blue-50: #0B1A2E;
+  --blue-100: #10233F;
+  --blue-border: #1E3A5F;
+
+  --purple-600: #F5A623;
+  --purple-700: #D68C10;
+  --purple-50: #2E2410;
+  --purple-100: #3A2E14;
+  --purple-border: #4A3A18;
+
+  --green-600: #22C55E;
+  --green-50: #0F2A1B;
+  --green-100: #143A24;
+  --green-border: #1E5C36;
+
+  --amber-600: #F5A623;
+  --amber-50: #2E2410;
+  --amber-100: #3A2E14;
+  --amber-border: #4A3A18;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-display: var(--font-sans);
+}
+
+body { background-color: var(--bg-page); }
+
+/* No grey glow anywhere — depth comes from a hairline border and
+   a one-step lift in background, exactly like a Vercel dashboard */
+.svg-telemetry-card:hover,
+.feature-card:hover,
+.combined-panel,
+.hero-section,
+.events-panel,
+.swarm-panel,
+.modal-card,
+.btn-primary:hover {
+  box-shadow: none;
+}
+.svg-telemetry-card:hover,
+.feature-card:hover { border-color: #3F3F3F; }
+
+.section-title { font-weight: 600; letter-spacing: -0.01em; }
+
+.hero-title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.16em;
+  color: var(--text-main);
+}
+
+/* Sentence case, no forced caps — weight carries the label */
+.key-label {
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.icon-github { background: var(--bg-subtle); color: var(--text-main); border: 1px solid var(--border); }
+
+.btn-primary {
+  background: var(--text-main);
+  color: #000000;
+  border-color: var(--text-main);
+}
+.btn-primary:hover { background: #E4E4E4; border-color: #E4E4E4; }
+
+.btn-outline { background: transparent; }
+.btn-outline:hover { background: var(--bg-hover); }
+
+.input-text:focus, select.input-select:focus, textarea.input-textarea:focus,
+.search-input:focus {
+  box-shadow: 0 0 0 3px var(--blue-50);
+}
+
+.json-viewer { background: #000000; border: 1px solid var(--border-light); }
+#toast { background: var(--bg-hover); border: 1px solid var(--border); }
+.modal-overlay { background: rgba(0, 0, 0, 0.7); }
+
+/* A single deliberate moment of motion: the online dot breathes,
+   nothing else on the page moves on its own */
+.status-indicator.online { position: relative; }
+.status-indicator.online::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--green-border);
+  animation: signal-pulse 2.6s ease-out infinite;
+}
+@keyframes signal-pulse {
+  0% { transform: scale(0.55); opacity: 0.9; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-indicator.online::after { animation: none; }
 }
 </style>
 </head>
@@ -1186,57 +1283,47 @@ footer.app-footer {
         </div>
       </div>
 
-      <!-- 10 Hero Letter Tiles Spelling ORIGINLESS -->
-      <div class="hero-letter-grid">
-        <div class="hero-tile tile-o" title="Node Uptime">
-          <span class="tile-char">O</span>
-          <span class="tile-val" id="letter-val-o">-</span>
-          <span class="tile-label">Uptime</span>
+      <!-- Node Vitals -->
+      <div class="stats-grid">
+        <div class="stat-card" title="Node Uptime">
+          <span class="stat-label">Uptime</span>
+          <span class="stat-value" id="letter-val-o">-</span>
         </div>
-        <div class="hero-tile tile-r" title="RAM Allocation in Memory">
-          <span class="tile-char">R</span>
-          <span class="tile-val" id="letter-val-r">-</span>
-          <span class="tile-label">RAM Alloc</span>
+        <div class="stat-card" title="RAM Allocation in Memory">
+          <span class="stat-label">RAM Alloc</span>
+          <span class="stat-value" id="letter-val-r">-</span>
         </div>
-        <div class="hero-tile tile-i1" title="Inbound Traffic Requests">
-          <span class="tile-char">I</span>
-          <span class="tile-val" id="letter-val-i1">-</span>
-          <span class="tile-label">Inbound</span>
+        <div class="stat-card" title="Inbound Traffic Requests">
+          <span class="stat-label">Inbound</span>
+          <span class="stat-value" id="letter-val-i1">-</span>
         </div>
-        <div class="hero-tile tile-g" title="Active Goroutines Workers">
-          <span class="tile-char">G</span>
-          <span class="tile-val" id="letter-val-g">-</span>
-          <span class="tile-label">Goroutines</span>
+        <div class="stat-card" title="Active Goroutines Workers">
+          <span class="stat-label">Goroutines</span>
+          <span class="stat-value" id="letter-val-g">-</span>
         </div>
-        <div class="hero-tile tile-i2" title="Identity Ed25519 Peer ID">
-          <span class="tile-char">I</span>
-          <span class="tile-val" id="letter-val-i2">-</span>
-          <span class="tile-label">Identity</span>
+        <div class="stat-card" title="Identity Ed25519 Peer ID">
+          <span class="stat-label">Identity</span>
+          <span class="stat-value" id="letter-val-i2">-</span>
         </div>
-        <div class="hero-tile tile-n" title="Network Swarm Peers">
-          <span class="tile-char">N</span>
-          <span class="tile-val" id="letter-val-n">-</span>
-          <span class="tile-label">Network</span>
+        <div class="stat-card" title="Network Swarm Peers">
+          <span class="stat-label">Network</span>
+          <span class="stat-value" id="letter-val-n">-</span>
         </div>
-        <div class="hero-tile tile-l" title="Live SSE Streaming Subscribers">
-          <span class="tile-char">L</span>
-          <span class="tile-val" id="letter-val-l">-</span>
-          <span class="tile-label">Live SSE</span>
+        <div class="stat-card" title="Live SSE Streaming Subscribers">
+          <span class="stat-label">Live SSE</span>
+          <span class="stat-value" id="letter-val-l">-</span>
         </div>
-        <div class="hero-tile tile-e" title="Events Stored in Database">
-          <span class="tile-char">E</span>
-          <span class="tile-val" id="letter-val-e">-</span>
-          <span class="tile-label">Events</span>
+        <div class="stat-card" title="Events Stored in Database">
+          <span class="stat-label">Events</span>
+          <span class="stat-value" id="letter-val-e">-</span>
         </div>
-        <div class="hero-tile tile-s1" title="Storage Blobs on Disk">
-          <span class="tile-char">S</span>
-          <span class="tile-val" id="letter-val-s1">-</span>
-          <span class="tile-label">Storage</span>
+        <div class="stat-card" title="Storage Blobs on Disk">
+          <span class="stat-label">Storage</span>
+          <span class="stat-value" id="letter-val-s1">-</span>
         </div>
-        <div class="hero-tile tile-s2" title="System CPU Architecture">
-          <span class="tile-char">S</span>
-          <span class="tile-val" id="letter-val-s2">-</span>
-          <span class="tile-label">System</span>
+        <div class="stat-card" title="System CPU Architecture">
+          <span class="stat-label">System</span>
+          <span class="stat-value" id="letter-val-s2">-</span>
         </div>
       </div>
 
@@ -1385,7 +1472,7 @@ footer.app-footer {
             <!-- Fast Standalone Blob Dropzone -->
             <div class="dropzone-standalone" id="blob-dropzone" title="Drop file here to auto-sign & store directly as a blob">
               <input type="file" id="blob-file-input" style="display: none;">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Quick Store Raw Blob</div>
                 <div style="font-size: 11px; color: var(--text-muted);">Drop file to auto-hash (SHA-256) & upload directly</div>
@@ -1820,17 +1907,17 @@ function updateVitalsStudio(data) {
     <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
       <defs>
         <linearGradient id="memGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#2563eb"/>
-          <stop offset="100%" stop-color="#7c3aed"/>
+          <stop offset="0%" stop-color="#3291FF"/>
+          <stop offset="100%" stop-color="#F5A623"/>
         </linearGradient>
       </defs>
-      <circle cx="80" cy="65" r="38" fill="none" stroke="#f1f5f9" stroke-width="10"/>
+      <circle cx="80" cy="65" r="38" fill="none" stroke="#262626" stroke-width="10"/>
       <circle cx="80" cy="65" r="38" fill="none" stroke="url(#memGrad)" stroke-width="10"
         stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
         transform="rotate(-90 80 65)" style="transition: stroke-dashoffset 0.6s ease;"/>
-      <text x="80" y="62" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a" font-family="Inter, sans-serif">${memPct}%</text>
-      <text x="80" y="78" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" font-family="Inter, sans-serif">ALLOCATED</text>
-      <text x="80" y="118" text-anchor="middle" font-size="10" font-weight="500" fill="#94a3b8" font-family="JetBrains Mono, monospace">${vitals.os || 'linux'}/${vitals.arch || 'amd64'}</text>
+      <text x="80" y="62" text-anchor="middle" font-size="17" font-weight="700" fill="#FAFAFA" font-family="Inter, sans-serif">${memPct}%</text>
+      <text x="80" y="78" text-anchor="middle" font-size="10" font-weight="600" fill="#A1A1A1" font-family="Inter, sans-serif">ALLOCATED</text>
+      <text x="80" y="118" text-anchor="middle" font-size="10" font-weight="500" fill="#71717A" font-family="JetBrains Mono, monospace">${vitals.os || 'linux'}/${vitals.arch || 'amd64'}</text>
     </svg>
   `;
 
@@ -1850,25 +1937,25 @@ function updateVitalsStudio(data) {
     const isActive = i < peersConnected;
     if (isActive) {
       peerNodesSvg += `
-        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#10b981" stroke-width="1.8" stroke-dasharray="3,2"/>
-        <circle cx="${px}" cy="${py}" r="6" fill="#10b981" stroke="#ecfdf5" stroke-width="2"/>
-        <circle cx="${px}" cy="${py}" r="10" fill="none" stroke="#10b981" stroke-opacity="0.3" stroke-width="1.5"/>
+        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#22C55E" stroke-width="1.8" stroke-dasharray="3,2"/>
+        <circle cx="${px}" cy="${py}" r="6" fill="#22C55E" stroke="#0F2A1B" stroke-width="2"/>
+        <circle cx="${px}" cy="${py}" r="10" fill="none" stroke="#22C55E" stroke-opacity="0.3" stroke-width="1.5"/>
       `;
     } else {
       peerNodesSvg += `
-        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>
-        <circle cx="${px}" cy="${py}" r="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#262626" stroke-width="1" stroke-dasharray="2,2"/>
+        <circle cx="${px}" cy="${py}" r="4" fill="#1A1A1A" stroke="#3F3F3F" stroke-width="1.5"/>
       `;
     }
   }
 
   $('svg-swarm-container').innerHTML = `
     <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
-      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-dasharray="4,4"/>
+      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#262626" stroke-width="1.5" stroke-dasharray="4,4"/>
       ${peerNodesSvg}
-      <circle cx="${cx}" cy="${cy}" r="14" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
-      <circle cx="${cx}" cy="${cy}" r="5" fill="#2563eb"/>
-      <text x="80" y="122" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" font-family="Inter, sans-serif">PORT 3232 (TCP/QUIC)</text>
+      <circle cx="${cx}" cy="${cy}" r="14" fill="#0B1A2E" stroke="#3291FF" stroke-width="2"/>
+      <circle cx="${cx}" cy="${cy}" r="5" fill="#3291FF"/>
+      <text x="80" y="122" text-anchor="middle" font-size="10" font-weight="600" fill="#A1A1A1" font-family="Inter, sans-serif">PORT 3232 (TCP/QUIC)</text>
     </svg>
   `;
 
@@ -1891,27 +1978,27 @@ function updateVitalsStudio(data) {
     <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
       <defs>
         <linearGradient id="waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.2"/>
-          <stop offset="100%" stop-color="#2563eb" stop-opacity="0.0"/>
+          <stop offset="0%" stop-color="#3291FF" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#3291FF" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
       <!-- Stacked Storage Bar -->
-      <text x="10" y="20" font-size="11" font-weight="600" fill="#0f172a" font-family="Inter, sans-serif">Storage Distribution</text>
-      <rect x="10" y="28" width="${barWidth}" height="14" rx="4" fill="#f1f5f9"/>
-      <rect x="10" y="28" width="${blobWidth}" height="14" rx="4" fill="#7c3aed"/>
-      <rect x="${10 + blobWidth}" y="28" width="${dbWidth}" height="14" rx="4" fill="#0284c7"/>
+      <text x="10" y="20" font-size="11" font-weight="600" fill="#FAFAFA" font-family="Inter, sans-serif">Storage Distribution</text>
+      <rect x="10" y="28" width="${barWidth}" height="14" rx="4" fill="#262626"/>
+      <rect x="10" y="28" width="${blobWidth}" height="14" rx="4" fill="#F5A623"/>
+      <rect x="${10 + blobWidth}" y="28" width="${dbWidth}" height="14" rx="4" fill="#3291FF"/>
       
       <!-- Legend -->
-      <circle cx="14" cy="54" r="3.5" fill="#7c3aed"/>
-      <text x="22" y="57" font-size="10" fill="#64748b" font-family="Inter, sans-serif">Blobs (${blobPct}%)</text>
-      <circle cx="85" cy="54" r="3.5" fill="#0284c7"/>
-      <text x="93" y="57" font-size="10" fill="#64748b" font-family="Inter, sans-serif">SQLite DB (${dbPct}%)</text>
+      <circle cx="14" cy="54" r="3.5" fill="#F5A623"/>
+      <text x="22" y="57" font-size="10" fill="#A1A1A1" font-family="Inter, sans-serif">Blobs (${blobPct}%)</text>
+      <circle cx="85" cy="54" r="3.5" fill="#3291FF"/>
+      <text x="93" y="57" font-size="10" fill="#A1A1A1" font-family="Inter, sans-serif">SQLite DB (${dbPct}%)</text>
 
       <!-- Goroutines & Traffic Wave Sparkline -->
       <path d="M 10 105 Q 35 85, 60 98 T 110 90 T 150 100 L 150 120 L 10 120 Z" fill="url(#waveGrad)"/>
-      <path d="M 10 105 Q 35 85, 60 98 T 110 90 T 150 100" fill="none" stroke="#2563eb" stroke-width="2"/>
-      <text x="10" y="80" font-size="10" font-weight="600" fill="#0f172a" font-family="Inter, sans-serif">Runtime Workers</text>
-      <text x="150" y="80" text-anchor="end" font-size="10" font-family="JetBrains Mono, monospace" fill="#2563eb">${vitals.goroutines || 0} active</text>
+      <path d="M 10 105 Q 35 85, 60 98 T 110 90 T 150 100" fill="none" stroke="#3291FF" stroke-width="2"/>
+      <text x="10" y="80" font-size="10" font-weight="600" fill="#FAFAFA" font-family="Inter, sans-serif">Runtime Workers</text>
+      <text x="150" y="80" text-anchor="end" font-size="10" font-family="JetBrains Mono, monospace" fill="#3291FF">${vitals.goroutines || 0} active</text>
     </svg>
   `;
 }
@@ -1996,8 +2083,8 @@ function renderEventsTable(events) {
     const idTrunc = truncate(ev.id, 14);
     const colChip = `<span class="chip chip-col">${ev.collection || 'default'}</span>`;
     const payloadPreview = truncate(JSON.stringify(ev.data || {}), 45);
-    const blobChip = ev.blob ? `<a href="/blobs/${ev.blob}" target="_blank" class="chip chip-blob" onclick="event.stopPropagation();" title="Download blob">blob:${truncate(ev.blob, 10)}</a>` : '<span style="color: #94a3b8;">—</span>';
-    const labelsList = (ev.labels || []).map(l => `<span class="chip">${l}</span>`).join(' ') || '<span style="color: #94a3b8;">—</span>';
+    const blobChip = ev.blob ? `<a href="/blobs/${ev.blob}" target="_blank" class="chip chip-blob" onclick="event.stopPropagation();" title="Download blob">blob:${truncate(ev.blob, 10)}</a>` : '<span style="color: #71717A;">—</span>';
+    const labelsList = (ev.labels || []).map(l => `<span class="chip">${l}</span>`).join(' ') || '<span style="color: #71717A;">—</span>';
     const dateStr = formatDate(ev.created_at);
 
     return `
