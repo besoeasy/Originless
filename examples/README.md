@@ -42,6 +42,12 @@ Client-side end-to-end encrypted secret note sharing.
 - Decryption key resides exclusively in the URL fragment (`#key`) and is never sent to the server.
 - Configurable auto-destruct TTL (1 hour to 30 days) purged automatically by Originless.
 
+### 5. [Synchronized Live Soundboard (`soundboard.html`)](./soundboard.html)
+Multiplayer real-time soundboard with synthesized Web Audio effects.
+- 8 built-in audio effects synthesized dynamically using the Web Audio API (zero external assets).
+- Triggering a pad broadcasts a signed event to the room via Originless.
+- Sub-100ms synchronized audio playback across all open browser tabs and devices over SSE.
+
 ---
 
 ## Live Demo & Local Testing
