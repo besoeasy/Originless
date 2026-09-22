@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Originless — Synchronized Live Soundboard</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --accent-glow: rgba(139, 92, 246, 0.35);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #31104b, var(--bg) 70%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 18px 22px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6b7280;
+    }
+
+    .status-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .input-field {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Sound Grid */
+    .sound-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .sound-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 22px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      color: var(--text);
+    }
+
+    .sound-btn:hover {
+      background: rgba(139, 92, 246, 0.15);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .sound-btn:active, .sound-btn.triggered {
+      transform: scale(0.95);
+      background: var(--accent);
+      border-color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .sound-icon {
+      font-size: 2.2rem;
+    }
+
+    .sound-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .sound-tag {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Live Feed / Ticker */
+    .feed-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 0.82rem;
+      padding-right: 4px;
+    }
+
+    .feed-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      animation: slideIn 0.2s ease;
+    }
+
+    .feed-item.self {
+      border-left-color: #38bdf8;
+    }
+
+    .feed-time {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Audio visualizer bar */
+    .visualizer-box {
+      width: 100%;
+      height: 24px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      gap: 3px;
+    }
+
+    .vis-bar {
+      flex: 1;
+      height: 4px;
+      background: #4b5563;
+      border-radius: 2px;
+      transition: height 0.08s ease, background-color 0.15s;
+    }
+
+    .meta-card {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mono {
+      font-family: monospace;
+      color: #c4b5fd;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header Card -->
+    <div class="card">
+      <header>
+        <div class="title-group">
+          <h1>🎵 Synchronized Soundboard</h1>
+          <div class="status-badge">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">Connecting...</span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="muteBtn" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px;">🔊 Audio On</button>
+          <button id="shareBtn" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 12px;">Share Room</button>
+        </div>
+      </header>
+
+      <div class="controls-row">
+        <label style="font-size:0.82rem;color:var(--text-muted);">Room:</label>
+        <input type="text" id="roomInput" class="input-field" style="width: 120px;" value="party">
+        <button id="switchRoomBtn" class="btn btn-secondary">Switch</button>
+
+        <label style="font-size:0.82rem;color:var(--text-muted);margin-left:8px;">Nickname:</label>
+        <input type="text" id="authorInput" class="input-field" style="width: 110px;" value="DJ Anon">
+
+        <label style="font-size:0.82rem;color:var(--text-muted);margin-left:8px;">Vol:</label>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.7" style="width: 80px; accent-color: var(--accent);">
+      </div>
+    </div>
+
+    <!-- Sound Grid -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:0.85rem; font-weight:600; color:#e2e8f0;">Sound Library (Web Audio Synthesized)</span>
+        <span style="font-size:0.75rem; color:var(--text-muted);">Clicking a pad triggers audio on all devices</span>
+      </div>
+
+      <div class="sound-grid">
+        <button class="sound-btn" data-sound="airhorn">
+          <span class="sound-icon">🎺</span>
+          <span class="sound-name">Airhorn</span>
+          <span class="sound-tag">Hype Drop</span>
+        </button>
+
+        <button class="sound-btn" data-sound="coin">
+          <span class="sound-icon">🪙</span>
+          <span class="sound-name">8-Bit Coin</span>
+          <span class="sound-tag">Power Up</span>
+        </button>
+
+        <button class="sound-btn" data-sound="laser">
+          <span class="sound-icon">⚡</span>
+          <span class="sound-name">Laser Zap</span>
+          <span class="sound-tag">Sci-Fi Blast</span>
+        </button>
+
+        <button class="sound-btn" data-sound="boom">
+          <span class="sound-icon">💥</span>
+          <span class="sound-name">808 Boom</span>
+          <span class="sound-tag">Sub Bass</span>
+        </button>
+
+        <button class="sound-btn" data-sound="bell">
+          <span class="sound-icon">🛎️</span>
+          <span class="sound-name">Service Bell</span>
+          <span class="sound-tag">Ding!</span>
+        </button>
+
+        <button class="sound-btn" data-sound="applause">
+          <span class="sound-icon">👏</span>
+          <span class="sound-name">Applause</span>
+          <span class="sound-tag">Crowd Cheer</span>
+        </button>
+
+        <button class="sound-btn" data-sound="siren">
+          <span class="sound-icon">🚨</span>
+          <span class="sound-name">Alarm Siren</span>
+          <span class="sound-tag">Emergency</span>
+        </button>
+
+        <button class="sound-btn" data-sound="trombone">
+          <span class="sound-icon">🎺</span>
+          <span class="sound-name">Sad Horn</span>
+          <span class="sound-tag">Womp Womp</span>
+        </button>
+      </div>
+
+      <!-- Reactive visualizer strip -->
+      <div style="margin-top:16px;">
+        <div id="visualizer" class="visualizer-box"></div>
+      </div>
+    </div>
+
+    <!-- Live Event Feed -->
+    <div class="card">
+      <div style="font-size:0.85rem; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between;">
+        <span>Live Broadcast Ticker</span>
+        <span style="font-size:0.75rem; color:var(--text-muted);">Synced via SSE</span>
+      </div>
+      <div id="feedList" class="feed-container">
+        <div style="color:var(--text-muted); font-size:0.8rem; margin:auto;">No sounds triggered yet. Tap any sound to broadcast!</div>
+      </div>
+    </div>
+
+    <!-- Meta & Node Info -->
+    <div class="card meta-card">
+      <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+        <span>Your Ed25519 Pubkey:</span>
+        <span id="ownerDisplay" class="mono">Generating...</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+        <span>Originless Node:</span>
+        <input type="text" id="nodeInput" class="input-field" style="font-size:0.75rem; padding:4px 8px; width:210px;" value="https://originless.space">
+      </div>
+      <div style="margin-top:2px;">
+        <span>Trigger events are signed client-side and streamed in sub-100ms real-time to everyone in the room.</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ed25519 } from "https://esm.sh/@noble/curves@1.4.0/ed25519";
+
+    // --- State ---
+    let nodeUrl = (localStorage.getItem("originless_node") || "https://originless.space").replace(/\/$/, "");
+    let currentRoom = new URLSearchParams(window.location.search).get("room") || "party";
+    let isMuted = false;
+    let volume = 0.7;
+    let eventSource = null;
+    let seenEventIds = new Set();
+
+    // --- DOM Elements ---
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const roomInput = document.getElementById("roomInput");
+    const authorInput = document.getElementById("authorInput");
+    const switchRoomBtn = document.getElementById("switchRoomBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const muteBtn = document.getElementById("muteBtn");
+    const volumeSlider = document.getElementById("volumeSlider");
+    const feedList = document.getElementById("feedList");
+    const visualizer = document.getElementById("visualizer");
+    const ownerDisplay = document.getElementById("ownerDisplay");
+    const nodeInput = document.getElementById("nodeInput");
+    const soundButtons = document.querySelectorAll(".sound-btn");
+
+    roomInput.value = currentRoom;
+    nodeInput.value = nodeUrl;
+    authorInput.value = localStorage.getItem("originless_nickname") || "DJ Anon";
+
+    // --- Build Visualizer Bars ---
+    const NUM_BARS = 32;
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement("div");
+      bar.className = "vis-bar";
+      visualizer.appendChild(bar);
+    }
+    const visBars = document.querySelectorAll(".vis-bar");
+
+    function animateVisualizer() {
+      visBars.forEach(b => {
+        const height = Math.floor(4 + Math.random() * 18);
+        b.style.height = `${height}px`;
+        b.style.background = "#8b5cf6";
+      });
+      setTimeout(() => {
+        visBars.forEach(b => {
+          b.style.height = "4px";
+          b.style.background = "#4b5563";
+        });
+      }, 350);
+    }
+
+    // --- Web Audio API Synthesizer ---
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playSynthesizedSound(soundId) {
+      if (isMuted) return;
+      const ctx = getAudioContext();
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(volume, ctx.currentTime);
+      master.connect(ctx.destination);
+
+      animateVisualizer();
+
+      const now = ctx.currentTime;
+
+      switch (soundId) {
+        case "airhorn": {
+          // Classic reggaeton/dancehall airhorn (3 detuned sawtooth bursts)
+          const freqs = [466.16, 470.0, 462.5]; // Bb4 detuned
+          freqs.forEach(f => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(f, now);
+            osc.frequency.exponentialRampToValueAtTime(f * 0.96, now + 0.35);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start(now);
+            osc.stop(now + 0.35);
+          });
+          break;
+        }
+
+        case "coin": {
+          // Arpeggiated square coin sound (B5 -> E6)
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "square";
+          osc.frequency.setValueAtTime(987.77, now); // B5
+          osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.35);
+          break;
+        }
+
+        case "laser": {
+          // Pitch-swept fast triangle laser
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(900, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.2);
+          break;
+        }
+
+        case "boom": {
+          // 808 Sub-bass boom drop + noise hit
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(130, now);
+          osc.frequency.exponentialRampToValueAtTime(32, now + 0.6);
+
+          gain.gain.setValueAtTime(0.6, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.6);
+          break;
+        }
+
+        case "bell": {
+          // Service counter bell (bright high dual tones)
+          [2093, 2637].forEach(f => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(f, now);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start(now);
+            osc.stop(now + 0.8);
+          });
+          break;
+        }
+
+        case "applause": {
+          // Filtered noise burst applause simulation
+          const bufferSize = ctx.sampleRate * 0.8;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.4));
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "bandpass";
+          filter.frequency.setValueAtTime(1000, now);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(master);
+          noise.start(now);
+          break;
+        }
+
+        case "siren": {
+          // 2-tone alarm siren
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(700, now);
+          osc.frequency.setValueAtTime(550, now + 0.15);
+          osc.frequency.setValueAtTime(700, now + 0.3);
+          osc.frequency.setValueAtTime(550, now + 0.45);
+
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(now);
+          osc.stop(now + 0.6);
+          break;
+        }
+
+        case "trombone": {
+          // Sad descending horn
+          const notes = [311.13, 293.66, 277.18, 246.94];
+          notes.forEach((f, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "triangle";
+            const start = now + (i * 0.14);
+            osc.frequency.setValueAtTime(f, start);
+
+            gain.gain.setValueAtTime(0.3, start);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
+
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start(start);
+            osc.stop(start + 0.18);
+          });
+          break;
+        }
+      }
+    }
+
+    // --- Identity ---
+    function getOrCreateIdentity() {
+      let privHex = localStorage.getItem("originless_privkey");
+      let privBytes;
+      if (!privHex) {
+        privBytes = ed25519.utils.randomPrivateKey();
+        privHex = Array.from(privBytes, b => b.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem("originless_privkey", privHex);
+      } else {
+        privBytes = new Uint8Array(privHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      }
+      const pubBytes = ed25519.getPublicKey(privBytes);
+      const pubHex = Array.from(pubBytes, b => b.toString(16).padStart(2, "0")).join("");
+      return {
+        privateKey: privBytes,
+        owner: `ed25519:${pubHex}`,
+        shortOwner: `ed25519:${pubHex.slice(0, 6)}...${pubHex.slice(-4)}`
+      };
+    }
+
+    const identity = getOrCreateIdentity();
+    ownerDisplay.textContent = identity.shortOwner;
+    ownerDisplay.title = identity.owner;
+
+    // --- Canonical JSON & Signing ---
+    function canonicalJSON(obj) {
+      if (obj === null || typeof obj !== "object") return JSON.stringify(obj);
+      if (Array.isArray(obj)) return `[${obj.map(canonicalJSON).join(",")}]`;
+      const keys = Object.keys(obj).sort();
+      return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJSON(obj[k])}`).join(",")}}`;
+    }
+
+    async function signEvent({ collection, data, labels = [], ttlSeconds = 86400 * 2 }) {
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = now + ttlSeconds;
+      const canonicalData = canonicalJSON(data);
+      const sortedLabels = [...labels].sort();
+      const blob = "";
+
+      const idString = `${identity.owner}:${collection}:${now}:${expiresAt}:${canonicalData}:${blob}:${sortedLabels.join(",")}`;
+      const encoder = new TextEncoder();
+      const idDigestBuf = await crypto.subtle.digest("SHA-256", encoder.encode(idString));
+      const idDigest = new Uint8Array(idDigestBuf);
+
+      const sigBytes = ed25519.sign(idDigest, identity.privateKey);
+      const sigHex = Array.from(sigBytes, b => b.toString(16).padStart(2, "0")).join("");
+
+      return {
+        owner: identity.owner,
+        collection,
+        created_at: now,
+        expires_at: expiresAt,
+        data,
+        labels: sortedLabels,
+        sig: sigHex
+      };
+    }
+
+    // --- UI Helpers ---
+    function triggerPadAnimation(soundId) {
+      const btn = document.querySelector(`.sound-btn[data-sound="${soundId}"]`);
+      if (btn) {
+        btn.classList.add("triggered");
+        setTimeout(() => btn.classList.remove("triggered"), 200);
+      }
+    }
+
+    function addFeedItem(author, soundId, isSelf) {
+      const names = {
+        airhorn: "🎺 Airhorn",
+        coin: "🪙 8-Bit Coin",
+        laser: "⚡ Laser Zap",
+        boom: "💥 808 Boom",
+        bell: "🛎️ Service Bell",
+        applause: "👏 Applause",
+        siren: "🚨 Alarm Siren",
+        trombone: "🎺 Sad Horn"
+      };
+
+      const empty = feedList.querySelector("div[style*='margin:auto']");
+      if (empty) empty.remove();
+
+      const item = document.createElement("div");
+      item.className = `feed-item ${isSelf ? "self" : ""}`;
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      item.innerHTML = `
+        <div>
+          <strong>${escapeHtml(author)}</strong> played <span>${names[soundId] || soundId}</span>
+        </div>
+        <span class="feed-time">${timeStr}</span>
+      `;
+
+      feedList.insertBefore(item, feedList.firstChild);
+      if (feedList.children.length > 20) {
+        feedList.removeChild(feedList.lastChild);
+      }
+    }
+
+    function escapeHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // --- Action: Broadcast Sound ---
+    async function triggerSound(soundId) {
+      const author = authorInput.value.trim() || "DJ Anon";
+      localStorage.setItem("originless_nickname", author);
+
+      // Play local sound immediately
+      playSynthesizedSound(soundId);
+      triggerPadAnimation(soundId);
+      addFeedItem(author, soundId, true);
+
+      try {
+        const event = await signEvent({
+          collection: "soundboard",
+          data: { soundId, author, room: currentRoom, ts: Date.now() },
+          labels: [`room:${currentRoom}`]
+        });
+
+        await fetch(`${nodeUrl}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event)
+        });
+      } catch (err) {
+        console.error("Broadcast failed:", err);
+      }
+    }
+
+    // --- Room Connection & SSE ---
+    function loadRoom(room) {
+      currentRoom = room.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+      if (!currentRoom) currentRoom = "party";
+      roomInput.value = currentRoom;
+
+      const url = new URL(window.location);
+      url.searchParams.set("room", currentRoom);
+      window.history.replaceState({}, "", url);
+
+      seenEventIds.clear();
+      feedList.innerHTML = `<div style="color:var(--text-muted); font-size:0.8rem; margin:auto;">Joined room #${currentRoom}. Ready to play!</div>`;
+
+      statusDot.className = "status-dot";
+      statusText.textContent = "Connecting stream...";
+
+      if (eventSource) eventSource.close();
+      const streamUrl = `${nodeUrl}/events/stream?collection=soundboard&label=room:${encodeURIComponent(currentRoom)}`;
+      eventSource = new EventSource(streamUrl);
+
+      eventSource.onopen = () => {
+        statusDot.className = "status-dot connected";
+        statusText.textContent = `Live: #${currentRoom}`;
+      };
+
+      eventSource.addEventListener("event", (e) => {
+        try {
+          const record = JSON.parse(e.data);
+          if (record && !seenEventIds.has(record.id)) {
+            seenEventIds.add(record.id);
+            const isSelf = record.owner === identity.owner;
+            if (!isSelf && record.data && record.data.soundId) {
+              playSynthesizedSound(record.data.soundId);
+              triggerPadAnimation(record.data.soundId);
+              addFeedItem(record.data.author || "Anon", record.data.soundId, false);
+            }
+          }
+        } catch (err) {
+          console.error("Stream parse error:", err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        statusDot.className = "status-dot";
+        statusText.textContent = "Reconnecting...";
+      };
+    }
+
+    // --- Event Listeners ---
+    soundButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const soundId = btn.dataset.sound;
+        triggerSound(soundId);
+      });
+    });
+
+    switchRoomBtn.addEventListener("click", () => loadRoom(roomInput.value));
+    roomInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") loadRoom(roomInput.value);
+    });
+
+    muteBtn.addEventListener("click", () => {
+      isMuted = !isMuted;
+      muteBtn.textContent = isMuted ? "🔇 Muted" : "🔊 Audio On";
+      muteBtn.style.color = isMuted ? "#ef4444" : "var(--text)";
+    });
+
+    volumeSlider.addEventListener("input", (e) => {
+      volume = parseFloat(e.target.value);
+      if (volume === 0) {
+        isMuted = true;
+        muteBtn.textContent = "🔇 Muted";
+      } else if (isMuted) {
+        isMuted = false;
+        muteBtn.textContent = "🔊 Audio On";
+      }
+    });
+
+    shareBtn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(window.location.href);
+      shareBtn.textContent = "Copied!";
+      setTimeout(() => { shareBtn.textContent = "Share Room"; }, 1500);
+    });
+
+    nodeInput.addEventListener("change", () => {
+      nodeUrl = nodeInput.value.trim().replace(/\/$/, "");
+      localStorage.setItem("originless_node", nodeUrl);
+      loadRoom(currentRoom);
+    });
+
+    // Start
+    loadRoom(currentRoom);
+  </script>
+</body>
+</html>
