@@ -62,7 +62,18 @@ volumes:
 
 That's it! Your node is live at **http://localhost:3232**.
 
-### Mesh Network Options
+### Environment Variables
+
+All environment variables are optional with zero-config defaults:
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `NETWORK_ID` | `originless` | P2P swarm network ID. Nodes with matching IDs discover and sync with each other. Set to `off` (or `none`, `false`, `0`) to disable P2P sync entirely and run strictly offline. Set to a custom name (e.g. `my-project`) to create an isolated private swarm. |
+| `BOOTSTRAP_PEERS` | *(built-in DHT)* | Comma-separated list of libp2p multiaddrs (e.g. `/ip4/1.2.3.4/tcp/3232/ws/p2p/<peer-id>`) to bootstrap DHT routing and connect to specific seed peers. |
+| `ANNOUNCE_ADDRS` | *(auto-detected)* | Comma-separated list of multiaddrs to advertise to the DHT instead of auto-detected local IPs. Useful when running behind a reverse proxy, NAT port forward, or custom domain. |
+| `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent Server-Sent Events subscribers (`GET /events/stream`) before returning HTTP 503. Set to `0` or negative for unlimited. |
+
+### Mesh Network Modes
 
 * **Public Mesh (Default)**: Zero configuration. By default, `NETWORK_ID` is `originless` — nodes automatically join the global libp2p Kad DHT via built-in bootstrap peers, rendezvous under `originless/originless`, punch holes across NATs, and relay through peers when needed.
 * **Private Mesh**: Add `-e NETWORK_ID=my-project` and `-e BOOTSTRAP_PEERS=<multiaddrs>` so isolated swarms can find each other.
