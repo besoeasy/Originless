@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -118,44 +117,7 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_blobs_last_access ON blobs(last_access);
 		CREATE INDEX IF NOT EXISTS idx_blobs_created ON blobs(created_at);
 	`)
-	if err != nil {
-		return err
-	}
-	return migrateBlobColumn(db)
-}
-
-// migrateBlobColumn moves blob linkage from the retired record_blobs join
-// table (and its data.bin/data.blob predecessors) onto records.blob_hash.
-// Fresh DBs already have the column from the schema above; pre-existing DBs
-// get ALTER TABLE plus a one-shot copy, then the join table is dropped.
-func migrateBlobColumn(db *sql.DB) error {
-	if _, err := db.Exec(`ALTER TABLE records ADD COLUMN blob_hash TEXT NOT NULL DEFAULT ''`); err != nil {
-		if !strings.Contains(err.Error(), "duplicate column") {
-			return err
-		}
-	}
-	var hasLinkTable int
-	if err := db.QueryRow(
-		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='record_blobs'`,
-	).Scan(&hasLinkTable); err != nil {
-		return err
-	}
-	if hasLinkTable > 0 {
-		if _, err := db.Exec(
-			`UPDATE records SET blob_hash = (
-				SELECT rb.blob_hash FROM record_blobs rb
-				WHERE rb.record_id = records.id
-			) WHERE EXISTS (
-				SELECT 1 FROM record_blobs rb WHERE rb.record_id = records.id
-			)`,
-		); err != nil {
-			return err
-		}
-		if _, err := db.Exec(`DROP TABLE record_blobs`); err != nil {
-			return err
-		}
-	}
-	return nil
+	return err
 }
 
 // InsertRecord stores a verified record + labels. Duplicate IDs are idempotent:
@@ -386,7 +348,7 @@ func scanRecord(row *sql.Row) (*Record, error) {
 	return &r, nil
 }
 
-// BlobMeta tracks a content-addressed .bin blob for LRU accounting.
+// BlobMeta tracks a content-addressed blob for lifecycle accounting.
 // RetentionSecs/RetainedUntil/Protected are computed from the blob's
 // referencing records (or orphan grace when unreferenced), not stored.
 type BlobMeta struct {
@@ -472,7 +434,7 @@ func (s *Store) GetBlob(hash string) (*BlobMeta, error) {
 	return &m, nil
 }
 
-// TouchBlob bumps a blob for LRU on every successful /down.
+// TouchBlob bumps a blob for LRU on every successful /blob/{hash} hit.
 func (s *Store) TouchBlob(hash string) error {
 	_, err := s.db.Exec(
 		`UPDATE blobs SET last_access = CURRENT_TIMESTAMP, access_count = access_count + 1 WHERE hash = ?`,

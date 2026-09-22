@@ -17,7 +17,7 @@ const (
 
 var (
 	BlobDir = "/data/blobs"
-	// MaxSSESubscribers caps concurrent /records/stream connections;
+	// MaxSSESubscribers caps concurrent /events/stream connections;
 	// <= 0 disables the cap. Guarded atomically in TrySubscribe.
 	MaxSSESubscribers int
 )

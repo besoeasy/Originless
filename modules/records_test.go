@@ -147,7 +147,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	raw, _ := json.Marshal(payload)
 
 	// POST
-	req := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/events", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h.PublishRecord(rec, req)
@@ -163,7 +163,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	}
 
 	// duplicate POST -> 200 duplicate
-	req2 := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+	req2 := httptest.NewRequest(http.MethodPost, "/events", bytes.NewReader(raw))
 	rec2 := httptest.NewRecorder()
 	h.PublishRecord(rec2, req2)
 	if rec2.Code != http.StatusOK {
@@ -171,7 +171,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	}
 
 	// GET by id
-	req3 := httptest.NewRequest(http.MethodGet, "/records/"+id, nil)
+	req3 := httptest.NewRequest(http.MethodGet, "/events/"+id, nil)
 	req3.SetPathValue("id", id)
 	rec3 := httptest.NewRecorder()
 	h.GetRecordByID(rec3, req3)
@@ -180,7 +180,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	}
 
 	// GET list filtered
-	req4 := httptest.NewRequest(http.MethodGet, "/records?collection=saves&label=slot1&owner="+owner, nil)
+	req4 := httptest.NewRequest(http.MethodGet, "/events?collection=saves&label=slot1&owner="+owner, nil)
 	rec4 := httptest.NewRecorder()
 	h.ListRecords(rec4, req4)
 	if rec4.Code != http.StatusOK {
@@ -211,7 +211,7 @@ func TestRecordsEndToEnd(t *testing.T) {
 	if _, _, err := st.InsertRecord(recOld); err != nil {
 		t.Fatal(err)
 	}
-	req5 := httptest.NewRequest(http.MethodGet, "/records?collection=chat", nil)
+	req5 := httptest.NewRequest(http.MethodGet, "/events?collection=chat", nil)
 	rec5 := httptest.NewRecorder()
 	h.ListRecords(rec5, req5)
 	var list5 struct {
@@ -257,7 +257,7 @@ func TestKeysetPagination(t *testing.T) {
 	var got []string
 	cursor := ""
 	for {
-		req := httptest.NewRequest(http.MethodGet, "/records?collection=pager&limit=10&cursor="+cursor, nil)
+		req := httptest.NewRequest(http.MethodGet, "/events?collection=pager&limit=10&cursor="+cursor, nil)
 		rec := httptest.NewRecorder()
 		h := NewHandler(nil, NewMetrics())
 		h.SetStore(st)
@@ -315,7 +315,7 @@ func TestKeysetPaginationLegacyOffset(t *testing.T) {
 
 	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
-	req := httptest.NewRequest(http.MethodGet, "/records?collection=pager&limit=2&cursor=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/events?collection=pager&limit=2&cursor=1", nil)
 	rec := httptest.NewRecorder()
 	h.ListRecords(rec, req)
 	if rec.Code != http.StatusOK {
@@ -454,7 +454,7 @@ func TestStreamRecordsSSE(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	req := httptest.NewRequest(http.MethodGet, "/records/stream?collection=chat&label=room:lobby", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/events/stream?collection=chat&label=room:lobby", nil).WithContext(ctx)
 	rec := httptest.NewRecorder()
 
 	streamDone := make(chan struct{})
@@ -472,7 +472,7 @@ func TestStreamRecordsSSE(t *testing.T) {
 	delete(p, "_id")
 	raw, _ := json.Marshal(p)
 
-	pubReq := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+	pubReq := httptest.NewRequest(http.MethodPost, "/events", bytes.NewReader(raw))
 	pubRec := httptest.NewRecorder()
 	h.PublishRecord(pubRec, pubReq)
 
@@ -504,7 +504,7 @@ func TestListRecordsInvalidCursor(t *testing.T) {
 	h.SetStore(st)
 
 	for _, c := range []string{"garbage", "-1", "abc:def", "0:deadbeef", "123:", ":abc"} {
-		req := httptest.NewRequest(http.MethodGet, "/records?cursor="+c, nil)
+		req := httptest.NewRequest(http.MethodGet, "/events?cursor="+c, nil)
 		rec := httptest.NewRecorder()
 		h.ListRecords(rec, req)
 		if rec.Code != http.StatusBadRequest {
@@ -554,7 +554,7 @@ func TestGetRecordByID500OnDBError(t *testing.T) {
 	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
-	req := httptest.NewRequest(http.MethodGet, "/records/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/events/nonexistent", nil)
 	req.SetPathValue("id", "nonexistent")
 
 	rec := httptest.NewRecorder()
@@ -610,7 +610,7 @@ func TestStreamRecordsExitsOnWriteError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	req := httptest.NewRequest(http.MethodGet, "/records/stream", nil).WithContext(ctx)
+	req := httptest.NewRequest(http.MethodGet, "/events/stream", nil).WithContext(ctx)
 	// Write 1 (": connected") succeeds; write 2 (keepalive) fails.
 	fw := &failingResponseWriter{failFrom: 2}
 
@@ -638,7 +638,7 @@ func TestStreamRecordsOverCapReturns503(t *testing.T) {
 	h := NewHandler(nil, NewMetrics())
 	h.broadcaster.Subscribe(&RecordSubscriber{Ch: make(chan *Record, 1)})
 
-	req := httptest.NewRequest(http.MethodGet, "/records/stream", nil)
+	req := httptest.NewRequest(http.MethodGet, "/events/stream", nil)
 	rec := httptest.NewRecorder()
 	h.StreamRecords(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
@@ -707,7 +707,7 @@ func TestConcurrentPublishDuplicateRace(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				req := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+				req := httptest.NewRequest(http.MethodPost, "/events", bytes.NewReader(raw))
 				rec := httptest.NewRecorder()
 				h.PublishRecord(rec, req)
 				results <- rec.Code

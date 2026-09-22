@@ -141,7 +141,7 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 	return created, nil
 }
 
-// IngestBlob verifies the SHA-256 hash and writes the .bin file to disk and SQLite.
+// IngestBlob verifies the SHA-256 hash and writes the blob file to disk and SQLite.
 func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 	if len(hash) != 64 {
 		return false, fmt.Errorf("invalid blob hash length")
@@ -202,7 +202,7 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 	return created, nil
 }
 
-// ReadBlob reads a stored .bin file by hash.
+// ReadBlob reads a stored blob file by hash.
 func (se *SyncEngine) ReadBlob(hash string) ([]byte, error) {
 	dest := modules.BlobPath(se.blobDir, hash)
 	return os.ReadFile(dest)

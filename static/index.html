@@ -316,10 +316,10 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
     </div>
     <div class="panel b">
       <h3>Binary blobs</h3>
-      <p>Any <code>.bin</code> file, stored under the SHA-256 of its contents. Upload the same bytes twice and you get one copy.</p>
+      <p>Any binary blob, stored under the SHA-256 of its contents. Upload the same bytes twice and you get one copy.</p>
       <ul>
         <li>Upload bytes and the event in one request (event part first); point at them with the top-level <code>"blob": "&lt;sha256&gt;"</code> field</li>
-        <li>Fetch the bytes back with <code class="c">GET /down/&lt;hash&gt;</code></li>
+        <li>Fetch the bytes back with <code class="c">GET /blob/&lt;hash&gt;</code></li>
         <li>No size cap on the pool, so storage is limited only by your disk</li>
         <li>Served with <code>immutable</code> caching, so CDNs and browsers keep them for a day</li>
         <li>Clients can verify the download by hashing it again</li>
@@ -460,12 +460,12 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
         <input class="ws-input mono" id="blobsSearch" type="search" placeholder="Filter SHA-256 hash..." style="width:230px">
         <button class="btn btn-sm solid" id="btnTriggerBlobFile" type="button">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span>Upload .bin</span>
+          <span>Upload blob</span>
         </button>
         <button class="btn btn-sm btn-icon" id="btnRefreshBlobs" type="button" title="Refresh blobs">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
-        <input type="file" id="blobFileInput" accept=".bin" style="display:none">
+        <input type="file" id="blobFileInput" style="display:none">
       </div>
     </div>
 
@@ -499,7 +499,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
     <div id="blobsView" style="display:none">
       <div class="dropzone" id="blobDropzone">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cy)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <strong id="dropzoneText">Drop any .bin file here or click to upload</strong>
+        <strong id="dropzoneText">Drop any file here or click to upload</strong>
         <p>SHA-256 deduplicated; pinned by signed event links (top-level blob field), orphans auto-evict after 7 days</p>
       </div>
       <div class="tbl">
@@ -537,10 +537,9 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <input id="rng" type="range" min="0" max="2" value="0" aria-label="Reference status toggle">
     </div>
     <div class="chart">
-      <svg viewBox="0 0 560 240" role="img" aria-label="Retention in days against blob size">
+      <svg viewBox="0 0 560 240" role="img" aria-label="Blob lifecycle: pinned, orphan grace, evicted">
         <g stroke="var(--line)" stroke-width="1"><line x1="44" y1="20" x2="548" y2="20"/><line x1="44" y1="120" x2="548" y2="120"/><line x1="44" y1="220" x2="548" y2="220"/></g>
-        <g fill="var(--ink3)" font-size="11" font-family="IBM Plex Mono,monospace"><text x="0" y="24">365d</text><text x="0" y="124">198d</text><text x="8" y="224">30d</text><text x="44" y="238">0</text><text x="500" y="238">512 MiB</text></g>
-        <path id="curve" fill="none" stroke="var(--ok)" stroke-width="2.5"/>
+        <g fill="var(--ink3)" font-size="11" font-family="IBM Plex Mono,monospace"><text x="60" y="238">pinned</text><text x="262" y="238">orphan grace</text><text x="452" y="238">evicted</text></g>
         <line id="vl" y1="20" y2="220" stroke="var(--ink3)" stroke-dasharray="3 4"/>
         <circle id="dot" r="6" fill="var(--bg)" stroke="var(--ok)" stroke-width="3"/>
       </svg>
@@ -558,8 +557,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <tr><td class="g">GET /events</td><td>List events, filtered by collection, label, search text, or <code>?blob=&lt;sha256&gt;</code>.</td></tr>
       <tr><td class="g">GET /events/stream</td><td>Receive new events as they arrive over Server-Sent Events.</td></tr>
       <tr><td class="c">POST /events</td><td>Publish a signed event; add a second multipart part named <code>blob</code> (after the <code>event</code> part) to carry raw bytes in the same request.</td></tr>
-      <tr><td class="c">GET /events/&lt;id&gt;/blob</td><td>Stream the bytes attached to an event, no hash lookup needed.</td></tr>
-      <tr><td class="c">GET /down/&lt;hash&gt;</td><td>Download a blob by hash.</td></tr>
+      <tr><td class="c">GET /blob/&lt;hash&gt;</td><td>Download a blob by hash.</td></tr>
       <tr><td>GET /status</td><td>Read the node version, blob count, stored bytes, and event count.</td></tr>
     </tbody></table></div>
 </section>
@@ -619,13 +617,13 @@ function o(){
 /* Terminal snippet templates */
 var T={
 event:function(){return 'curl -X POST '+o()+'/events \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "owner": "ed25519:<public key hex>",\n    "collection": "notes",\n    "created_at": 1767225600,\n    "expires_at": 1769817600,\n    "data": { "text": "hello" },\n    "labels": ["demo"],\n    "sig": "<signature hex>"\n  }\''},
-  blob:function(){return '# publish raw bytes + the signed event in one request (event part first)\nHASH=$(sha256sum save.bin | cut -d" " -f1)\nEVENT=$(build_signed_event_json blob="$HASH")\ncurl -X POST '+o()+'/events \\\n  -F "event=$EVENT;type=application/json" \\\n  -F "blob=@save.bin;type=application/octet-stream"\n\n# fetch it back from any machine\ncurl -OJ '+o()+'/down/<sha256>\n# .. or straight off the event\ncurl -OJ '+o()+'/events/<id>/blob'},
+  blob:function(){return '# publish raw bytes + the signed event in one request (event part first)\nHASH=$(sha256sum backup.tar.gz | cut -d" " -f1)\nEVENT=$(build_signed_event_json blob="$HASH")\ncurl -X POST '+o()+'/events \\\n  -F "event=$EVENT;type=application/json" \\\n  -F "blob=@backup.tar.gz;type=application/octet-stream"\n\n# fetch it back from any machine\ncurl -OJ '+o()+'/blob/<sha256>'},
 stream:function(){return '# follow new events live\ncurl -N '+o()+'/events/stream\n\n# or read what is already there\ncurl "'+o()+'/events?collection=notes&limit=50"'},
 status:function(){return 'curl '+o()+'/status'}};
 
 var NT={
   event:"Signed with Ed25519 over the record fields.",
-  blob:"Only .bin files, deduplicated by content.",
+  blob:"Opaque bytes only, deduplicated by content.",
   stream:"Server-Sent Events, no polling.",
   status:"Version, blob count, bytes stored."
 };
@@ -637,7 +635,7 @@ function draw(){
 }
 
 function agent(){
-  return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519) with optional top-level "blob" attachment pointer; add raw bytes as the "blob" multipart part (after the event part) to store a content-addressed blob in the same request\n- GET  '+o()+'/events/stream  live Server-Sent Events\n- GET  '+o()+'/events/<id>/blob  attached bytes straight off the event\n- GET  '+o()+'/down/<sha256>  fetch stored bytes\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
+  return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519) with optional top-level "blob" attachment pointer; add raw bytes as the "blob" multipart part (after the event part) to store a content-addressed blob in the same request\n- GET  '+o()+'/events/stream  live Server-Sent Events\n- GET  '+o()+'/blob/<sha256>  fetch stored bytes by content hash\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
 }
 
 document.querySelectorAll(".tab").forEach(function(b){
@@ -1132,7 +1130,7 @@ function canonicalJSON(obj){
   return "{" + keys.map(function(k){ return JSON.stringify(k) + ":" + canonicalJSON(obj[k]); }).join(",") + "}";
 }
 
-async function createSignedRecord(collection, data, labels, ttlSeconds){
+async function createSignedRecord(collection, data, labels, ttlSeconds, blobHash){
   ttlSeconds = ttlSeconds || 86400 * 30;
   if(!window.crypto || !window.crypto.subtle || !window.crypto.subtle.generateKey){
     throw new Error("Web Crypto not supported in this browser context (requires HTTPS or localhost)");
@@ -1145,13 +1143,14 @@ async function createSignedRecord(collection, data, labels, ttlSeconds){
   var expires = now + ttlSeconds;
   var canonical = canonicalJSON(data);
   var sortedLabels = (labels || []).slice().sort();
-  var msg = owner + ":" + collection + ":" + now + ":" + expires + ":" + canonical + ":" + sortedLabels.join(",");
+  var blob = (blobHash || "").toLowerCase();
+  var msg = owner + ":" + collection + ":" + now + ":" + expires + ":" + canonical + ":" + blob + ":" + sortedLabels.join(",");
   var enc = new TextEncoder().encode(msg);
   var hashBuf = await crypto.subtle.digest("SHA-256", enc);
   var sigBuf = await crypto.subtle.sign({ name: "Ed25519" }, keyPair.privateKey, hashBuf);
   var sigHex = Array.from(new Uint8Array(sigBuf)).map(function(b){ return b.toString(16).padStart(2, "0"); }).join("");
 
-  return {
+  var rec = {
     owner: owner,
     collection: collection,
     created_at: now,
@@ -1160,6 +1159,8 @@ async function createSignedRecord(collection, data, labels, ttlSeconds){
     labels: sortedLabels,
     sig: sigHex
   };
+  if(blob) rec.blob = blob;
+  return rec;
 }
 
 async function publishDemoRecord(){
@@ -1203,6 +1204,62 @@ async function publishDemoRecord(){
 }
 $("btnPublishDemo").onclick = publishDemoRecord;
 window.__publishDemo = publishDemoRecord;
+
+/* 4b) Dashboard blob upload: hash locally, sign an event pointing at it,
+   then POST both parts (event first — the server validates the signature
+   before staging any bytes). */
+function hexOf(buf){
+  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2, "0"); }).join("");
+}
+async function uploadBlobFile(file){
+  if(!file) return;
+  var label = $("dropzoneText");
+  var prev = label.textContent;
+  try{
+    label.textContent = "Hashing " + file.name + "…";
+    var data = await file.arrayBuffer();
+    var digest = await crypto.subtle.digest("SHA-256", data);
+    var hash = hexOf(digest);
+    label.textContent = "Signing event…";
+    var payload = await createSignedRecord("blobs",
+      { name: file.name, size: file.size }, ["client:web"], 86400 * 30, hash);
+    label.textContent = "Uploading…";
+    var fd = new FormData();
+    fd.append("event", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+    fd.append("blob", file, file.name || "upload");
+    var res = await fetch(o() + "/events", { method: "POST", body: fd });
+    var d = await res.json().catch(function(){ return {}; });
+    if(!res.ok || d.status !== "success"){
+      throw new Error((d && d.error) || ("upload failed (" + res.status + ")"));
+    }
+    showToast("Blob stored: " + hash.slice(0, 12) + "…", "ok");
+    allLoadedBlobs = null;
+    fetchBlobs(1);
+    fetchStatus();
+  }catch(err){
+    showToast("Upload error: " + err.message, "warn");
+  }finally{
+    label.textContent = prev;
+    $("blobFileInput").value = "";
+  }
+}
+$("btnTriggerBlobFile").onclick = function(){ $("blobFileInput").click(); };
+$("blobFileInput").addEventListener("change", function(){ uploadBlobFile(this.files[0]); });
+(function(){
+  var dz = $("blobDropzone");
+  if(!dz) return;
+  ["dragover", "dragenter"].forEach(function(ev){
+    dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function(ev){
+    dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.remove("dragover"); });
+  });
+  dz.addEventListener("drop", function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    uploadBlobFile(f);
+  });
+  dz.addEventListener("click", function(){ $("blobFileInput").click(); });
+})();
 
 /* 5) Blobs Management & Drag/Drop Upload (10 per page) */
 $("blobsSearch").addEventListener("input", function(){
@@ -1297,7 +1354,7 @@ window.__inspectEvent = function(id){
     + '<div class="kv-row"><span class="kv-k">Created</span><span class="kv-v">'+(r.created_at ? new Date(r.created_at*1000).toLocaleString() : "—")+'</span></div>'
     + '<div class="kv-row"><span class="kv-k">Expires</span><span class="kv-v">'+(r.expires_at ? new Date(r.expires_at*1000).toLocaleString() + ' (' + formatExpires(r.expires_at) + ')' : "Never")+'</span></div>'
     + (r.sig ? '<div class="kv-row"><span class="kv-k">Signature</span><span class="kv-v" style="font-size:11px" title="'+r.sig+'">'+r.sig+'</span></div>' : '')
-    + (linkedBlob ? '<div class="kv-row"><span class="kv-k">Linked Blob</span><span class="kv-v"><a class="g" href="'+o()+'/down/'+linkedBlob+'" target="_blank" download>'+shortHash(linkedBlob)+' (Download)</a></span></div>' : '')
+    + (linkedBlob ? '<div class="kv-row"><span class="kv-k">Linked Blob</span><span class="kv-v"><a class="g" href="'+o()+'/blob/'+linkedBlob+'" target="_blank" download>'+shortHash(linkedBlob)+' (Download)</a></span></div>' : '')
     + '</div>'
     + '<div style="margin-top:16px"><strong style="font-size:13px;color:var(--ink3);text-transform:uppercase">Data Payload</strong>'
     + '<pre class="json-box">'+safeEscape(dataStr)+'</pre></div>'
@@ -1323,13 +1380,13 @@ window.__inspectBlob = function(hash){
     + '<div class="kv-row"><span class="kv-k">Retention Status</span><span class="kv-v">'+(isProt ? '<span class="pill pill-ok">'+retLabel+' Protected</span>' : '<span class="pill pill-mute">Expired</span>')+'</span></div>'
     + '<div class="kv-row"><span class="kv-k">Uploaded At</span><span class="kv-v">'+(b.created_at ? new Date(b.created_at).toLocaleString() : "—")+'</span></div>'
     + '<div class="kv-row"><span class="kv-k">Last Access</span><span class="kv-v">'+(b.last_access ? new Date(b.last_access).toLocaleString() : "—")+'</span></div>'
-    + '<div class="kv-row"><span class="kv-k">Node Storage Path</span><span class="kv-v" style="font-size:11px">/data/blobs/'+b.hash+'.bin</span></div>'
+    + '<div class="kv-row"><span class="kv-k">Node Storage Path</span><span class="kv-v" style="font-size:11px">/data/blobs/'+b.hash+'</span></div>'
     + '</div>'
     + '<div style="margin-top:16px"><strong style="font-size:13px;color:var(--ink3);text-transform:uppercase">cURL Download Snippet</strong>'
-    + '<pre class="json-box">curl -OJ "'+o()+'/down/'+b.hash+'"</pre></div>';
+    + '<pre class="json-box">curl -OJ "'+o()+'/blob/'+b.hash+'"</pre></div>';
 
   var foot = '<button class="btn btn-sm" onclick="window.__cp(\''+b.hash+'\')">Copy Hash</button>'
-    + '<a class="btn btn-sm solid" href="'+o()+'/down/'+b.hash+'" target="_blank" download>Download Blob</a>';
+    + '<a class="btn btn-sm solid" href="'+o()+'/blob/'+b.hash+'" target="_blank" download>Download Blob</a>';
 
   openModal("Blob Details", body, foot);
 };

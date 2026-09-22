@@ -328,7 +328,7 @@ func (h *Handler) finishPublish(w http.ResponseWriter, st *Store, rec *Record) {
 	})
 }
 
-// ListRecords: GET /records?owner=&collection=&label=&since=&until=&search=&limit=&cursor=&include_expired=
+// ListRecords: GET /events?owner=&collection=&label=&since=&until=&search=&blob=&limit=&cursor=&include_expired=
 func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 	st := h.recordStore()
 	if st == nil {
@@ -432,7 +432,7 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetRecordByID: GET /records/{id}
+// GetRecordByID: GET /events/{id}
 func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 	st := h.recordStore()
 	if st == nil {
@@ -475,7 +475,7 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 						"hash":           meta.Hash,
 						"size":           meta.Size,
 						"sizeStr":        FormatBytes(meta.Size),
-						"url":            "/down/" + meta.Hash,
+						"url":            "/blob/" + meta.Hash,
 						"retained_until": meta.RetainedUntil.UTC().Format(time.RFC3339),
 						"protected":      meta.Protected,
 					},
@@ -502,7 +502,7 @@ var sseKeepaliveInterval = 15 * time.Second
 const sseWriteTimeout = 5 * time.Second
 
 // StreamRecords streams newly published records matching query filters over Server-Sent Events (SSE).
-// GET /records/stream?owner=&collection=&label=&search=
+// GET /events/stream?owner=&collection=&label=&search=&blob=
 func (h *Handler) StreamRecords(w http.ResponseWriter, r *http.Request) {
 	if _, ok := w.(http.Flusher); !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
@@ -516,6 +516,14 @@ func (h *Handler) StreamRecords(w http.ResponseWriter, r *http.Request) {
 		Collection: q.Get("collection"),
 		Label:      q.Get("label"),
 		Search:     q.Get("search"),
+	}
+	if v := q.Get("blob"); v != "" {
+		h, err := NormalizeBlobHash(v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "invalid blob: " + err.Error()})
+			return
+		}
+		sub.Blob = h
 	}
 
 	if h.broadcaster != nil {

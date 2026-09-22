@@ -3,7 +3,6 @@ package modules
 import (
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -12,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 )
 
 // errBlockedContent signals an upload whose head bytes sniffed as
@@ -77,7 +75,7 @@ func stageBlobData(dir string, r io.Reader) (tmpName string, size int64, h [32]b
 }
 
 // commitBlob atomically publishes a staged temp file under its content
-// address (<sha256>.bin) and upserts the accounting row. Identical bytes
+// address (bare <sha256>) and upserts the accounting row. Identical bytes
 // already on disk collapse to a dedupe touch (duplicate=true).
 func commitBlob(dir string, st *Store, tmpName string, size int64, digest [32]byte) (duplicate bool, err error) {
 	hash := hex.EncodeToString(digest[:])
@@ -104,64 +102,19 @@ func commitBlob(dir string, st *Store, tmpName string, size int64, digest [32]by
 }
 
 // Down serves a stored blob by sha256.
-// GET /down/{hash} (HEAD also allowed). Touches LRU on every hit.
+// GET /blob/{hash} (HEAD also allowed). Touches LRU on every hit.
 func (h *Handler) Down(w http.ResponseWriter, r *http.Request) {
-	raw := r.PathValue("hash")
-	hash, err := NormalizeBlobHash(raw)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
-		return
-	}
-	h.serveBlob(w, r, hash)
-}
-
-// GetRecordBlob streams the bytes attached to an event in one hop:
-// GET /events/{id}/blob serves the record's top-level blob field directly,
-// so clients skip the read-event-then-/down round trip. Same expiry gate
-// as GetRecordByID; 404 when the event has no blob or its bytes are gone.
-func (h *Handler) GetRecordBlob(w http.ResponseWriter, r *http.Request) {
-	st := h.recordStore()
-	if st == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"status": "error", "error": "records store unavailable",
-		})
-		return
-	}
-	id := r.PathValue("id")
-	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "missing id"})
-		return
-	}
-	rec, err := st.GetRecord(id)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"status": "error", "error": "query failed",
-			})
-			return
-		}
-		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "not found"})
-		return
-	}
-	if r.URL.Query().Get("include_expired") != "true" && rec.ExpiresAt <= time.Now().Unix() {
-		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "expired"})
-		return
-	}
-	if rec.Blob == "" {
-		writeJSON(w, http.StatusNotFound, map[string]any{"status": "error", "error": "event has no blob"})
-		return
-	}
-	h.serveBlob(w, r, rec.Blob)
-}
-
-// serveBlob streams a stored blob by hash: LRU touch, immutable caching
-// headers, nosniff. Shared by /down/{hash} and /events/{id}/blob.
-func (h *Handler) serveBlob(w http.ResponseWriter, r *http.Request, hash string) {
 	st := h.recordStore()
 	if st == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"status": "error", "error": "store unavailable",
 		})
+		return
+	}
+	raw := r.PathValue("hash")
+	hash, err := NormalizeBlobHash(raw)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
 		return
 	}
 	meta, err := st.GetBlob(hash)

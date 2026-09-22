@@ -21,15 +21,9 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS, p2pBroadcaster ...P2PBroadca
 	mux.HandleFunc("GET /events", handler.ListRecords)
 	mux.HandleFunc("GET /events/stream", handler.StreamRecords)
 	mux.HandleFunc("GET /events/{id}", handler.GetRecordByID)
-	mux.HandleFunc("GET /events/{id}/blob", handler.GetRecordBlob)
-	mux.HandleFunc("POST /records", handler.PublishRecord)
-	mux.HandleFunc("GET /records", handler.ListRecords)
-	mux.HandleFunc("GET /records/stream", handler.StreamRecords)
-	mux.HandleFunc("GET /records/{id}", handler.GetRecordByID)
-	mux.HandleFunc("GET /records/{id}/blob", handler.GetRecordBlob)
 	mux.HandleFunc("GET /blobs", handler.ListBlobs)
-	mux.HandleFunc("GET /down/{hash}", handler.Down)
-	mux.HandleFunc("HEAD /down/{hash}", handler.Down)
+	mux.HandleFunc("GET /blob/{hash}", handler.Down)
+	mux.HandleFunc("HEAD /blob/{hash}", handler.Down)
 	mux.HandleFunc("GET /metrics", metrics.Handler(janitorManager, handler.broadcaster))
 
 	if len(p2pBroadcaster) > 0 && p2pBroadcaster[0] != nil {
@@ -38,15 +32,7 @@ func NewRouter(janitorManager *Manager, uiFS fs.FS, p2pBroadcaster ...P2PBroadca
 		}
 	}
 
-	mux.HandleFunc("GET /library.html", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/", http.StatusMovedPermanently)
-	})
-
 	mux.HandleFunc("GET /agent", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/agent.txt", http.StatusMovedPermanently)
-	})
-
-	mux.HandleFunc("GET /agent.html", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/agent.txt", http.StatusMovedPermanently)
 	})
 

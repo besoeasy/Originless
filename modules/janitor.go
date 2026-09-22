@@ -141,8 +141,10 @@ func (m *Manager) EvictBlobs() error {
 	return nil
 }
 
-// ReconcileBlobs imports untracked *.bin files into the DB and drops rows
-// whose files vanished. Call at startup after EnsureBlobDir.
+// ReconcileBlobs imports untracked blob files into the DB and drops rows
+// whose files vanished. On-disk names are bare sha256 hex digests; anything
+// else is ignored (staging temps are swept). Call at startup after
+// EnsureBlobDir.
 func (m *Manager) ReconcileBlobs() error {
 	if m == nil || m.store == nil {
 		return nil
@@ -171,19 +173,17 @@ func (m *Manager) ReconcileBlobs() error {
 			continue
 		}
 		name := e.Name()
-		if !strings.EqualFold(filepath.Ext(name), ".bin") {
-			// Staging temps (up-*) leak only if the process died between
-			// CreateTemp and the final rename — sweep them at startup so a
-			// crash never permanently consumes blob storage.
-			if strings.HasPrefix(name, "up-") {
-				if err := os.Remove(filepath.Join(BlobDir, name)); err == nil {
-					tempRemoved++
-				}
+		// Staging temps (up-*) leak only if the process died between
+		// CreateTemp and the final rename — sweep them at startup so a
+		// crash never permanently consumes blob storage.
+		if strings.HasPrefix(name, "up-") {
+			if err := os.Remove(filepath.Join(BlobDir, name)); err == nil {
+				tempRemoved++
 			}
 			continue
 		}
-		hash := name[:len(name)-len(".bin")]
-		norm, err := NormalizeBlobHash(hash)
+		// Only bare 64-hex names qualify; everything else is foreign.
+		norm, err := NormalizeBlobHash(name)
 		if err != nil {
 			continue
 		}

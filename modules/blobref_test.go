@@ -97,7 +97,7 @@ func postRecord(t *testing.T, h *Handler, payload map[string]any) *httptest.Resp
 	t.Helper()
 	delete(payload, "_id")
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/records", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/events", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	h.PublishRecord(rec, req)
@@ -155,16 +155,16 @@ func TestGetRecordResolveBlob(t *testing.T) {
 
 	// Plain fetch carries no resolved blob envelope (the data.blob link
 	// key itself is part of the signed event and stays).
-	req := httptest.NewRequest(http.MethodGet, "/records/"+id, nil)
+	req := httptest.NewRequest(http.MethodGet, "/events/"+id, nil)
 	req.SetPathValue("id", id)
 	plain := httptest.NewRecorder()
 	h.GetRecordByID(plain, req)
-	if plain.Code != http.StatusOK || strings.Contains(plain.Body.String(), `/down/`) {
+	if plain.Code != http.StatusOK || strings.Contains(plain.Body.String(), `/blob/`) {
 		t.Fatalf("plain fetch should omit blob: %d %s", plain.Code, plain.Body.String())
 	}
 
 	// Resolved fetch inlines blob metadata.
-	req2 := httptest.NewRequest(http.MethodGet, "/records/"+id+"?resolve=blob", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/events/"+id+"?resolve=blob", nil)
 	req2.SetPathValue("id", id)
 	resolved := httptest.NewRecorder()
 	h.GetRecordByID(resolved, req2)
@@ -187,7 +187,7 @@ func TestGetRecordResolveBlob(t *testing.T) {
 	if resp.Blob == nil || resp.Blob.Hash != refBlobHash || resp.Blob.Size != 2048 {
 		t.Fatalf("bad resolved blob %+v", resp.Blob)
 	}
-	if resp.Blob.URL != "/down/"+refBlobHash || !resp.Blob.Protected {
+	if resp.Blob.URL != "/blob/"+refBlobHash || !resp.Blob.Protected {
 		t.Fatalf("bad resolved blob fields %+v", resp.Blob)
 	}
 
@@ -195,7 +195,7 @@ func TestGetRecordResolveBlob(t *testing.T) {
 	if err := st.DeleteBlob(refBlobHash); err != nil {
 		t.Fatal(err)
 	}
-	req3 := httptest.NewRequest(http.MethodGet, "/records/"+id+"?resolve=blob", nil)
+	req3 := httptest.NewRequest(http.MethodGet, "/events/"+id+"?resolve=blob", nil)
 	req3.SetPathValue("id", id)
 	gone := httptest.NewRecorder()
 	h.GetRecordByID(gone, req3)
@@ -306,5 +306,24 @@ func TestGetReferencedBlobHashes(t *testing.T) {
 	}
 	if set[loneBlobHash] {
 		t.Fatal("expired reference must not be in set")
+	}
+}
+
+func TestSubscriberBlobFilterMatches(t *testing.T) {
+	linked := &Record{ID: "a", Collection: "saves", Blob: refBlobHash}
+	plain := &Record{ID: "b", Collection: "saves"}
+	sub := &RecordSubscriber{Ch: make(chan *Record, 1), Blob: refBlobHash}
+	if !sub.Matches(linked) {
+		t.Fatal("subscriber should match the linked record")
+	}
+	if sub.Matches(plain) {
+		t.Fatal("subscriber must not match a blob-less record")
+	}
+	if sub.Matches(nil) {
+		t.Fatal("subscriber must not match nil")
+	}
+	open := &RecordSubscriber{Ch: make(chan *Record, 1)}
+	if !open.Matches(linked) || !open.Matches(plain) {
+		t.Fatal("unfiltered subscriber should match everything")
 	}
 }

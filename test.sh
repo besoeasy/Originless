@@ -50,9 +50,9 @@ publish() {
   created="$(date +%s)"
   expires="$((created + 2592000))" # 30d, within 1y max TTL
   idin="${OWNER}:${col}:${created}:${expires}:${data_canon}:${blob}:${labels_csv}"
-  printf '%s' "$idin" | openssl dgst -sha256 -binary > "$TMP/id.bin"
-  openssl pkeyutl -sign -inkey "$TMP/priv.pem" -rawin -in "$TMP/id.bin" -out "$TMP/sig.bin" 2>/dev/null || return 1
-  sighex="$(od -An -tx1 "$TMP/sig.bin" | tr -d ' \n')"
+  printf '%s' "$idin" | openssl dgst -sha256 -binary > "$TMP/id.hash"
+  openssl pkeyutl -sign -inkey "$TMP/priv.pem" -rawin -in "$TMP/id.hash" -out "$TMP/sig.raw" 2>/dev/null || return 1
+  sighex="$(od -An -tx1 "$TMP/sig.raw" | tr -d ' \n')"
   jq -n --arg o "$OWNER" --arg c "$col" --argjson cr "$created" --argjson ex "$expires" \
     --argjson d "$data_canon" --argjson l "$labels_json" --arg s "$sighex" --arg b "$blob" \
     '{owner:$o,collection:$c,created_at:$cr,expires_at:$ex,data:$d,labels:$l,sig:$s} + (if $b == "" then {} else {blob:$b} end)' > "$TMP/ev.json"
@@ -73,17 +73,13 @@ while true; do
   # The `blob` part carries the raw bytes; the top-level blob field inside
   # the signed event is their SHA-256 (server re-hashes, mismatch -> 400).
   SIZE="$((1024 + RANDOM % 16384))"
-  openssl rand -out "$TMP/load.bin" "$SIZE" 2>/dev/null
-  BHASH="$(sha256sum "$TMP/load.bin" | cut -d' ' -f1)"
+  openssl rand -out "$TMP/load.blob" "$SIZE" 2>/dev/null
+  BHASH="$(sha256sum "$TMP/load.blob" | cut -d' ' -f1)"
   MSG="$(rand_str 6)"
-  RND="$(rand_str 12)"
-  SEED_HASH="$(printf '%s' "$BHASH$RND" | openssl dgst -sha256 2>/dev/null)"
   COL="${COLS[$((RANDOM % ${#COLS[@]}))]}"
-  TT="topic:$COL,client:testsh,blob:yes"
-  LT='["topic:'"$COL"'","client:testsh","blob:yes"]'
   D_CANON="$(jq -c -S -n --arg m "$MSG" '{note:$m}')"
   PUB_RESP="$(publish "$COL" "$D_CANON" "topic:$COL,client:testsh" \
-    '["topic:'"$COL"'","client:testsh"]' "$BHASH" "$TMP/load.bin")"
+    '["topic:'"$COL"'","client:testsh"]' "$BHASH" "$TMP/load.blob")"
   if printf '%s' "$PUB_RESP" | jq -e '.status == "success"' >/dev/null 2>&1; then
     ok_blobs=$((ok_blobs + 1)); LAST_BLOB="$BHASH"
     echo "[$i] blob+ev ok  col=$COL size=$SIZE hash=${BHASH:0:12}... (events=$ok_events blobs=$ok_blobs)"

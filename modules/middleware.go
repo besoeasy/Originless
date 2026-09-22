@@ -77,11 +77,10 @@ func Gzip(next http.Handler) http.Handler {
 		if r.Method == http.MethodHead ||
 			r.Header.Get("Upgrade") != "" ||
 			r.URL.Path == "/p2p" ||
-			r.URL.Path == "/records/stream" ||
 			r.URL.Path == "/events/stream" ||
 			// Opaque bytes must stay byte-identical: gzipping breaks
 			// Range/ETag caching and wastes CPU on incompressible data.
-			strings.HasPrefix(r.URL.Path, "/down/") ||
+			strings.HasPrefix(r.URL.Path, "/blob/") ||
 			strings.Contains(r.Header.Get("Accept"), "text/event-stream") ||
 			!strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			next.ServeHTTP(w, r)

@@ -10,9 +10,10 @@ import (
 
 var blobHashPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// BlobFileName maps a sha256 hex digest to its on-disk name.
+// BlobFileName maps a sha256 hex digest to its on-disk name: the bare
+// hash, no extension. Content is sniffed, never trusted by name.
 func BlobFileName(hash string) string {
-	return hash + ".bin"
+	return hash
 }
 
 // BlobPath returns the absolute path for a blob hash.
@@ -34,10 +35,10 @@ func EnsureBlobDir(dir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
-// blockedContentTypes are sniffed MIME families /up refuses. The blob
-// store holds opaque bytes, so renderable or plainly textual payloads
-// (phishing HTML, images, PDFs, pasted text) are rejected even when
-// renamed to .bin. Everything else — including unknown binaries,
+// blockedContentTypes are sniffed MIME families the blob store refuses.
+// The store holds opaque bytes, so renderable or plainly textual payloads
+// (phishing HTML, images, PDFs, pasted text) are rejected no matter what
+// filename the client claims. Everything else — including unknown binaries,
 // archives, and media containers — is accepted as opaque bytes.
 func isBlockedContentType(ctype string) bool {
 	if strings.HasPrefix(ctype, "text/") {

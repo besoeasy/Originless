@@ -13,6 +13,7 @@ type RecordSubscriber struct {
 	Owner      string
 	Collection string
 	Label      string
+	Blob       string
 	Search     string
 }
 
@@ -38,6 +39,9 @@ func (s *RecordSubscriber) Matches(rec *Record) bool {
 		if !found {
 			return false
 		}
+	}
+	if s.Blob != "" && rec.Blob != s.Blob {
+		return false
 	}
 	if s.Search != "" {
 		var dataStr string

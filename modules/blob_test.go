@@ -61,7 +61,7 @@ func publishEventWithBlob(t *testing.T, h *Handler, content []byte, data map[str
 	if _, err := evPart.Write(ev); err != nil {
 		t.Fatal(err)
 	}
-	dataPart, err := w.CreateFormFile("blob", "blob.bin")
+	dataPart, err := w.CreateFormFile("blob", "blob")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,8 +99,8 @@ func TestCombinedPublishDownRoundTrip(t *testing.T) {
 	}
 	sum := sha256.Sum256(content)
 	wantHash := hex.EncodeToString(sum[:])
-	// File on disk at <hash>.bin, account row present, events+blob linked.
-	if _, err := os.Stat(filepath.Join(BlobDir, wantHash+".bin")); err != nil {
+	// File on disk at <hash>, account row present, events+blob linked.
+	if _, err := os.Stat(filepath.Join(BlobDir, wantHash)); err != nil {
 		t.Fatalf("blob file missing: %v", err)
 	}
 	if _, err := st.GetBlob(wantHash); err != nil {
@@ -114,13 +114,13 @@ func TestCombinedPublishDownRoundTrip(t *testing.T) {
 		t.Fatal("published blob should be referenced by the live event")
 	}
 
-	// GET /down/{hash}
-	req := httptest.NewRequest(http.MethodGet, "/down/"+wantHash, nil)
+	// GET /blob/{hash}
+	req := httptest.NewRequest(http.MethodGet, "/blob/"+wantHash, nil)
 	req.SetPathValue("hash", wantHash)
 	got := httptest.NewRecorder()
 	h.Down(got, req)
 	if got.Code != http.StatusOK {
-		t.Fatalf("GET /down status=%d body=%s", got.Code, got.Body.String())
+		t.Fatalf("GET /blob status=%d body=%s", got.Code, got.Body.String())
 	}
 	if !bytes.Equal(got.Body.Bytes(), content) {
 		t.Fatalf("content mismatch: got %q", got.Body.String())
@@ -134,7 +134,7 @@ func TestCombinedPublishDownRoundTrip(t *testing.T) {
 	if rec2.Code != http.StatusCreated {
 		t.Fatalf("dedupe publish status=%d body=%s", rec2.Code, rec2.Body.String())
 	}
-	info, err := os.Stat(filepath.Join(BlobDir, wantHash+".bin"))
+	info, err := os.Stat(filepath.Join(BlobDir, wantHash))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestCombinedPublishDownRoundTrip(t *testing.T) {
 	}
 
 	// HEAD works
-	headReq := httptest.NewRequest(http.MethodHead, "/down/"+wantHash, nil)
+	headReq := httptest.NewRequest(http.MethodHead, "/blob/"+wantHash, nil)
 	headReq.SetPathValue("hash", wantHash)
 	headRec := httptest.NewRecorder()
 	h.Down(headRec, headReq)
@@ -230,7 +230,7 @@ func TestCombinedBlobHashMismatch(t *testing.T) {
 	w := multipart.NewWriter(&body)
 	p1, _ := w.CreateFormField("event")
 	p1.Write(ev)
-	p2, _ := w.CreateFormFile("blob", "blob.bin")
+	p2, _ := w.CreateFormFile("blob", "blob")
 	p2.Write(content)
 	w.Close()
 
@@ -249,7 +249,7 @@ func TestCombinedBlobHashMismatch(t *testing.T) {
 	// Nothing must be stored: blob row, file, and temp all absent.
 	realSum := sha256.Sum256(content)
 	realHash := hex.EncodeToString(realSum[:])
-	if _, err := os.Stat(filepath.Join(BlobDir, realHash+".bin")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(BlobDir, realHash)); !os.IsNotExist(err) {
 		t.Fatal("mismatched bytes must not be committed")
 	}
 	if _, err := st.GetBlob(realHash); err == nil {
@@ -281,7 +281,7 @@ func TestCombinedRequiresBlobWhenBlobPresent(t *testing.T) {
 	w := multipart.NewWriter(&body)
 	p1, _ := w.CreateFormField("event")
 	p1.Write(ev)
-	p2, _ := w.CreateFormFile("blob", "blob.bin")
+	p2, _ := w.CreateFormFile("blob", "blob")
 	p2.Write(mangle("unsignable bytes"))
 	w.Close()
 
@@ -307,7 +307,7 @@ func TestCombinedRejectsMissingEventPart(t *testing.T) {
 
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
-	p2, _ := w.CreateFormFile("blob", "blob.bin")
+	p2, _ := w.CreateFormFile("blob", "blob")
 	p2.Write(mangle("bytes but no event"))
 	w.Close()
 
@@ -334,12 +334,12 @@ func TestDownSendsNosniff(t *testing.T) {
 	sum := sha256.Sum256(content)
 	hash := hex.EncodeToString(sum[:])
 
-	req := httptest.NewRequest(http.MethodGet, "/down/"+hash, nil)
+	req := httptest.NewRequest(http.MethodGet, "/blob/"+hash, nil)
 	req.SetPathValue("hash", hash)
 	got := httptest.NewRecorder()
 	h.Down(got, req)
 	if got.Code != http.StatusOK {
-		t.Fatalf("GET /down status=%d", got.Code)
+		t.Fatalf("GET /blob status=%d", got.Code)
 	}
 	if v := got.Header().Get("X-Content-Type-Options"); v != "nosniff" {
 		t.Fatalf("X-Content-Type-Options=%q, want nosniff", v)
@@ -382,7 +382,7 @@ func TestDownBadHashAndMissing(t *testing.T) {
 	h := NewHandler(nil, NewMetrics())
 	h.SetStore(st)
 
-	req := httptest.NewRequest(http.MethodGet, "/down/notahash", nil)
+	req := httptest.NewRequest(http.MethodGet, "/blob/notahash", nil)
 	req.SetPathValue("hash", "notahash")
 	rec := httptest.NewRecorder()
 	h.Down(rec, req)
@@ -391,7 +391,7 @@ func TestDownBadHashAndMissing(t *testing.T) {
 	}
 
 	missing := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-	req2 := httptest.NewRequest(http.MethodGet, "/down/"+missing, nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/blob/"+missing, nil)
 	req2.SetPathValue("hash", missing)
 	rec2 := httptest.NewRecorder()
 	h.Down(rec2, req2)
@@ -471,10 +471,10 @@ func TestReconcileCleansStaleTemps(t *testing.T) {
 	}
 	// A legitimate blob (real content hash matches its filename) + a
 	// non-temp, non-blob file that must be untouched. Reconcile imports
-	// untracked .bin files whose content hashes to their name.
+	// untracked bare-hash files whose content hashes to their name.
 	goodSum := sha256.Sum256([]byte("real-blob-bytes-with-verified-hash"))
 	goodHash := hex.EncodeToString(goodSum[:])
-	good := filepath.Join(dir, goodHash+".bin")
+	good := filepath.Join(dir, goodHash)
 	if err := os.WriteFile(good, []byte("real-blob-bytes-with-verified-hash"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -538,66 +538,6 @@ func TestListBlobsAndCounts(t *testing.T) {
 		t.Fatalf("expected 1 blob, got %d", len(blobs))
 	}
 }
-func TestEventsIdBlobSubresource(t *testing.T) {
-	st := testStore(t)
-	withBlobDir(t, t.TempDir())
-	h := NewHandler(nil, NewMetrics())
-	h.SetStore(st)
-
-	content := mangle("subresource bytes")
-	id, rec := publishEventWithBlob(t, h, content, nil)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("publish status=%d body=%s", rec.Code, rec.Body.String())
-	}
-
-	// Direct byte serve in one hop.
-	req := httptest.NewRequest(http.MethodGet, "/events/"+id+"/blob", nil)
-	req.SetPathValue("id", id)
-	got := httptest.NewRecorder()
-	h.GetRecordBlob(got, req)
-	if got.Code != http.StatusOK {
-		t.Fatalf("subresource status=%d body=%s", got.Code, got.Body.String())
-	}
-	if !bytes.Equal(got.Body.Bytes(), content) {
-		t.Fatal("subresource content mismatch")
-	}
-	if ct := got.Header().Get("Content-Type"); ct != "application/octet-stream" {
-		t.Fatalf("content-type=%q", ct)
-	}
-
-	// Unknown event -> 404.
-	req404 := httptest.NewRequest(http.MethodGet, "/events/deadbeef/blob", nil)
-	req404.SetPathValue("id", "deadbeef")
-	r404 := httptest.NewRecorder()
-	h.GetRecordBlob(r404, req404)
-	if r404.Code != http.StatusNotFound {
-		t.Fatalf("unknown id status=%d", r404.Code)
-	}
-
-	// Blob-less event -> 404 (event exists, nothing attached).
-	_, priv, owner := testKeys(t)
-	now := time.Now().Unix()
-	plain := signRecord(t, priv, owner, "notes", now-5, now+3600,
-		map[string]any{"text": "no attachment"}, []string{})
-	plainID := plain["_id"].(string)
-	delete(plain, "_id")
-	raw, _ := json.Marshal(plain)
-	prec, err := ValidateRecordBody(raw, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := st.InsertRecord(prec); err != nil {
-		t.Fatal(err)
-	}
-	reqPlain := httptest.NewRequest(http.MethodGet, "/events/"+plainID+"/blob", nil)
-	reqPlain.SetPathValue("id", plainID)
-	rPlain := httptest.NewRecorder()
-	h.GetRecordBlob(rPlain, reqPlain)
-	if rPlain.Code != http.StatusNotFound {
-		t.Fatalf("blob-less status=%d body=%s", rPlain.Code, rPlain.Body.String())
-	}
-}
-
 func TestMultipartRequiresEventFirst(t *testing.T) {
 	st := testStore(t)
 	withBlobDir(t, t.TempDir())
@@ -616,7 +556,7 @@ func TestMultipartRequiresEventFirst(t *testing.T) {
 	// Blob part BEFORE the event part must be refused.
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
-	p2, _ := w.CreateFormFile("blob", "blob.bin")
+	p2, _ := w.CreateFormFile("blob", "blob")
 	p2.Write(content)
 	p1, _ := w.CreateFormField("event")
 	p1.Write(ev)
@@ -662,7 +602,7 @@ func TestMultipartBadSigStagesNothing(t *testing.T) {
 	w := multipart.NewWriter(&body)
 	p1, _ := w.CreateFormField("event")
 	p1.Write(ev)
-	p2, _ := w.CreateFormFile("blob", "blob.bin")
+	p2, _ := w.CreateFormFile("blob", "blob")
 	p2.Write(content)
 	w.Close()
 

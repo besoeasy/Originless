@@ -33,14 +33,14 @@ func metricPath(path string) string {
 	if path == "" {
 		return "/"
 	}
-	if path == "/records/stream" {
-		return "/records/stream"
+	if path == "/events/stream" {
+		return "/events/stream"
 	}
-	if strings.HasPrefix(path, "/records/") {
-		return "/records/{id}"
+	if strings.HasPrefix(path, "/events/") {
+		return "/events/{id}"
 	}
-	if strings.HasPrefix(path, "/down/") {
-		return "/down/{hash}"
+	if strings.HasPrefix(path, "/blob/") {
+		return "/blob/{hash}"
 	}
 	return path
 }
