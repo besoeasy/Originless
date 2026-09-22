@@ -8,173 +8,236 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
 :root{
-  --bg:#f7f7f5;--raise:#fff;--line:rgba(0,0,0,.1);--line2:rgba(0,0,0,.06);
-  --ink:#111114;--ink2:#4a4a52;--ink3:#6b6b75;--ink4:#9595a0;
-  --ok:#0e8f55;--ok-bg:rgba(14,143,85,.1);
-  --cy:#0b7fb0;--cy-bg:rgba(11,127,176,.1);
-  --warn:#b45309;--warn-bg:rgba(180,83,9,.1);
-  --btn:#111114;--btnink:#fff;--code:#101013;--codeink:#e6e6ea;
-  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px)
+  --bg: #f8fafc;
+  --bg-rgb: 248, 250, 252;
+  --raise: #ffffff;
+  --raise-alt: #f1f5f9;
+  --card: rgba(255, 255, 255, 0.85);
+  --line: rgba(15, 23, 42, 0.08);
+  --line2: rgba(15, 23, 42, 0.04);
+  --line-hover: rgba(15, 23, 42, 0.16);
+  --ink: #0f172a;
+  --ink2: #475569;
+  --ink3: #64748b;
+  --ink4: #94a3b8;
+  --ok: #059669;
+  --ok-bg: rgba(5, 150, 105, 0.1);
+  --cy: #0284c7;
+  --cy-bg: rgba(2, 132, 199, 0.1);
+  --warn: #d97706;
+  --warn-bg: rgba(217, 119, 6, 0.1);
+  --btn: #0f172a;
+  --btnink: #ffffff;
+  --code: #0b0f19;
+  --codeink: #e2e8f0;
+  --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 @media(prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#0b0b0c;--raise:#111113;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.05);
-    --ink:#f2f2f3;--ink2:#a8a8b0;--ink3:#85858f;--ink4:#555560;
-    --ok:#3dd68c;--ok-bg:rgba(61,214,140,.12);
-    --cy:#38bdf8;--cy-bg:rgba(56,189,248,.12);
-    --warn:#f59e0b;--warn-bg:rgba(245,158,11,.15);
-    --btn:#fff;--btnink:#111;--code:#08080a;--codeink:#e6e6ea
+    --bg: #090a0f;
+    --bg-rgb: 9, 10, 15;
+    --raise: #11131a;
+    --raise-alt: #181b26;
+    --card: rgba(17, 19, 26, 0.75);
+    --line: rgba(255, 255, 255, 0.08);
+    --line2: rgba(255, 255, 255, 0.04);
+    --line-hover: rgba(255, 255, 255, 0.18);
+    --ink: #f8fafc;
+    --ink2: #94a3b8;
+    --ink3: #64748b;
+    --ink4: #475569;
+    --ok: #10b981;
+    --ok-bg: rgba(16, 185, 129, 0.12);
+    --cy: #06b6d4;
+    --cy-bg: rgba(6, 182, 212, 0.12);
+    --warn: #f59e0b;
+    --warn-bg: rgba(245, 158, 11, 0.14);
+    --btn: #ffffff;
+    --btnink: #090a0f;
+    --code: #06070a;
+    --codeink: #f1f5f9;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#0b0b0c;--raise:#111113;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.05);
-  --ink:#f2f2f3;--ink2:#a8a8b0;--ink3:#85858f;--ink4:#555560;
-  --ok:#3dd68c;--ok-bg:rgba(61,214,140,.12);
-  --cy:#38bdf8;--cy-bg:rgba(56,189,248,.12);
-  --warn:#f59e0b;--warn-bg:rgba(245,158,11,.15);
-  --btn:#fff;--btnink:#111;--code:#08080a;--codeink:#e6e6ea
+  --bg: #090a0f;
+  --bg-rgb: 9, 10, 15;
+  --raise: #11131a;
+  --raise-alt: #181b26;
+  --card: rgba(17, 19, 26, 0.75);
+  --line: rgba(255, 255, 255, 0.08);
+  --line2: rgba(255, 255, 255, 0.04);
+  --line-hover: rgba(255, 255, 255, 0.18);
+  --ink: #f8fafc;
+  --ink2: #94a3b8;
+  --ink3: #64748b;
+  --ink4: #475569;
+  --ok: #10b981;
+  --ok-bg: rgba(16, 185, 129, 0.12);
+  --cy: #06b6d4;
+  --cy-bg: rgba(6, 182, 212, 0.12);
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.14);
+  --btn: #ffffff;
+  --btnink: #090a0f;
+  --code: #06070a;
+  --codeink: #f1f5f9;
 }
-html{scroll-padding-top:20px;scroll-behavior:smooth}
+:root[data-theme="light"]{
+  --bg: #f8fafc;
+  --bg-rgb: 248, 250, 252;
+  --raise: #ffffff;
+  --raise-alt: #f1f5f9;
+  --card: rgba(255, 255, 255, 0.9);
+  --line: rgba(15, 23, 42, 0.08);
+  --line2: rgba(15, 23, 42, 0.04);
+  --line-hover: rgba(15, 23, 42, 0.16);
+  --ink: #0f172a;
+  --ink2: #475569;
+  --ink3: #64748b;
+  --ink4: #94a3b8;
+  --ok: #059669;
+  --ok-bg: rgba(5, 150, 105, 0.1);
+  --cy: #0284c7;
+  --cy-bg: rgba(2, 132, 199, 0.1);
+  --warn: #d97706;
+  --warn-bg: rgba(217, 119, 6, 0.1);
+  --btn: #0f172a;
+  --btnink: #ffffff;
+  --code: #0b0f19;
+  --codeink: #e2e8f0;
+}
+
+html{scroll-padding-top:80px;scroll-behavior:smooth}
 *{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;position:relative;min-height:100vh}
 a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--ok);outline-offset:2px}
-.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
-header{display:flex;align-items:center;justify-content:space-between;height:64px;border-bottom:1px solid var(--line)}
-.brand{font-weight:700;font-size:18px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
-.brand i{width:18px;height:18px;border:2px solid var(--ok);border-radius:50%;position:relative}
+
+/* Ambient glow layer */
+.ambient-glow{position:fixed;top:0;left:0;right:0;height:650px;pointer-events:none;z-index:-1;overflow:hidden}
+.glow-1{position:absolute;top:-140px;left:15%;width:550px;height:550px;background:radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);border-radius:50%;filter:blur(70px)}
+.glow-2{position:absolute;top:-100px;right:10%;width:600px;height:600px;background:radial-gradient(circle, rgba(6,182,212,0.07) 0%, transparent 70%);border-radius:50%;filter:blur(80px)}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* Sticky frosted header */
+header{display:flex;align-items:center;justify-content:space-between;height:68px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:100;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(var(--bg-rgb),0.85);transition:border-color .2s}
+.brand{font-weight:700;font-size:19px;letter-spacing:-.03em;display:flex;align-items:center;gap:10px}
+.brand i{width:20px;height:20px;border:2px solid var(--ok);border-radius:50%;position:relative;box-shadow:0 0 10px rgba(16,185,129,.35)}
 .brand i::after{content:"";position:absolute;inset:3px;background:var(--cy);border-radius:50%}
-nav{display:flex;gap:4px;align-items:center}
-nav a{padding:6px 12px;border-radius:8px;color:var(--ink2);font-size:15px;transition:all .15s}
+nav{display:flex;gap:6px;align-items:center}
+nav a{padding:6px 12px;border-radius:8px;color:var(--ink2);font-size:14px;font-weight:500;transition:all .15s}
 nav a:hover{background:var(--raise);color:var(--ink)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:9px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:500 15px var(--sans);cursor:pointer;transition:all .15s}
-.btn:hover{border-color:var(--ink3)}
-.btn.solid{background:var(--btn);color:var(--btnink);border-color:var(--btn);font-weight:600}
-.btn.solid:hover{opacity:.92}
-.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Theme toggle button */
+.theme-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--ink2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.theme-btn:hover{border-color:var(--ink3);color:var(--ink)}
+.theme-icon-sun,.theme-icon-moon{display:none}
+:root[data-theme="dark"] .theme-icon-sun{display:block}
+:root[data-theme="light"] .theme-icon-moon{display:block}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .theme-icon-sun{display:block}
+  :root:not([data-theme="light"]) .theme-icon-moon{display:none}
+}
+@media(prefers-color-scheme:light){
+  :root:not([data-theme="dark"]) .theme-icon-moon{display:block}
+  :root:not([data-theme="dark"]) .theme-icon-sun{display:none}
+}
+
+/* Base Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:9px;border:1px solid var(--line);background:var(--raise);color:var(--ink);font:500 14px var(--sans);cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--ink3);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.05)}
+.btn.solid{background:var(--btn);color:var(--btnink);border-color:var(--btn);font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.btn.solid:hover{opacity:.94;box-shadow:0 6px 16px rgba(0,0,0,.15)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 .btn-sm{height:34px;padding:0 12px;border-radius:7px;font-size:13px}
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px}
 
+/* Hero Section */
 .hero{display:grid;grid-template-columns:1fr 1.05fr;gap:48px;padding:64px 0 54px;align-items:center}
-h1{font-size:clamp(34px,5vw,54px);line-height:1.06;letter-spacing:-.035em;font-weight:700;max-width:14ch}
-.lede{margin:18px 0 26px;color:var(--ink2);font-size:17px;max-width:48ch}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;background:var(--ok-bg);border:1px solid rgba(16,185,129,.2);color:var(--ok);font:600 12px var(--mono);margin-bottom:18px;letter-spacing:.02em}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+h1{font-size:clamp(34px,4.8vw,52px);line-height:1.08;letter-spacing:-.035em;font-weight:700;max-width:15ch}
+.gradient-text{background:linear-gradient(135deg,var(--ink) 25%,var(--ok) 85%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
+.lede{margin:18px 0 26px;color:var(--ink2);font-size:17px;line-height:1.6;max-width:48ch}
 .cta{display:flex;gap:10px;flex-wrap:wrap}
 
 /* Telemetry Facts Bar */
-.facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px;color:var(--ink3);font-size:13px;align-items:center}
-.facts .fact-item{display:inline-flex;align-items:center;gap:6px}
-.facts b{color:var(--ink);font-weight:600}
+.facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px;align-items:center}
+.facts .fact-item{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);padding:5px 12px;border-radius:24px;font-size:12.5px;color:var(--ink2);transition:all .2s ease;backdrop-filter:blur(8px)}
+.facts .fact-item:hover{border-color:var(--line-hover);transform:translateY(-1px)}
+.facts b{color:var(--ink);font-weight:600;font-family:var(--mono)}
 
 /* Status dot pulse */
-.dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 0 rgba(14,143,85,.4);animation:pulse 2s infinite}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,214,140,.7)}70%{box-shadow:0 0 0 7px rgba(61,214,140,0)}100%{box-shadow:0 0 0 0 rgba(61,214,140,0)}}
-.dot-off{background:var(--ink3);animation:none}
+.dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 0 rgba(16,185,129,.4);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7)}70%{box-shadow:0 0 0 7px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+.dot-off{background:var(--ink4);animation:none}
 
 /* Pill badges */
-.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:20px;font:500 12px var(--sans);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font:500 12px var(--sans);white-space:nowrap}
 .pill-ok{background:var(--ok-bg);color:var(--ok)}
 .pill-cy{background:var(--cy-bg);color:var(--cy)}
 .pill-warn{background:var(--warn-bg);color:var(--warn)}
 .pill-mute{background:var(--line2);color:var(--ink3);border:1px solid var(--line)}
 .pill-tag{background:var(--line2);border:1px solid var(--line);color:var(--ink2);font:11px var(--mono);padding:1px 6px;border-radius:4px}
-.col-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:14px;padding:2px 9px;font:500 12px var(--mono);color:var(--ink2);cursor:pointer;transition:all .15s}
-.col-pill:hover{background:rgba(255,255,255,0.08);color:var(--ink);border-color:var(--ink3)}
-.col-pill.active{background:rgba(61,214,140,0.12);color:var(--ok);border-color:rgba(61,214,140,0.4)}
-.col-pill-count{background:rgba(255,255,255,0.08);border-radius:10px;padding:0 5px;font-size:10px;color:var(--ink3)}
-.col-pill.active .col-pill-count{background:rgba(61,214,140,0.25);color:var(--ok)}
+.col-pill{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:3px 10px;font:500 12px var(--mono);color:var(--ink2);cursor:pointer;transition:all .15s;backdrop-filter:blur(4px)}
+.col-pill:hover{background:var(--raise);color:var(--ink);border-color:var(--ink3);transform:translateY(-1px)}
+.col-pill.active{background:var(--ok-bg);color:var(--ok);border-color:rgba(16,185,129,.4);font-weight:600}
+.col-pill-count{background:rgba(0,0,0,.08);border-radius:10px;padding:0 5px;font-size:10px;color:var(--ink3)}
+:root[data-theme="dark"] .col-pill-count{background:rgba(255,255,255,.08)}
+.col-pill.active .col-pill-count{background:rgba(16,185,129,.25);color:var(--ok)}
 
-/* Terminal */
-.term{background:var(--code);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
-.term-top{display:flex;gap:6px;flex-wrap:wrap;padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
-.tab{padding:6px 12px;border-radius:7px;font:500 13px var(--sans);color:#a8a8b0;background:none;border:0;cursor:pointer;transition:all .15s}
-.tab:hover{color:#fff}
-.tab[aria-selected=true]{background:rgba(255,255,255,.1);color:#fff}
-.node{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08);font:13px var(--mono);color:#85858f}
-.node input{flex:1;min-width:0;background:none;border:0;color:var(--ok);font:13px var(--mono)}
-.node input:focus{outline:none}
+/* Terminal Playground */
+.term{background:var(--code);border:1px solid var(--line);border-radius:14px;overflow:hidden;min-width:0;box-shadow:0 12px 36px rgba(0,0,0,.15)}
+.term-window-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.25)}
+.window-dots{display:flex;gap:6px}
+.dot-red,.dot-yel,.dot-grn{width:10px;height:10px;border-radius:50%}
+.dot-red{background:#ef4444;opacity:.8}
+.dot-yel{background:#f59e0b;opacity:.8}
+.dot-grn{background:#10b981;opacity:.8}
+.term-title{font:500 11px var(--mono);color:#64748b;letter-spacing:.04em}
+.term-top{display:flex;gap:4px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.01)}
+.tab{padding:6px 12px;border-radius:7px;font:500 13px var(--sans);color:#94a3b8;background:none;border:0;cursor:pointer;transition:all .15s}
+.tab:hover{color:#fff;background:rgba(255,255,255,.05)}
+.tab[aria-selected=true]{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
+.node{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.06);font:12.5px var(--mono);color:#64748b}
+.node input{flex:1;min-width:0;background:none;border:0;color:var(--ok);font:12.5px var(--mono);outline:none}
 pre{padding:16px;overflow-x:auto;font:13px/1.65 var(--mono);color:var(--codeink);min-height:200px;white-space:pre}
-.term-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid rgba(255,255,255,.08);color:#85858f;font-size:13px;gap:8px}
+.term-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid rgba(255,255,255,.06);color:#64748b;font-size:12.5px;gap:8px;background:rgba(0,0,0,.15)}
 .term-actions{display:flex;gap:8px}
-.term-foot button{color:#e6e6ea;background:rgba(255,255,255,.08);border:0;border-radius:6px;padding:5px 12px;font:500 13px var(--sans);cursor:pointer;transition:background .15s}
-.term-foot button:hover{background:rgba(255,255,255,.15)}
+.term-foot button{color:#e2e8f0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:5px 12px;font:500 12.5px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.term-foot button:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.15)}
 
 /* Sections */
-section{padding:56px 0;border-top:1px solid var(--line)}
-h2{font-size:clamp(26px,3.4vw,36px);letter-spacing:-.03em;line-height:1.15;margin-bottom:12px;max-width:28ch}
-.sub{color:var(--ink2);max-width:62ch;margin-bottom:30px;font-size:16px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.panel{background:var(--raise);border:1px solid var(--line);border-radius:14px;padding:26px}
+section{padding:64px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(26px,3.2vw,36px);letter-spacing:-.03em;line-height:1.15;margin-bottom:12px;max-width:28ch}
+.sub{color:var(--ink2);max-width:62ch;margin-bottom:32px;font-size:16px;line-height:1.6}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;position:relative;backdrop-filter:blur(8px);transition:all .2s ease;box-shadow:0 2px 10px rgba(0,0,0,.02)}
+.panel:hover{border-color:var(--line-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.05)}
+.panel-icon-wrap{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.panel-icon-ok{background:var(--ok-bg);color:var(--ok)}
+.panel-icon-cy{background:var(--cy-bg);color:var(--cy)}
 .panel h3{font-size:20px;letter-spacing:-.02em;margin-bottom:8px}
-.panel p{color:var(--ink2);margin-bottom:16px}
-.panel ul{list-style:none;padding:0;display:grid;gap:8px;font-size:15px;color:var(--ink2)}
+.panel p{color:var(--ink2);margin-bottom:16px;font-size:15px}
+.panel ul{list-style:none;padding:0;display:grid;gap:10px;font-size:14.5px;color:var(--ink2)}
 .panel li{padding-left:18px;position:relative}
-.panel li::before{content:"";position:absolute;left:0;top:.65em;width:8px;height:2px;background:var(--ok)}
+.panel li::before{content:"";position:absolute;left:0;top:.65em;width:8px;height:2px;background:var(--ok);border-radius:1px}
 .panel.b li::before{background:var(--cy)}
 code,.m{font-family:var(--mono);font-size:.88em}
 .g{color:var(--ok)}.c{color:var(--cy)}
 
-/* Explorer Section */
-.explorer-card{background:var(--raise);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.ws-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;background:rgba(0,0,0,.01)}
-.ws-tabs{display:flex;gap:6px;align-items:center}
-.ws-tab{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid transparent;background:none;color:var(--ink2);font:500 14px var(--sans);cursor:pointer;transition:all .15s}
-.ws-tab:hover{background:var(--bg);color:var(--ink)}
-.ws-tab[aria-selected="true"]{background:var(--bg);border-color:var(--line);color:var(--ink);font-weight:600}
-.ws-tab .badge{background:var(--line2);border:1px solid var(--line);color:var(--ink2);font:600 11px var(--mono);padding:1px 6px;border-radius:10px}
-.ws-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ws-input{height:34px;padding:0 10px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:13px var(--sans);outline:none;transition:border-color .15s}
-.ws-input.mono{font-family:var(--mono)}
-.ws-input:focus{border-color:var(--ok)}
-
-/* Data Table */
-.tbl{border:1px solid var(--line);border-radius:14px;overflow-x:auto;background:var(--raise)}
-.explorer-card .tbl{border:0;border-radius:0}
-table{width:100%;border-collapse:collapse;min-width:700px}
-th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px}
-th{color:var(--ink3);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.02em}
-tr:last-child td{border-bottom:0}
-tbody tr{transition:background .12s ease;cursor:pointer}
-tbody tr:hover{background:rgba(0,0,0,.02)}
-@media(prefers-color-scheme:dark){tbody tr:hover{background:rgba(255,255,255,.03)}}
-:root[data-theme="dark"] tbody tr:hover{background:rgba(255,255,255,.03)}
-
-/* Table interactive cell styles */
-.id-cell,.hash-cell{font:500 12.5px var(--mono);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
-.copy-icon{opacity:.4;cursor:pointer;transition:opacity .15s}
-.copy-icon:hover{opacity:1;color:var(--ok)}
-.col-badge{font:600 11px var(--mono);padding:2px 7px;border-radius:5px;background:var(--cy-bg);color:var(--cy)}
-.labels-cell{display:flex;gap:4px;flex-wrap:wrap}
-.preview-cell{font:12.5px var(--mono);color:var(--ink2);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.blob-cell{display:inline-flex;align-items:center;gap:6px}
-.pill-blob{display:inline-flex;align-items:center;gap:4px;font:600 11.5px var(--mono);padding:2px 7px;border-radius:6px;background:var(--cy-bg);color:var(--cy);text-decoration:none;border:1px solid rgba(56,189,248,.2);transition:all .15s}
-.pill-blob:hover{background:var(--cy);color:#fff}
-.actions-cell{display:flex;gap:6px;justify-content:flex-end}
-
-/* Flash animation for new live events */
-@keyframes rowFlash{0%{background:rgba(61,214,140,.25)}100%{background:transparent}}
-.row-flash{animation:rowFlash 3s ease-out}
-
-/* Table Pagination */
-.tbl-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--line);background:var(--raise);gap:12px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
-.page-info{display:flex;align-items:center;gap:5px;font-family:var(--sans)}
-.page-info b{color:var(--ink);font-family:var(--mono)}
-.pagination{display:flex;align-items:center;gap:4px}
-.page-btn{height:30px;min-width:30px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 12.5px var(--sans);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
-.page-btn:hover:not(:disabled){border-color:var(--ink3);background:var(--raise)}
-.page-btn.active{background:var(--btn);color:var(--btnink);border-color:var(--btn);font-weight:600}
-.page-btn:disabled{opacity:.35;cursor:not-allowed}
-.page-ellipsis{padding:0 4px;color:var(--ink3);font-family:var(--mono);font-size:12px}
-
 /* Live SVG Telemetry Grid */
-.svg-telemetry-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:18px;margin-bottom:20px}
-.svg-telemetry-card{background:var(--raise);border:1px solid var(--line);border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.02)}
-.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.svg-emblem-wrap{display:flex;align-items:center;justify-content:center;padding:4px 0}
-.svg-stream-wrap{display:flex;align-items:center;justify-content:center;padding:2px 0}
+.svg-telemetry-grid{display:grid;grid-template-columns:1fr 1.25fr;gap:20px;margin-bottom:24px}
+.svg-telemetry-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.03);backdrop-filter:blur(10px);transition:all .2s ease}
+.svg-telemetry-card:hover{border-color:var(--line-hover);transform:translateY(-1px)}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.svg-emblem-wrap{display:flex;align-items:center;justify-content:center;padding:6px 0}
+.svg-stream-wrap{display:flex;align-items:center;justify-content:center;padding:4px 0}
 .node-emblem-svg{display:block;transform-origin:center center}
 .node-orbit-cw{transform-origin:80px 80px;animation:nodeSpinCw 36s linear infinite}
 .node-orbit-ccw{transform-origin:80px 80px;animation:nodeSpinCcw 28s linear infinite}
@@ -190,17 +253,73 @@ tbody tr:hover{background:rgba(0,0,0,.02)}
 .stream-p2{animation-delay:1.2s}
 @keyframes streamPing{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
 
-.card-meta{display:flex;align-items:center;justify-content:space-around;padding-top:12px;border-top:1px solid var(--line);font-size:12px}
+.card-meta{display:flex;align-items:center;justify-content:space-around;padding-top:14px;border-top:1px solid var(--line);font-size:12px}
 .meta-item{display:flex;flex-direction:column;align-items:center;gap:2px}
-.meta-sep{width:1px;height:24px;background:var(--line)}
-.m-k{font-size:10.5px;color:var(--ink3);letter-spacing:.05em;font-weight:600}
-.m-v{font-family:var(--mono);font-size:15px;color:var(--ink);font-weight:600}
+.meta-sep{width:1px;height:26px;background:var(--line)}
+.m-k{font-size:10px;color:var(--ink3);letter-spacing:.06em;font-weight:600}
+.m-v{font-family:var(--mono);font-size:14.5px;color:var(--ink);font-weight:600}
+
+/* Explorer Card */
+.explorer-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px)}
+.ws-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;background:rgba(0,0,0,.01)}
+.ws-tabs{display:flex;gap:6px;align-items:center}
+.ws-tab{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid transparent;background:none;color:var(--ink2);font:500 14px var(--sans);cursor:pointer;transition:all .15s}
+.ws-tab:hover{background:var(--bg);color:var(--ink)}
+.ws-tab[aria-selected="true"]{background:var(--bg);border-color:var(--line);color:var(--ink);font-weight:600}
+.ws-tab .badge{background:var(--line2);border:1px solid var(--line);color:var(--ink2);font:600 11px var(--mono);padding:1px 6px;border-radius:10px}
+.ws-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ws-input{height:34px;padding:0 10px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:13px var(--sans);outline:none;transition:border-color .15s}
+.ws-input.mono{font-family:var(--mono)}
+.ws-input:focus{border-color:var(--ok)}
 
 /* Drag and Drop Zone */
-.dropzone{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;margin:14px 18px 0;background:var(--bg);cursor:pointer;transition:all .2s ease;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
-.dropzone:hover,.dropzone.dragover{border-color:var(--cy);background:rgba(11,127,176,.05)}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;margin:14px 18px 0;background:var(--bg);cursor:pointer;transition:all .2s ease;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
+.dropzone:hover,.dropzone.dragover{border-color:var(--cy);background:rgba(6,182,212,.05)}
 .dropzone strong{font-size:13.5px;color:var(--ink)}
 .dropzone p{font-size:11.5px;color:var(--ink3);margin:0}
+
+/* Data Table */
+.tbl{border:1px solid var(--line);border-radius:14px;overflow-x:auto;background:var(--raise)}
+.explorer-card .tbl{border:0;border-radius:0}
+table{width:100%;border-collapse:collapse;min-width:700px}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13.5px}
+th{color:var(--ink3);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;background:rgba(0,0,0,.01)}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s ease;cursor:pointer}
+tbody tr:hover{background:rgba(0,0,0,.02)}
+@media(prefers-color-scheme:dark){tbody tr:hover{background:rgba(255,255,255,.03)}}
+:root[data-theme="dark"] tbody tr:hover{background:rgba(255,255,255,.03)}
+
+/* Interactive cells */
+.id-cell,.hash-cell{font:500 12px var(--mono);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.copy-icon{opacity:.4;cursor:pointer;transition:opacity .15s}
+.copy-icon:hover{opacity:1;color:var(--ok)}
+.col-badge{font:600 11px var(--mono);padding:2px 7px;border-radius:5px;background:var(--cy-bg);color:var(--cy);border:1px solid rgba(6,182,212,.2)}
+.labels-cell{display:flex;gap:4px;flex-wrap:wrap}
+.preview-cell{font:12px var(--mono);color:var(--ink2);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blob-cell{display:inline-flex;align-items:center;gap:6px}
+.pill-blob{display:inline-flex;align-items:center;gap:4px;font:600 11.5px var(--mono);padding:2px 7px;border-radius:6px;background:var(--cy-bg);color:var(--cy);text-decoration:none;border:1px solid rgba(6,182,212,.25);transition:all .15s}
+.pill-blob:hover{background:var(--cy);color:#fff}
+.actions-cell{display:flex;gap:6px;justify-content:flex-end}
+
+/* Method Badges */
+.method-badge{display:inline-block;padding:2px 6px;border-radius:4px;font:700 11px var(--mono);text-align:center}
+.method-post{background:var(--ok-bg);color:var(--ok);border:1px solid rgba(16,185,129,.3)}
+.method-get{background:var(--cy-bg);color:var(--cy);border:1px solid rgba(6,182,212,.3)}
+
+/* Flash animation for new live events */
+@keyframes rowFlash{0%{background:rgba(16,185,129,.25)}100%{background:transparent}}
+.row-flash{animation:rowFlash 3s ease-out}
+
+/* Table Pagination */
+.tbl-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid var(--line);background:var(--raise);gap:12px;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.page-info{display:flex;align-items:center;gap:5px;font-family:var(--sans)}
+.page-info b{color:var(--ink);font-family:var(--mono)}
+.pagination{display:flex;align-items:center;gap:4px}
+.page-btn{height:30px;min-width:30px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 12.5px var(--sans);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
+.page-btn:hover:not(:disabled){border-color:var(--ink3);background:var(--raise)}
+.page-btn.active{background:var(--btn);color:var(--btnink);border-color:var(--btn);font-weight:600}
+.page-btn:disabled{opacity:.35;cursor:not-allowed}
 
 /* Empty state */
 .empty{text-align:center;padding:48px 16px;color:var(--ink3)}
@@ -212,10 +331,10 @@ tbody tr:hover{background:rgba(0,0,0,.02)}
 .agent{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
 
 /* Footer */
-footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);font-size:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);font-size:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
 /* Drawer / Inspector Modal */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity .2s ease}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;justify-content:flex-end;opacity:0;pointer-events:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);transition:opacity .2s ease}
 .modal-backdrop.open{opacity:1;pointer-events:auto}
 .modal-panel{width:min(580px, 100vw);height:100%;background:var(--raise);border-left:1px solid var(--line);box-shadow:-8px 0 32px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden;transform:translateX(100%);transition:transform .25s cubic-bezier(0.2, 0.8, 0.2, 1)}
 .modal-backdrop.open .modal-panel{transform:translateX(0)}
@@ -230,8 +349,8 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
 .json-box{background:var(--code);color:var(--codeink);padding:14px;border-radius:9px;overflow-x:auto;font:12.5px/1.6 var(--mono);margin-top:6px;white-space:pre-wrap;word-break:break-all;max-height:280px;border:1px solid var(--line)}
 
 /* Toasts */
-.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:var(--code);color:var(--codeink);border:1px solid rgba(255,255,255,.15);padding:10px 16px;border-radius:8px;font:500 13px var(--sans);box-shadow:0 6px 18px rgba(0,0,0,.3);animation:toastIn .2s ease;display:flex;align-items:center;gap:10px;pointer-events:auto}
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--code);color:var(--codeink);border:1px solid rgba(255,255,255,.15);padding:10px 16px;border-radius:8px;font:500 13px var(--sans);box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toastIn .2s ease;display:flex;align-items:center;gap:10px;pointer-events:auto}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 @media(max-width:860px){
@@ -241,10 +360,25 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
   section{padding:44px 0}
   .ws-bar{flex-direction:column;align-items:flex-start}
 }
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.btn-icon.spin svg{animation:spin .6s cubic-bezier(0.4, 0, 0.2, 1)}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem("originless_theme");
+    if(t) document.documentElement.setAttribute("data-theme", t);
+  }catch(_){}
+})();
+</script>
 </head>
 <body>
+<div class="ambient-glow" aria-hidden="true">
+  <div class="glow-1"></div>
+  <div class="glow-2"></div>
+</div>
+
 <div class="wrap">
 <header>
   <a class="brand" href="#top"><i></i>Originless</a>
@@ -253,19 +387,36 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
     <a class="h" href="#explorer">Live data</a>
     <a class="h" href="#api">API</a>
     <a class="h" href="#agents">Agents</a>
-    <a class="btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">GitHub</a>
+    <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle dark/light theme">
+      <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <a class="btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      <span>GitHub</span>
+    </a>
   </nav>
 </header>
 
 <main id="top">
 <div class="hero">
   <div>
-    <h1>Publish signed data and files. No accounts, no API keys.</h1>
-    <p class="lede">Originless is a small node you run yourself. Send it Ed25519-signed JSON events or raw binary blobs over plain HTTP, and read them back from anywhere.</p>
+    <div class="hero-badge"><span class="hero-badge-dot"></span> Sovereign Node &bull; Zero Accounts &bull; P2P Swarm</div>
+    <h1>Publish signed data &amp; files. <span class="gradient-text">No accounts, no API keys.</span></h1>
+    <p class="lede">Originless is a small, sovereign node you run yourself. Send it Ed25519-signed JSON events or binary blobs over plain HTTP, and read them back from anywhere.</p>
     <div class="cta">
-      <a class="btn solid" href="#explorer">Explore live data</a>
-      <a class="btn" href="/agent.txt" target="_blank" title="Teach AI agents via agent.txt">Teach agent (/agent.txt) &rarr;</a>
-      <button class="btn" id="copyAgent" type="button">Copy agent prompt</button>
+      <a class="btn solid" href="#explorer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Explore live data</span>
+      </a>
+      <a class="btn" href="/agent.txt" target="_blank" title="Teach AI agents via agent.txt">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        <span>Teach agent (/agent.txt) &rarr;</span>
+      </a>
+      <button class="btn" id="copyAgent" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy agent prompt</span>
+      </button>
       <a class="btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">Get the node</a>
     </div>
     <div class="facts" id="telemetryBar">
@@ -283,48 +434,62 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
   </div>
 
   <div class="term" aria-label="API examples">
+    <div class="term-window-bar">
+      <div class="window-dots"><span class="dot-red"></span><span class="dot-yel"></span><span class="dot-grn"></span></div>
+      <div class="term-title">originless ~ curl-console</div>
+    </div>
     <div class="term-top" role="tablist">
       <button class="tab" role="tab" aria-selected="true" data-k="event">Publish event</button>
       <button class="tab" role="tab" aria-selected="false" data-k="blob">Upload blob</button>
       <button class="tab" role="tab" aria-selected="false" data-k="stream">Watch stream</button>
       <button class="tab" role="tab" aria-selected="false" data-k="status">Node status</button>
     </div>
-    <label class="node">node <input id="origin" value="" spellcheck="false" aria-label="Your node URL"></label>
+    <label class="node">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>node</span>
+      <input id="origin" value="" spellcheck="false" aria-label="Your node URL">
+    </label>
     <pre id="snip"></pre>
     <div class="term-foot">
       <span id="note"></span>
       <div class="term-actions">
-        <button id="runQuery" type="button">Run query</button>
-        <button id="copySnip" type="button">Copy</button>
+        <button id="runQuery" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run query</button>
+        <button id="copySnip" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
       </div>
     </div>
   </div>
 </div>
 
 <section id="primitives">
-  <h2>Two things to store, and nothing else to learn</h2>
-  <p class="sub">Everything on a node is either a small signed event or a binary blob. An event can point at a blob by hash, so the two combine into whatever you need.</p>
+  <h2>Two primitives to store, and nothing else to learn</h2>
+  <p class="sub">Everything on a node is either an Ed25519-signed event or a content-addressed binary blob. An event can point at a blob by hash, combining structured data and storage seamlessly.</p>
   <div class="two">
     <div class="panel">
+      <div class="panel-icon-wrap panel-icon-ok">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
       <h3>Signed events</h3>
-      <p>JSON records that prove who wrote them. The node checks the Ed25519 signature before it accepts anything.</p>
+      <p>JSON records that prove who wrote them. The node verifies the Ed25519 signature before accepting or broadcasting.</p>
       <ul>
         <li>Group records by <code>collection</code> and tag them with <code>labels</code></li>
-        <li>Each event expires on its own <code>expires_at</code> time</li>
+        <li>Each event expires on its own <code>expires_at</code> timestamp</li>
         <li>Filter with <code class="g">GET /events?collection=&amp;label=&amp;search=</code></li>
         <li>Follow new events live at <code class="g">/events/stream</code></li>
-        <li>Link a file with the top-level <code>"blob": "&lt;sha256&gt;"</code> field</li>
+        <li>Link an attached file with the top-level <code>"blob": "&lt;sha256&gt;"</code> field</li>
       </ul>
     </div>
     <div class="panel b">
+      <div class="panel-icon-wrap panel-icon-cy">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      </div>
       <h3>Binary blobs</h3>
-      <p>Any binary blob, stored under the SHA-256 of its contents. Upload the same bytes twice and you get one copy.</p>
+      <p>Any binary blob, stored under the SHA-256 of its contents. Deduplicated automatically by cryptographic hash.</p>
       <ul>
-        <li>Upload bytes and the event in one request (event part first); point at them with the top-level <code>"blob": "&lt;sha256&gt;"</code> field</li>
-        <li>Fetch the bytes back with <code class="c">GET /blob/&lt;hash&gt;</code></li>
-        <li>No size cap on the pool, so storage is limited only by your disk</li>
-        <li>Served with <code>immutable</code> caching, so CDNs and browsers keep them for a day</li>
-        <li>Clients can verify the download by hashing it again</li>
+        <li>Upload bytes and the event in one atomic request (event part first); reference with top-level <code>"blob"</code></li>
+        <li>Fetch raw bytes back anytime with <code class="c">GET /blob/&lt;hash&gt;</code></li>
+        <li>No pool cap — storage is governed only by your available disk</li>
+        <li>Served with <code>immutable</code> caching headers for CDN acceleration</li>
+        <li>Verify downloads client-side by recalculating SHA-256</li>
       </ul>
     </div>
   </div>
@@ -433,8 +598,11 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
 
   <div class="explorer-card">
     <!-- Top Collections Quick-Filter Bar -->
-    <div id="topCollectionsBar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px">
-      <span style="color:var(--ink3);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.06em">Top Collections:</span>
+    <div id="topCollectionsBar" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(0,0,0,0.015);border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px">
+      <span style="color:var(--ink3);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.06em;display:flex;align-items:center;gap:6px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Top Collections:</span>
+      </span>
       <div id="topCollectionsList" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <span style="color:var(--ink3)">None yet</span>
       </div>
@@ -454,7 +622,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
         <input class="ws-input mono" id="eventsCol" type="text" placeholder="Collection..." style="width:110px">
         <input class="ws-input mono" id="eventsLabel" type="text" placeholder="Label..." style="width:90px">
         <button class="btn btn-sm solid" id="btnPublishDemo" type="button" title="Sign and post a demo event via Web Crypto Ed25519">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           <span id="btnPublishDemoText">Demo event</span>
         </button>
         <button class="btn btn-sm" id="btnTriggerBlobFile" type="button" title="Publish an event with attached binary blob">
@@ -470,7 +638,7 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
 
     <!-- Dropzone directly inside the unified explorer -->
     <div class="dropzone" id="blobDropzone">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--cy)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cy)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <strong id="dropzoneText">Drop any file here or click to publish an event with attached blob</strong>
       <p>Computes SHA-256 locally, signs the event with Ed25519, and stores both in a single atomic request</p>
     </div>
@@ -508,14 +676,14 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
   <h2>Six endpoints, all open</h2>
   <p class="sub">There is no login step. Events are trusted because of their signatures, and blobs because of their hashes.</p>
   <div class="tbl"><table>
-    <thead><tr><th>Endpoint</th><th>What it does</th></tr></thead>
+    <thead><tr><th style="width:220px">Endpoint</th><th>What it does</th></tr></thead>
     <tbody>
-      <tr><td class="g">POST /events</td><td>Publish a signed JSON event with an expiry time.</td></tr>
-      <tr><td class="g">GET /events</td><td>List events, filtered by collection, label, search text, or <code>?blob=&lt;sha256&gt;</code>.</td></tr>
-      <tr><td class="g">GET /events/stream</td><td>Receive new events as they arrive over Server-Sent Events.</td></tr>
-      <tr><td class="c">POST /events</td><td>Publish a signed event; add a second multipart part named <code>blob</code> (after the <code>event</code> part) to carry raw bytes in the same request.</td></tr>
-      <tr><td class="c">GET /blob/&lt;hash&gt;</td><td>Download a blob by hash.</td></tr>
-      <tr><td>GET /status</td><td>Read the node version, blob count, stored bytes, and event count.</td></tr>
+      <tr><td><span class="method-badge method-post">POST</span> <code class="g">/events</code></td><td>Publish an Ed25519-signed JSON event with expiry time and optional labels.</td></tr>
+      <tr><td><span class="method-badge method-get">GET</span> <code class="g">/events</code></td><td>List records, filtered by <code>collection</code>, <code>label</code>, <code>search</code> text, or <code>?blob=&lt;hash&gt;</code>.</td></tr>
+      <tr><td><span class="method-badge method-get">GET</span> <code class="g">/events/stream</code></td><td>Receive new events live as they arrive in real-time over Server-Sent Events.</td></tr>
+      <tr><td><span class="method-badge method-post">POST</span> <code class="c">/events</code></td><td>Publish a signed event and attach binary bytes in a single atomic multipart request (named <code>blob</code>).</td></tr>
+      <tr><td><span class="method-badge method-get">GET</span> <code class="c">/blob/&lt;hash&gt;</code></td><td>Download content-addressed binary bytes by SHA-256 hash with immutable caching headers.</td></tr>
+      <tr><td><span class="method-badge method-get">GET</span> <code>/status</code></td><td>Node telemetry: uptime, memory vitals, storage usage, P2P swarm status, and janitor stats.</td></tr>
     </tbody></table></div>
 </section>
 
@@ -569,6 +737,17 @@ function o(){
   var val = (O.value || "").trim();
   if(!val || val.indexOf("your-node.example") !== -1) return defaultOrigin;
   return val.replace(/\/+$/,"");
+}
+
+// Theme Switcher
+var themeBtn = $("themeToggleBtn");
+if(themeBtn){
+  themeBtn.onclick = function(){
+    var curr = document.documentElement.getAttribute("data-theme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = curr === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try{ localStorage.setItem("originless_theme", next); }catch(_){}
+  };
 }
 
 /* Terminal snippet templates */
@@ -637,9 +816,12 @@ $("runQuery").onclick=async function(){
 
 /* Clipboard helper */
 function cp(t,btn){
-  var l=btn ? btn.textContent : "";
+  var origHtml = btn ? btn.innerHTML : "";
   function ok(){
-    if(btn){btn.textContent="Copied";setTimeout(function(){btn.textContent=l},1500)}
+    if(btn){
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> <span>Copied!</span>';
+      setTimeout(function(){ btn.innerHTML = origHtml; }, 1800);
+    }
     showToast("Copied to clipboard", "ok");
   }
   try{
@@ -957,7 +1139,13 @@ function debouncedFetchEvents(){
 $("eventsSearch").addEventListener("input", debouncedFetchEvents);
 $("eventsCol").addEventListener("input", debouncedFetchEvents);
 $("eventsLabel").addEventListener("input", debouncedFetchEvents);
-$("btnRefreshEvents").onclick = function(){ fetchEvents(eventsPage); };
+$("btnRefreshEvents").onclick = function(){
+  var b = this;
+  b.classList.add("spin");
+  setTimeout(function(){ b.classList.remove("spin"); }, 600);
+  fetchEvents(eventsPage);
+  fetchStatus();
+};
 
 async function fetchEvents(page){
   if(page) eventsPage = page;
