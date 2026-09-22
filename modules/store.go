@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -19,7 +20,8 @@ func jsonRaw(s string) json.RawMessage {
 }
 
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	dbPath string
 
 	// blobSize caches SUM(blobs.size) for a short window. The publish
 	// path, /status, /metrics and /blobs all read it;
@@ -75,7 +77,7 @@ func NewStore(dbPath string) (*Store, error) {
 	}
 
 	log.Printf("[db] database ready at %s", dbPath)
-	return &Store{db: sqlDB}, nil
+	return &Store{db: sqlDB, dbPath: dbPath}, nil
 }
 
 func (s *Store) Close() error {
@@ -688,3 +690,57 @@ func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 	}
 	return out, rows.Err()
 }
+
+// CollectionStat represents an aggregated count of active records per collection.
+type CollectionStat struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+// GetTopCollections returns collections with highest count of unexpired records.
+func (s *Store) GetTopCollections(limit int) ([]CollectionStat, error) {
+	if s == nil || s.db == nil {
+		return []CollectionStat{}, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	nowUnix := time.Now().Unix()
+	rows, err := s.db.Query(`
+		SELECT collection, COUNT(*) as cnt
+		FROM records
+		WHERE expires_at > ?
+		GROUP BY collection
+		ORDER BY cnt DESC
+		LIMIT ?`, nowUnix, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := make([]CollectionStat, 0)
+	for rows.Next() {
+		var cs CollectionStat
+		if err := rows.Scan(&cs.Name, &cs.Count); err != nil {
+			return nil, err
+		}
+		stats = append(stats, cs)
+	}
+	return stats, rows.Err()
+}
+
+// GetDBFileSize returns the size in bytes of the SQLite database file and WAL on disk.
+func (s *Store) GetDBFileSize() int64 {
+	if s == nil || s.dbPath == "" {
+		return 0
+	}
+	var total int64
+	if fi, err := os.Stat(s.dbPath); err == nil {
+		total += fi.Size()
+	}
+	if fi, err := os.Stat(s.dbPath + "-wal"); err == nil {
+		total += fi.Size()
+	}
+	return total
+}
+

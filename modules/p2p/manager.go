@@ -152,10 +152,18 @@ func (m *Manager) Status() map[string]any {
 	}
 
 	evSynced, bSynced, lastSync := m.engine.Stats()
+	natMapped := false
+	if m.discovery != nil {
+		natMapped = m.discovery.IsNATMapped()
+	}
+
 	return map[string]any{
 		"enabled":         true,
 		"network_id":      m.config.NetworkID,
 		"node_id":         m.nodeID,
+		"listen_port":     m.config.Port,
+		"max_peers":       m.config.MaxPeers,
+		"nat_mapped":      natMapped,
 		"peers_connected": m.transport.ActivePeersCount(),
 		"events_synced":   evSynced,
 		"blobs_synced":    bSynced,

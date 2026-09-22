@@ -476,3 +476,11 @@ func (d *Discovery) lsdReadLoop(conn *net.UDPConn) {
 		}
 	}
 }
+
+// IsNATMapped returns true if NAT port mapping has succeeded.
+func (d *Discovery) IsNATMapped() bool {
+	if d == nil || d.natMapper == nil {
+		return false
+	}
+	return d.natMapper.IsMapped()
+}

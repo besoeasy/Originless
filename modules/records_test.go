@@ -549,6 +549,95 @@ func TestStatusSSEBlock(t *testing.T) {
 	}
 }
 
+func TestStatusEnrichedFields(t *testing.T) {
+	st := testStore(t)
+	jan := NewJanitor(st)
+	metrics := NewMetrics()
+	h := NewHandler(jan, metrics)
+
+	req := httptest.NewRequest(http.MethodGet, "/status", nil)
+	rec := httptest.NewRecorder()
+	h.Status(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	// Verify uptime
+	if _, ok := payload["uptime"]; !ok {
+		t.Fatal("missing uptime")
+	}
+	if _, ok := payload["uptime_secs"]; !ok {
+		t.Fatal("missing uptime_secs")
+	}
+
+	// Verify vitals
+	vitals, ok := payload["vitals"].(map[string]any)
+	if !ok {
+		t.Fatal("missing vitals block")
+	}
+	for _, field := range []string{"alloc_bytes", "alloc_str", "sys_bytes", "sys_str", "goroutines", "num_cpu", "arch", "os", "gc_cycles"} {
+		if _, exists := vitals[field]; !exists {
+			t.Fatalf("missing vitals field: %s", field)
+		}
+	}
+
+	// Verify storage
+	storage, ok := payload["storage"].(map[string]any)
+	if !ok {
+		t.Fatal("missing storage block")
+	}
+	for _, field := range []string{"blob_count", "blob_size", "blob_size_str", "record_count", "db_size", "db_size_str", "top_collections"} {
+		if _, exists := storage[field]; !exists {
+			t.Fatalf("missing storage field: %s", field)
+		}
+	}
+
+	// Verify traffic
+	traffic, ok := payload["traffic"].(map[string]any)
+	if !ok {
+		t.Fatal("missing traffic block")
+	}
+	for _, field := range []string{"total_requests", "total_errors", "total_uploads", "upload_bytes", "upload_size_str"} {
+		if _, exists := traffic[field]; !exists {
+			t.Fatalf("missing traffic field: %s", field)
+		}
+	}
+
+	// Verify janitor
+	janitor, ok := payload["janitor"].(map[string]any)
+	if !ok {
+		t.Fatal("missing janitor block")
+	}
+	for _, field := range []string{"interval_mins", "orphan_grace_days", "purged_records"} {
+		if _, exists := janitor[field]; !exists {
+			t.Fatalf("missing janitor field: %s", field)
+		}
+	}
+
+	// Verify sse
+	sse, ok := payload["sse"].(map[string]any)
+	if !ok {
+		t.Fatal("missing sse block")
+	}
+	if maxClients, ok := sse["max_clients"].(float64); !ok || maxClients <= 0 {
+		t.Fatalf("expected positive max_clients in sse block, got %v", sse["max_clients"])
+	}
+
+	// Strict check: ZERO IP keys in payload JSON
+	jsonStr := rec.Body.String()
+	for _, prohibited := range []string{`"ip"`, `"external_ip"`, `"client_ip"`, `"gateway_ip"`, `"remote_addr"`} {
+		if strings.Contains(jsonStr, prohibited) {
+			t.Fatalf("status leaked prohibited IP field: %s", prohibited)
+		}
+	}
+}
+
 func TestGetRecordByID500OnDBError(t *testing.T) {
 	st := testStore(t)
 	h := NewHandler(nil, NewMetrics())

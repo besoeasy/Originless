@@ -30,6 +30,14 @@ func NewNATPortMapper(port int) *NATPortMapper {
 	}
 }
 
+// IsMapped returns true if port mapping was successfully established.
+func (n *NATPortMapper) IsMapped() bool {
+	if n == nil {
+		return false
+	}
+	return n.mappedPort > 0
+}
+
 // TryPortMapping attempts to map the given port via NAT-PMP and UPnP.
 // Runs asynchronously and does not block if the router does not support port mapping.
 func (n *NATPortMapper) TryPortMapping(ctx context.Context) {

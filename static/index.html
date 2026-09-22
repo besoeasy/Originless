@@ -81,6 +81,11 @@ h1{font-size:clamp(34px,5vw,54px);line-height:1.06;letter-spacing:-.035em;font-w
 .pill-warn{background:var(--warn-bg);color:var(--warn)}
 .pill-mute{background:var(--line2);color:var(--ink3);border:1px solid var(--line)}
 .pill-tag{background:var(--line2);border:1px solid var(--line);color:var(--ink2);font:11px var(--mono);padding:1px 6px;border-radius:4px}
+.col-pill{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:14px;padding:2px 9px;font:500 12px var(--mono);color:var(--ink2);cursor:pointer;transition:all .15s}
+.col-pill:hover{background:rgba(255,255,255,0.08);color:var(--ink);border-color:var(--ink3)}
+.col-pill.active{background:rgba(61,214,140,0.12);color:var(--ok);border-color:rgba(61,214,140,0.4)}
+.col-pill-count{background:rgba(255,255,255,0.08);border-radius:10px;padding:0 5px;font-size:10px;color:var(--ink3)}
+.col-pill.active .col-pill-count{background:rgba(61,214,140,0.25);color:var(--ok)}
 
 /* Terminal */
 .term{background:var(--code);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
@@ -266,10 +271,14 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
     <div class="facts" id="telemetryBar">
       <span class="fact-item"><span class="pill pill-ok" id="teleStatusPill"><span class="dot-pulse" id="teleDot"></span> <span id="teleStatus">Connecting...</span></span></span>
       <span class="fact-item"><b id="teleVersion">v...</b></span>
-      <span class="fact-item"><b id="teleEvents">0</b> signed events</span>
+      <span class="fact-item"><b id="teleEvents">0</b> events</span>
       <span class="fact-item"><b id="teleBlobs">0</b> blobs (<span id="teleBytes">0 B</span>)</span>
-      <span class="fact-item"><b id="teleSse">0</b> live SSE clients</span>
-      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span></span>
+      <span class="fact-item">uptime <b id="teleUptime">--</b></span>
+      <span class="fact-item">RAM <b id="teleRam">--</b></span>
+      <span class="fact-item">DB <b id="teleDbSize">--</b></span>
+      <span class="fact-item"><b id="teleSse">0</b> live SSE</span>
+      <span class="fact-item" id="teleTrafficItem" style="display:none"><b id="teleReqs">0</b> reqs</span>
+      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span><span id="teleNatPill" class="pill pill-ok" style="display:none;margin-left:6px;font-size:11px">NAT Mapped</span></span>
     </div>
   </div>
 
@@ -381,6 +390,8 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
         <div class="meta-item"><span class="m-k">BLOBS</span><b class="m-v" id="svgStatBlobs">0</b></div>
         <div class="meta-sep"></div>
         <div class="meta-item"><span class="m-k">STORAGE</span><b class="m-v" id="svgStatSize">0 B</b></div>
+        <div class="meta-sep"></div>
+        <div class="meta-item"><span class="m-k">RAM</span><b class="m-v" id="svgStatRam">--</b></div>
       </div>
     </div>
 
@@ -413,14 +424,21 @@ footer{border-top:1px solid var(--line);padding:28px 0 40px;color:var(--ink3);fo
       <div class="card-meta">
         <div class="meta-item"><span class="m-k">LISTENERS</span><b class="m-v" id="svgStatSseClients">0</b></div>
         <div class="meta-sep"></div>
-        <div class="meta-item"><span class="m-k">ENDPOINT</span><span class="mono" style="font-size:12px;color:var(--ink2)">/events/stream</span></div>
+        <div class="meta-item"><span class="m-k">UPTIME</span><b class="m-v" id="svgStatUptime">--</b></div>
         <div class="meta-sep"></div>
-        <div class="meta-item"><span class="m-k">SECURITY</span><span class="mono" style="font-size:12px;color:var(--ok)">Ed25519 Verified</span></div>
+        <div class="meta-item"><span class="m-k">TRAFFIC</span><b class="m-v" id="svgStatReqs">0 reqs</b></div>
       </div>
     </div>
   </div>
 
   <div class="explorer-card">
+    <!-- Top Collections Quick-Filter Bar -->
+    <div id="topCollectionsBar" style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px">
+      <span style="color:var(--ink3);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.06em">Top Collections:</span>
+      <div id="topCollectionsList" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="color:var(--ink3)">None yet</span>
+      </div>
+    </div>
     <div class="ws-bar">
       <div class="ws-tabs">
         <div class="ws-tab active" style="cursor:default">
@@ -564,7 +582,7 @@ var NT={
   event:"Signed with Ed25519 over the record fields.",
   blob:"Opaque bytes only, deduplicated by content.",
   stream:"Server-Sent Events, no polling.",
-  status:"Version, blob count, bytes stored."
+  status:"Version, uptime, memory vitals, storage, and telemetry."
 };
 
 function draw(){
@@ -820,11 +838,39 @@ async function fetchStatus(){
       var sseCount = (d.sse && d.sse.clients !== undefined) ? d.sse.clients : 0;
       $("teleSse").textContent = sseCount;
 
+      // Uptime
+      var uptime = d.uptime || "--";
+      if($("teleUptime")) $("teleUptime").textContent = uptime;
+      if($("svgStatUptime")) $("svgStatUptime").textContent = uptime;
+
+      // RAM
+      var ramStr = (d.vitals && d.vitals.alloc_str) ? d.vitals.alloc_str : "--";
+      if($("teleRam")) $("teleRam").textContent = ramStr;
+      if($("svgStatRam")) $("svgStatRam").textContent = ramStr;
+
+      // DB size
+      var dbSizeStr = (d.storage && d.storage.db_size_str) ? d.storage.db_size_str : "--";
+      if($("teleDbSize")) $("teleDbSize").textContent = dbSizeStr;
+
+      // Traffic
+      if(d.traffic && d.traffic.total_requests !== undefined){
+        if($("teleTrafficItem")) $("teleTrafficItem").style.display = "inline-flex";
+        if($("teleReqs")) $("teleReqs").textContent = d.traffic.total_requests;
+        if($("svgStatReqs")) $("svgStatReqs").textContent = d.traffic.total_requests + " reqs";
+      }
+
       // Update P2P Swarm Readout
       if(d.p2p && d.p2p.enabled){
         if($("teleP2pItem")) $("teleP2pItem").style.display = "inline-flex";
         if($("teleP2pPeers")) $("teleP2pPeers").textContent = d.p2p.peers_connected || 0;
         if($("teleP2pLabel")) $("teleP2pLabel").textContent = "P2P (" + (d.p2p.network_id || "mesh") + ")";
+        if($("teleNatPill")){
+          if(d.p2p.nat_mapped){
+            $("teleNatPill").style.display = "inline-flex";
+          } else {
+            $("teleNatPill").style.display = "none";
+          }
+        }
       } else {
         if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
       }
@@ -836,6 +882,11 @@ async function fetchStatus(){
       if($("svgStatBlobs")) $("svgStatBlobs").textContent = bCount;
       if($("svgStatSize")) $("svgStatSize").textContent = bSize;
       if($("svgStatSseClients")) $("svgStatSseClients").textContent = sseCount;
+
+      // Top collections quick-filter bar
+      if(d.storage && Array.isArray(d.storage.top_collections)){
+        renderTopCollections(d.storage.top_collections);
+      }
 
       var search = $("eventsSearch").value.trim();
       var col = $("eventsCol").value.trim();
@@ -853,7 +904,41 @@ async function fetchStatus(){
     if($("svgNodeStatusText")) $("svgNodeStatusText").textContent = "Node Offline";
     if($("svgNodeStatusPill")) $("svgNodeStatusPill").className = "pill pill-mute";
     if($("svgNodeDot")) $("svgNodeDot").className = "dot-pulse dot-off";
+    if($("teleUptime")) $("teleUptime").textContent = "--";
+    if($("svgStatUptime")) $("svgStatUptime").textContent = "--";
+    if($("teleRam")) $("teleRam").textContent = "--";
+    if($("svgStatRam")) $("svgStatRam").textContent = "--";
+    if($("teleDbSize")) $("teleDbSize").textContent = "--";
+    if($("teleTrafficItem")) $("teleTrafficItem").style.display = "none";
+    if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
   }
+}
+
+function renderTopCollections(cols){
+  var list = $("topCollectionsList");
+  if(!list) return;
+  if(!cols || cols.length === 0){
+    list.innerHTML = '<span style="color:var(--ink3)">None yet</span>';
+    return;
+  }
+  var currentCol = ($("eventsCol") ? $("eventsCol").value.trim() : "");
+  var html = '<button class="col-pill ' + (!currentCol ? 'active' : '') + '" data-col="" type="button">all</button>';
+  cols.forEach(function(c){
+    var isSel = (currentCol === c.name);
+    html += '<button class="col-pill ' + (isSel ? 'active' : '') + '" data-col="' + safeEscape(c.name) + '" type="button">' +
+      safeEscape(c.name) + ' <span class="col-pill-count">' + c.count + '</span></button>';
+  });
+  list.innerHTML = html;
+  list.querySelectorAll(".col-pill").forEach(function(btn){
+    btn.onclick = function(){
+      var col = this.getAttribute("data-col");
+      if($("eventsCol")) $("eventsCol").value = col;
+      eventsPage = 1;
+      fetchEvents(1);
+      list.querySelectorAll(".col-pill").forEach(function(b){ b.classList.remove("active"); });
+      this.classList.add("active");
+    };
+  });
 }
 
 /* 2) Fetch Events (10 per page) */

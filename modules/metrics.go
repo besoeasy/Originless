@@ -163,3 +163,36 @@ func (m *Metrics) Handler(janitor *Manager, broadcaster *RecordBroadcaster) http
 		w.Write([]byte(sb.String()))
 	}
 }
+
+// Snapshot returns a map of request and traffic counts for /status.
+func (m *Metrics) Snapshot() map[string]any {
+	if m == nil {
+		return map[string]any{
+			"total_requests":  int64(0),
+			"total_errors":    int64(0),
+			"total_uploads":   int64(0),
+			"upload_bytes":    int64(0),
+			"upload_size_str": FormatBytes(0),
+		}
+	}
+	var totalReq int64
+	byPath := make(map[string]int64)
+	m.mu.Lock()
+	for p, c := range m.requests {
+		val := c.Load()
+		totalReq += val
+		byPath[p] = val
+	}
+	m.mu.Unlock()
+
+	upBytes := m.uploadSize.Load()
+	return map[string]any{
+		"total_requests":   totalReq,
+		"total_errors":     m.errors.Load(),
+		"total_uploads":    m.uploads.Load(),
+		"upload_bytes":     upBytes,
+		"upload_size_str":  FormatBytes(upBytes),
+		"requests_by_path": byPath,
+	}
+}
+

@@ -9,11 +9,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Manager struct {
-	store *Store
+	store              *Store
+	mu                 sync.RWMutex
+	lastRun            time.Time
+	purgedRecordsTotal int64
 }
 
 func NewJanitor(store *Store) *Manager {
@@ -28,6 +32,43 @@ func (m *Manager) Store() *Store {
 	return m.store
 }
 
+func (m *Manager) recordSweep(purged int64) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.lastRun = time.Now().UTC()
+	if purged > 0 {
+		m.purgedRecordsTotal += purged
+	}
+	m.mu.Unlock()
+}
+
+// Status returns a summary of janitor policy and activity for /status.
+func (m *Manager) Status() map[string]any {
+	if m == nil {
+		return map[string]any{
+			"interval_mins":     JanitorInterval,
+			"orphan_grace_days": BlobOrphanGraceDays,
+			"purged_records":    int64(0),
+		}
+	}
+	m.mu.RLock()
+	lastRun := m.lastRun
+	purged := m.purgedRecordsTotal
+	m.mu.RUnlock()
+
+	res := map[string]any{
+		"interval_mins":     JanitorInterval,
+		"orphan_grace_days": BlobOrphanGraceDays,
+		"purged_records":    purged,
+	}
+	if !lastRun.IsZero() {
+		res["last_run"] = lastRun.Format(time.RFC3339)
+	}
+	return res
+}
+
 func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 	log.Printf("[janitor] started (interval: %s)", interval)
 
@@ -37,8 +78,11 @@ func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 	// Initial purge so restarts promptly clear backlog.
 	if n, err := m.PurgeExpiredRecords(time.Now().Unix()); err != nil {
 		log.Printf("[janitor] initial record purge error: %v", err)
-	} else if n > 0 {
-		log.Printf("[janitor] initial record purge: %d expired removed", n)
+	} else {
+		m.recordSweep(n)
+		if n > 0 {
+			log.Printf("[janitor] initial record purge: %d expired removed", n)
+		}
 	}
 
 	for {
@@ -49,8 +93,11 @@ func (m *Manager) Run(ctx context.Context, interval time.Duration) {
 		case <-ticker.C:
 			if n, err := m.PurgeExpiredRecords(time.Now().Unix()); err != nil {
 				log.Printf("[janitor] record purge error: %v", err)
-			} else if n > 0 {
-				log.Printf("[janitor] purged %d expired records", n)
+			} else {
+				m.recordSweep(n)
+				if n > 0 {
+					log.Printf("[janitor] purged %d expired records", n)
+				}
 			}
 			if err := m.EvictBlobs(); err != nil {
 				log.Printf("[janitor] blob eviction error: %v", err)
