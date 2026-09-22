@@ -34,7 +34,7 @@
 
     .container {
       width: 100%;
-      max-width: 800px;
+      max-width: 860px;
       display: flex;
       flex-direction: column;
       gap: 32px;
@@ -42,6 +42,14 @@
 
     header {
       text-align: center;
+    }
+
+    .badge-group {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
     }
 
     .badge {
@@ -53,7 +61,13 @@
       color: #93c5fd;
       font-size: 0.8rem;
       font-weight: 600;
-      margin-bottom: 12px;
+      text-decoration: none;
+    }
+
+    .badge-green {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
     }
 
     h1 {
@@ -66,14 +80,14 @@
     p.subtitle {
       color: var(--text-muted);
       font-size: 1rem;
-      max-width: 600px;
+      max-width: 640px;
       margin: 0 auto;
       line-height: 1.5;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 20px;
     }
 
@@ -96,6 +110,12 @@
       box-shadow: 0 12px 28px var(--accent-glow);
     }
 
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
     .card-icon {
       font-size: 2rem;
     }
@@ -108,7 +128,7 @@
     .card-desc {
       color: var(--text-muted);
       font-size: 0.9rem;
-      line-height: 1.4;
+      line-height: 1.45;
       flex: 1;
     }
 
@@ -174,16 +194,21 @@
 
   <div class="container">
     <header>
-      <div class="badge">Zero-Auth Frontend</div>
+      <div class="badge-group">
+        <span class="badge">Zero-Auth Client Apps</span>
+        <a href="https://originless.besoeasy.com/" class="badge badge-green" target="_blank">Deployed at originless.besoeasy.com &nearr;</a>
+      </div>
       <h1>Originless Web Examples</h1>
-      <p class="subtitle">Single-file HTML apps that run directly in the browser with zero backend build steps. Sign events client-side using WebCrypto & noble curves via esm.sh, synced live over originless.space.</p>
+      <p class="subtitle">Single-file HTML web applications running natively in the browser with zero build steps or servers. Signs Ed25519 events client-side via WebCrypto & noble curves via esm.sh, synced live over originless.space.</p>
     </header>
 
     <div class="grid">
       <!-- Comment Box -->
       <a href="./comment-box.html?room=general" class="example-card">
-        <div class="card-icon">💬</div>
-        <div class="card-title">Real-Time Room Comments</div>
+        <div class="card-header">
+          <span class="card-icon">💬</span>
+          <span class="card-title">Real-Time Room Comments</span>
+        </div>
         <div class="card-desc">Decentralized comment box and live chat room. Users hold unique local Ed25519 keypairs, sign every message client-side, and receive live comments over Server-Sent Events (SSE).</div>
         <div class="card-tags">
           <span class="tag">Chat</span>
@@ -195,8 +220,10 @@
 
       <!-- Board Game -->
       <a href="./board-game.html" class="example-card">
-        <div class="card-icon">🎮</div>
-        <div class="card-title">2-Player Board Game</div>
+        <div class="card-header">
+          <span class="card-icon">🎮</span>
+          <span class="card-title">2-Player Board Game</span>
+        </div>
         <div class="card-desc">Real-time multiplayer Tic-Tac-Toe. Share the game link with a friend; both players sign moves client-side and sync turns in real-time with zero centralized game server.</div>
         <div class="card-tags">
           <span class="tag">Multiplayer</span>
@@ -205,22 +232,44 @@
         </div>
         <div class="btn-launch">Play Board Game &rarr;</div>
       </a>
+
+      <!-- Pixel Canvas -->
+      <a href="./pixel-canvas.html" class="example-card">
+        <div class="card-header">
+          <span class="card-icon">🎨</span>
+          <span class="card-title">Collaborative Pixel Canvas</span>
+        </div>
+        <div class="card-desc">Shared r/place style pixel art canvas. Pick colors and paint on a shared grid; every pixel is cryptographically signed and broadcasted live to all peers via Server-Sent Events.</div>
+        <div class="card-tags">
+          <span class="tag">Canvas</span>
+          <span class="tag">Live Sync</span>
+          <span class="tag">PNG Export</span>
+        </div>
+        <div class="btn-launch">Open Pixel Canvas &rarr;</div>
+      </a>
+
+      <!-- Encrypted Pastebin -->
+      <a href="./encrypted-pastebin.html" class="example-card">
+        <div class="card-header">
+          <span class="card-icon">🔒</span>
+          <span class="card-title">Zero-Knowledge Pastebin</span>
+        </div>
+        <div class="card-desc">Client-side encrypted pastebin using AES-256-GCM. The decryption key stays exclusively in the URL hash fragment (#key). Auto-destructs when TTL expires.</div>
+        <div class="card-tags">
+          <span class="tag">E2EE</span>
+          <span class="tag">AES-256-GCM</span>
+          <span class="tag">Self-Destruct</span>
+        </div>
+        <div class="btn-launch">Open Encrypted Pastebin &rarr;</div>
+      </a>
     </div>
 
     <div>
       <h2 class="section-title">💡 More Zero-Auth App Concepts</h2>
       <div class="ideas-list" style="margin-top: 16px;">
         <div class="idea-card">
-          <h3>🎨 Collaborative Pixel Canvas</h3>
-          <p>A shared 64x64 grid where players place colored pixels. Each stroke is a signed event; board state syncs live across all visitors.</p>
-        </div>
-        <div class="idea-card">
           <h3>🗳️ Live Deduplicated Poll</h3>
           <p>Real-time voting where each user votes once per Ed25519 keypair. Live animated bar charts update instantly as votes roll in.</p>
-        </div>
-        <div class="idea-card">
-          <h3>🔒 Ephemeral Pastebin (E2EE)</h3>
-          <p>End-to-end encrypted notes with AES-GCM in the browser. Encryption key in URL hash (`#key`), auto-purged via Originless TTL.</p>
         </div>
         <div class="idea-card">
           <h3>📋 Shared Kanban / Sticky Notes</h3>
