@@ -21,9 +21,15 @@ const (
 	RendezvousPrefix       = "originless/"
 )
 
-// DefaultBootstrapPeers are public Originless nodes used only to join the
-// NETWORK_ID=originless DHT. They run the same binary as every other node.
-var DefaultBootstrapPeers []string
+// DefaultBootstrapPeers are public libp2p DHT bootstrap peers used to join the
+// public global DHT mesh when NETWORK_ID=originless (default).
+var DefaultBootstrapPeers = []string{
+	"/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN",
+	"/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa",
+	"/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb",
+	"/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt",
+	"/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+}
 
 // Config represents the active P2P configuration.
 type Config struct {

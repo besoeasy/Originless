@@ -47,11 +47,14 @@ func startMeshDiscovery(parent context.Context, h host.Host, networkID string, b
 	}
 
 	if !disableDHT {
-		kad, err := dht.New(h,
+		dhtOpts := []dht.Option{
 			dht.Mode(dht.ModeAuto),
-			dht.ProtocolPrefix(protocol.ID(DHTProtocolPrefix)),
 			dht.BootstrapPeers(bootstrap...),
-		)
+		}
+		if networkID != DefaultNetworkID {
+			dhtOpts = append(dhtOpts, dht.ProtocolPrefix(protocol.ID(DHTProtocolPrefix)))
+		}
+		kad, err := dht.New(h, dhtOpts...)
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("kad dht: %w", err)
@@ -109,9 +112,6 @@ func (d *meshDiscovery) dialBootstrap(ctx context.Context) {
 		if err != nil {
 			log.Printf("[P2P-DISCOVERY] bootstrap %s: %v", info.ID, err)
 			continue
-		}
-		if d.onPeer != nil {
-			d.onPeer(info)
 		}
 	}
 }

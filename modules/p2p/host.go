@@ -17,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
 )
 
@@ -76,6 +77,7 @@ func buildHost(priv crypto.PrivKey, cfg Config, s hostSettings) (host.Host, erro
 		libp2p.EnableNATService(),
 		libp2p.EnableRelay(),
 		libp2p.ListenAddrStrings(wsListen),
+		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.Transport(websocket.New,
 			websocket.WithHTTPHandler(handler),
 			websocket.WithHTTPServerConfig(func(srv *http.Server) {

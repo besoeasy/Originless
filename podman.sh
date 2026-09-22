@@ -24,6 +24,7 @@ Environment Variables:
   CONTAINER_NAME  Name of the container instance (default: originless)
   DATA_VOLUME     Named volume or host directory to mount at /data (optional)
   NETWORK_ID      P2P swarm network ID (optional, default: originless, set 'off' to disable)
+  NETWORK         Podman network to attach (default: podman)
   SKIP_BUILD      Set to 1 to skip image build and run immediately (default: 0)
 
 Examples:
@@ -38,6 +39,7 @@ fi
 IMAGE_NAME="${IMAGE_NAME:-originless:latest}"
 CONTAINER_NAME="${CONTAINER_NAME:-originless}"
 PORT="${PORT:-3232}"
+NETWORK="${NETWORK:-podman}"
 VERSION="${VERSION:-$(git -C "$SCRIPT_DIR" describe --tags --always --dirty 2>/dev/null || echo "dev")}"
 
 # Build image unless SKIP_BUILD=1
@@ -96,8 +98,20 @@ if [ "$HAS_PORT" -eq 0 ]; then
   RUN_ARGS+=(
     "-p" "${PORT}:3232"
     "-p" "${PORT}:3232/udp"
-    "-p" "3234:3234/udp"
   )
+fi
+
+# Attach network if not explicitly passed
+HAS_NETWORK=0
+for arg in "$@"; do
+  if [[ "$arg" == "--network" || "$arg" == --network=* || "$arg" == "--net" || "$arg" == --net=* ]]; then
+    HAS_NETWORK=1
+    break
+  fi
+done
+
+if [ "$HAS_NETWORK" -eq 0 ] && [ -n "$NETWORK" ]; then
+  RUN_ARGS+=("--network" "$NETWORK")
 fi
 
 # Optional volume mount
