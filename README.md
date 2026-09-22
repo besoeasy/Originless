@@ -8,7 +8,7 @@ No accounts. No API keys. Zero complex setup. One single container.
 <br>
 
 ### 🌐 [Try Live Web Apps at originless.besoeasy.com &rarr;](https://originless.besoeasy.com/)
-*Interactive Zero-Auth Apps: Room Comments • 2-Player Board Game • Pixel Canvas • Encrypted Pastebin • Live Soundboard*
+*Interactive Zero-Auth Apps: Room Comments • 2-Player Board Game • Pixel Canvas • Encrypted Pastebin • Soundboard • Music Lounge*
 
 <br>
 
@@ -162,7 +162,7 @@ Originless requires no proprietary SDKs or API keys. Complete copy-pasteable gui
 * 📖 [**cURL & Shell Guide**](docs/curl.md) — Signing with OpenSSL, multipart atomic blob uploads, SSE streaming with `curl -N`, and keyset pagination.
 * 🐍 [**Python Guide**](docs/python.md) — Zero-auth Ed25519 signing helper, JSON publishing, binary blob uploads, and real-time streaming.
 * 🟢 [**Node.js & JavaScript Guide**](docs/nodejs.md) — Zero-dependency integration using Node.js native `node:crypto`, `fetch`, and `FormData`.
-* 🌐 [**Browser Web Examples**](examples/) — Single-file zero-auth HTML apps deployed live at **[originless.besoeasy.com](https://originless.besoeasy.com/)** (Room Comments, 2-Player Board Game, Collaborative Pixel Canvas, Zero-Knowledge Encrypted Pastebin, Synchronized Soundboard) using `esm.sh` and `@noble/curves`.
+* 🌐 [**Browser Web Examples**](examples/) — Single-file zero-auth HTML apps deployed live at **[originless.besoeasy.com](https://originless.besoeasy.com/)** (Room Comments, 2-Player Board Game, Collaborative Pixel Canvas, Zero-Knowledge Encrypted Pastebin, Synchronized Soundboard, Global Music Lounge) using `esm.sh` and `@noble/curves`.
 * 🤖 [**AI Agent Skill Contract**](static/agent.txt) — Plaintext specification served at `/agent.txt` for autonomous LLM agents (Claude, Cursor, Copilot, Antigravity).
 
 ---
