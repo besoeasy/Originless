@@ -18,7 +18,7 @@ import (
 	"github.com/besoeasy/originless/modules"
 )
 
-func createTestSignedRecord(collection string, data map[string]any, nowUnix int64) (*modules.Record, error) {
+func createTestSignedRecord(collection string, data map[string]any, nowUnix int64, blob ...string) (*modules.Record, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return nil, err
@@ -39,10 +39,15 @@ func createTestSignedRecord(collection string, data map[string]any, nowUnix int6
 		return nil, err
 	}
 
+	blobHash := ""
+	if len(blob) > 0 {
+		blobHash = blob[0]
+	}
+
 	// Compute message to sign (mirrors modules.computeRecordID:
 	// owner:collection:created:expires:canonical(data):blob:labels).
 	msg := owner + ":" + collection + ":" + strconv.FormatInt(nowUnix, 10) + ":" +
-		strconv.FormatInt(expires, 10) + ":" + string(canonicalBuf) + ":" + "" + ":" + strings.Join(labels, ",")
+		strconv.FormatInt(expires, 10) + ":" + string(canonicalBuf) + ":" + blobHash + ":" + strings.Join(labels, ",")
 	h := sha256.Sum256([]byte(msg))
 	sig := ed25519.Sign(priv, h[:])
 	sigHex := hex.EncodeToString(sig)
@@ -56,6 +61,7 @@ func createTestSignedRecord(collection string, data map[string]any, nowUnix int6
 		CreatedAt:  nowUnix,
 		ExpiresAt:  expires,
 		Data:       json.RawMessage(dataJSON),
+		Blob:       blobHash,
 		Labels:     labels,
 		Sig:        sigHex,
 		Size:       int64(len(dataJSON)),
@@ -91,16 +97,8 @@ func TestP2PEndToEndReconciliationAndGossip(t *testing.T) {
 	engineB := NewSyncEngine(storeB, blobDirB, networkID, "node-B", modules.NewRecordBroadcaster())
 	transportB := NewTransport(engineB, networkID, "node-B", 3233, 8)
 
-	// Populate Node A with 1 event and 1 blob
+	// Populate Node A with 1 blob and 1 event linking to it
 	now := time.Now().Unix()
-	testEvent, err := createTestSignedRecord("chat", map[string]any{"text": "hello from Node A"}, now)
-	if err != nil {
-		t.Fatalf("create test record: %v", err)
-	}
-	if _, _, err := storeA.InsertRecord(testEvent); err != nil {
-		t.Fatalf("insert record into A: %v", err)
-	}
-
 	blobContent := []byte("this is a sample binary blob content for p2p sync")
 	blobSum := sha256.Sum256(blobContent)
 	blobHash := hex.EncodeToString(blobSum[:])
@@ -110,6 +108,14 @@ func TestP2PEndToEndReconciliationAndGossip(t *testing.T) {
 	}
 	if _, err := storeA.UpsertBlob(blobHash, int64(len(blobContent))); err != nil {
 		t.Fatalf("upsert blob A: %v", err)
+	}
+
+	testEvent, err := createTestSignedRecord("chat", map[string]any{"text": "hello from Node A"}, now, blobHash)
+	if err != nil {
+		t.Fatalf("create test record: %v", err)
+	}
+	if _, _, err := storeA.InsertRecord(testEvent); err != nil {
+		t.Fatalf("insert record into A: %v", err)
 	}
 
 	// Host Node A on test HTTP server

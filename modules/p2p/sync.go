@@ -110,6 +110,9 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 		"labels":      rec.Labels,
 		"sig":         rec.Sig,
 	}
+	if rec.Blob != "" {
+		inputMap["blob"] = rec.Blob
+	}
 	rawJSON, err := json.Marshal(inputMap)
 	if err != nil {
 		return false, fmt.Errorf("marshal for validation: %w", err)
@@ -284,6 +287,13 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		if err == nil && created && se.transport != nil {
 			// Forward to other peers (excluding sender)
 			se.transport.BroadcastEvent(&r, session.id)
+		}
+		if r.Blob != "" && !se.seenCache.Has(r.Blob) {
+			dest := modules.BlobPath(se.blobDir, r.Blob)
+			if _, statErr := os.Stat(dest); os.IsNotExist(statErr) {
+				req, _ := json.Marshal(BlobPullPayload{Hash: r.Blob})
+				_ = session.Send(MsgBlobPull, req)
+			}
 		}
 
 	case MsgBloomBlobsReq:
