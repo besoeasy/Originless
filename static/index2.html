@@ -7,37 +7,45 @@
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  /* Pure White Modern Palette */
+  /* Pure White Base */
   --bg-page: #ffffff;
   --bg-card: #ffffff;
-  --bg-subtle: #f9fafb;
-  --bg-hover: #f3f4f6;
+  --bg-subtle: #f8fafc;
+  --bg-hover: #f1f5f9;
   
-  --border: #e5e7eb;
-  --border-light: #f3f4f6;
-  --border-focus: #111827;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --border-focus: #2563eb;
   
-  --text-main: #111827;
-  --text-muted: #4b5563;
-  --text-subtle: #9ca3af;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #94a3b8;
   
-  --primary: #111827;
-  --primary-hover: #1f2937;
-  --primary-text: #ffffff;
+  /* Tasteful Color Accents */
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-border: #bfdbfe;
   
-  --accent-blue: #0284c7;
-  --accent-blue-light: #f0f9ff;
-  --accent-blue-border: #bae6fd;
+  --purple-600: #7c3aed;
+  --purple-700: #6d28d9;
+  --purple-50: #f5f3ff;
+  --purple-100: #ede9fe;
+  --purple-border: #ddd6fe;
   
-  --accent-green: #059669;
-  --accent-green-light: #ecfdf5;
-  --accent-green-border: #a7f3d0;
+  --green-600: #059669;
+  --green-50: #ecfdf5;
+  --green-100: #d1fae5;
+  --green-border: #a7f3d0;
   
-  --danger: #dc2626;
-  --danger-light: #fef2f2;
+  --amber-600: #d97706;
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-border: #fde68a;
   
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -86,7 +94,7 @@ body {
   .container { max-width: 1320px; }
 }
 
-/* Top Sticky Navigation Header */
+/* Top Minimal Header (Section Links Removed) */
 header.app-header {
   background: #ffffff;
   border-bottom: 1px solid var(--border);
@@ -98,7 +106,7 @@ header.app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
+  height: 60px;
   gap: 16px;
 }
 .brand-group {
@@ -109,15 +117,18 @@ header.app-header {
   color: inherit;
 }
 .brand-logo {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
+  background: var(--blue-50);
+  border: 1px solid var(--blue-border);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--blue-600);
 }
 .brand-title {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-main);
@@ -125,31 +136,12 @@ header.app-header {
 .brand-badge {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
+  color: var(--blue-700);
+  background: var(--blue-50);
+  border: 1px solid var(--blue-border);
   padding: 2px 8px;
   border-radius: 9999px;
   font-family: var(--font-mono);
-}
-
-.header-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.nav-link {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-decoration: none;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  transition: all 0.15s ease;
-}
-.nav-link:hover {
-  color: var(--text-main);
-  background: var(--bg-subtle);
 }
 
 .header-status {
@@ -160,10 +152,10 @@ header.app-header {
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 12px;
   font-weight: 500;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 9999px;
   border: 1px solid var(--border);
   background: #ffffff;
@@ -176,8 +168,8 @@ header.app-header {
   background: var(--text-subtle);
 }
 .status-indicator.online {
-  background: var(--accent-green);
-  box-shadow: 0 0 0 2px var(--accent-green-border);
+  background: var(--green-600);
+  box-shadow: 0 0 0 2px var(--green-border);
 }
 
 .btn-icon {
@@ -196,15 +188,16 @@ header.app-header {
 .btn-icon:hover {
   background: var(--bg-subtle);
   color: var(--text-main);
+  border-color: #cbd5e1;
 }
 
-/* Page Layout Spacing */
+/* Page Spacing */
 main.app-content {
-  padding-top: 28px;
+  padding-top: 24px;
   padding-bottom: 60px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 /* Section Headings */
@@ -212,10 +205,10 @@ main.app-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .section-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text-main);
@@ -223,117 +216,373 @@ main.app-content {
   align-items: center;
   gap: 8px;
 }
-.section-title svg {
-  color: var(--text-muted);
-}
 .section-desc {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* Telemetry Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-}
-@media (max-width: 1024px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 640px) {
-  .stats-grid { grid-template-columns: 1fr; }
-}
-
-.stat-card {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: border-color 0.15s ease;
-}
-.stat-card:hover {
-  border-color: #cbd5e1;
-}
-.stat-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.stat-label {
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-.stat-badge {
-  font-size: 11px;
-  font-family: var(--font-mono);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-}
-.stat-value {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text-main);
-  line-height: 1.2;
-}
-.stat-sub {
   font-size: 12px;
   color: var(--text-muted);
-  margin-top: 6px;
 }
 
-/* Two-Column Operation Split (Publish & Storage) */
-.two-col-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-@media (max-width: 960px) {
-  .two-col-grid { grid-template-columns: 1fr; }
-}
-
-.panel-card {
+/* ========================================================
+   SPELLS ORIGINLESS & SVG NODE VITALS STUDIO SECTION
+   ======================================================== */
+.spells-section {
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 24px;
 }
-.panel-head {
-  padding: 16px 20px;
+.spells-header {
+  padding: 18px 22px 14px 22px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
 }
-.panel-head-title {
-  font-size: 14px;
-  font-weight: 600;
+.spells-heading-group {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.spells-word {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
   color: var(--text-main);
+  font-family: var(--font-mono);
+}
+.spells-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.spells-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green-600);
+  background: var(--green-50);
+  border: 1px solid var(--green-border);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+}
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green-600);
+  box-shadow: 0 0 0 2px var(--green-border);
+}
+
+/* 10 Letter Tiles Grid spelling ORIGINLESS */
+.letter-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  background: var(--border-light);
+  gap: 1px;
+}
+@media (max-width: 1024px) {
+  .letter-grid { grid-template-columns: repeat(5, 1fr); }
+}
+@media (max-width: 600px) {
+  .letter-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.letter-cell {
+  background: #ffffff;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.letter-cell:hover {
+  background: var(--bg-subtle);
+  transform: translateY(-1px);
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+}
+.letter-char {
+  font-size: 24px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+.letter-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.letter-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-subtle);
+}
+
+/* Individual letter accent hues */
+.letter-c1 .letter-char { color: #2563eb; } /* O */
+.letter-c2 .letter-char { color: #4f46e5; } /* R */
+.letter-c3 .letter-char { color: #7c3aed; } /* I */
+.letter-c4 .letter-char { color: #059669; } /* G */
+.letter-c5 .letter-char { color: #0d9488; } /* I */
+.letter-c6 .letter-char { color: #0284c7; } /* N */
+.letter-c7 .letter-char { color: #0ea5e9; } /* L */
+.letter-c8 .letter-char { color: #d97706; } /* E */
+.letter-c9 .letter-char { color: #c026d3; } /* S */
+.letter-c10 .letter-char { color: #0f172a; } /* S */
+
+/* Modern SVG Graphics Telemetry Grid */
+.svg-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 20px 22px;
+  background: #ffffff;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 900px) {
+  .svg-telemetry-grid { grid-template-columns: 1fr; }
+}
+
+.svg-telemetry-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.15s ease;
+}
+.svg-telemetry-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+.svg-card-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
-.panel-body {
-  padding: 20px;
-  flex: 1;
+.svg-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.svg-card-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--blue-700);
+  background: var(--blue-50);
+  border: 1px solid var(--blue-border);
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+.svg-wrap {
+  min-height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.svg-card-footer {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.svg-card-footer div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.svg-card-footer strong {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+}
+
+/* ========================================================
+   COMBINED "PUBLISH & STORAGE" UNIFIED PANEL
+   ======================================================== */
+.combined-panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.panel-head {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: #ffffff;
+}
+.panel-head-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.panel-head-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.panel-head-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+.panel-head-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Signer Key Pill */
+.key-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.key-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.key-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green-600);
+}
+.key-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.key-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main);
+  max-width: 170px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Unified 2-Column Split Inside The Card */
+.combined-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #ffffff;
+}
+@media (max-width: 960px) {
+  .combined-content { grid-template-columns: 1fr; }
+}
+
+.combined-col {
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+.combined-col.form-col {
+  border-right: 1px solid var(--border);
+}
+@media (max-width: 960px) {
+  .combined-col.form-col {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
 
-/* Forms & Inputs */
+.col-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.col-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.badge-count {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  background: var(--purple-50);
+  color: var(--purple-600);
+  border: 1px solid var(--purple-border);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-left: 8px;
+}
+
+/* Quick Collection Chips */
+.collection-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.quick-chip {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.quick-chip:hover {
+  background: var(--blue-50);
+  color: var(--blue-600);
+  border-color: var(--blue-border);
+}
+.quick-chip.active {
+  background: var(--blue-50);
+  color: var(--blue-700);
+  border-color: var(--blue-border);
+  font-weight: 600;
+}
+
+/* Form Styles */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -351,6 +600,7 @@ main.app-content {
   font-weight: 400;
   color: var(--text-subtle);
 }
+
 .input-text, select.input-select, textarea.input-textarea {
   width: 100%;
   font-family: var(--font-sans);
@@ -359,19 +609,20 @@ main.app-content {
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 9px 12px;
+  padding: 8px 12px;
   outline: none;
   transition: all 0.15s ease;
 }
 .input-text:focus, select.input-select:focus, textarea.input-textarea:focus {
   border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--blue-50);
 }
 textarea.input-textarea {
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
   resize: vertical;
-  min-height: 100px;
+  min-height: 95px;
 }
 
 .form-row {
@@ -383,116 +634,60 @@ textarea.input-textarea {
   .form-row { grid-template-columns: 1fr; }
 }
 
-/* Key Management Bar */
-.key-box {
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.key-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.key-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-.key-value {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Buttons */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 16px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-  text-decoration: none;
-}
-.btn-primary {
-  background: var(--primary);
-  color: var(--primary-text);
-  border-color: var(--primary);
-}
-.btn-primary:hover {
-  background: var(--primary-hover);
-}
-.btn-outline {
-  background: #ffffff;
-  color: var(--text-main);
-  border-color: var(--border);
-}
-.btn-outline:hover {
-  background: var(--bg-subtle);
-  border-color: #cbd5e1;
-}
-.btn-sm {
-  font-size: 12px;
-  padding: 5px 10px;
-}
-
-/* Drag and Drop Zone */
-.dropzone {
+/* Compact Integrated File Dropzone */
+.dropzone-compact {
   border: 1.5px dashed var(--border);
-  border-radius: var(--radius-md);
-  padding: 24px 16px;
-  text-align: center;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.dropzone:hover, .dropzone.dragover {
-  border-color: var(--primary);
-  background: var(--bg-subtle);
-}
-.dropzone-icon {
+  gap: 10px;
+  font-size: 12px;
   color: var(--text-muted);
 }
-.dropzone-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
+.dropzone-compact:hover, .dropzone-compact.dragover {
+  border-color: var(--blue-600);
+  background: var(--blue-50);
+  color: var(--blue-700);
 }
-.dropzone-sub {
-  font-size: 12px;
-  color: var(--text-subtle);
+.dropzone-compact.has-file {
+  border-color: var(--green-600);
+  background: var(--green-50);
+  color: var(--green-600);
+}
+.dropzone-action {
+  font-weight: 600;
+  color: var(--blue-600);
 }
 
-/* Blob Vault Compact Table */
+/* Fast Standalone Dropzone for Blob Vault */
+.dropzone-standalone {
+  border: 1.5px dashed var(--purple-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  background: var(--purple-50);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dropzone-standalone:hover, .dropzone-standalone.dragover {
+  border-color: var(--purple-600);
+  background: #ede9fe;
+}
+
+/* Blob Vault List */
 .blob-table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
   max-height: 220px;
   overflow-y: auto;
+  background: #ffffff;
 }
 .blob-table {
   width: 100%;
@@ -513,12 +708,57 @@ textarea.input-textarea {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border-light);
   color: var(--text-main);
+  vertical-align: middle;
 }
 .blob-table tr:last-child td {
   border-bottom: none;
 }
 .blob-table tr:hover td {
   background: var(--bg-subtle);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--blue-600);
+  color: #ffffff;
+  border-color: var(--blue-600);
+}
+.btn-primary:hover {
+  background: var(--blue-700);
+  border-color: var(--blue-700);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+.btn-outline {
+  background: #ffffff;
+  color: var(--text-main);
+  border-color: var(--border);
+}
+.btn-outline:hover {
+  background: var(--bg-subtle);
+  border-color: #cbd5e1;
+}
+.btn-xs {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+.btn-sm {
+  font-size: 12px;
+  padding: 5px 12px;
 }
 
 /* Full Width Events Explorer Panel */
@@ -529,7 +769,7 @@ textarea.input-textarea {
   overflow: hidden;
 }
 .events-toolbar {
-  padding: 14px 18px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -586,7 +826,7 @@ textarea.input-textarea {
   white-space: nowrap;
 }
 .events-table td {
-  padding: 12px 16px;
+  padding: 11px 16px;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
@@ -611,19 +851,19 @@ textarea.input-textarea {
 }
 .chip-col {
   font-weight: 600;
-  color: var(--accent-blue);
-  background: var(--accent-blue-light);
-  border-color: var(--accent-blue-border);
+  color: var(--blue-700);
+  background: var(--blue-50);
+  border-color: var(--blue-border);
 }
 .chip-blob {
   font-weight: 600;
-  color: var(--accent-green);
-  background: var(--accent-green-light);
-  border-color: var(--accent-green-border);
+  color: var(--green-600);
+  background: var(--green-50);
+  border-color: var(--green-border);
   text-decoration: none;
 }
 .chip-blob:hover {
-  text-decoration: underline;
+  background: var(--green-100);
 }
 
 .hash-link {
@@ -633,10 +873,10 @@ textarea.input-textarea {
   text-decoration: none;
 }
 .hash-link:hover {
+  color: var(--blue-600);
   text-decoration: underline;
 }
 
-/* Events Table Footer Pagination */
 .events-footer {
   padding: 12px 18px;
   border-top: 1px solid var(--border);
@@ -647,12 +887,12 @@ textarea.input-textarea {
   color: var(--text-muted);
 }
 
-/* P2P Swarm & Node Details */
+/* P2P Swarm Panel */
 .swarm-panel {
   background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 18px 22px;
 }
 .info-row {
   display: flex;
@@ -683,7 +923,7 @@ textarea.input-textarea {
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(15, 23, 42, 0.4);
   backdrop-filter: blur(2px);
   z-index: 100;
   align-items: center;
@@ -703,7 +943,7 @@ textarea.input-textarea {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 }
 .modal-head {
   padding: 16px 20px;
@@ -743,7 +983,7 @@ textarea.input-textarea {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #111827;
+  background: #0f172a;
   color: #ffffff;
   padding: 10px 18px;
   border-radius: var(--radius-sm);
@@ -756,9 +996,8 @@ textarea.input-textarea {
   z-index: 200;
 }
 
-/* Empty State */
 .empty-box {
-  padding: 36px 20px;
+  padding: 32px 20px;
   text-align: center;
   color: var(--text-subtle);
   font-size: 13px;
@@ -766,8 +1005,8 @@ textarea.input-textarea {
 
 footer.app-footer {
   border-top: 1px solid var(--border);
-  padding: 24px 0;
-  margin-top: 40px;
+  padding: 22px 0;
+  margin-top: 36px;
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -785,39 +1024,31 @@ footer.app-footer {
   text-decoration: none;
 }
 .footer-links a:hover {
-  color: var(--text-main);
+  color: var(--blue-600);
   text-decoration: underline;
 }
 </style>
 </head>
 <body>
 
-<!-- Header Bar -->
+<!-- Header (Clean Minimal, Section Links Removed) -->
 <header class="app-header">
   <div class="container">
     <div class="header-inner">
       <div class="brand-group">
         <div class="brand-logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="#111827" stroke-width="2"/>
-            <circle cx="12" cy="12" r="4" fill="#111827"/>
-            <line x1="12" y1="2" x2="12" y2="6" stroke="#111827" stroke-width="2"/>
-            <line x1="12" y1="18" x2="12" y2="22" stroke="#111827" stroke-width="2"/>
-            <line x1="2" y1="12" x2="6" y2="12" stroke="#111827" stroke-width="2"/>
-            <line x1="18" y1="12" x2="22" y2="12" stroke="#111827" stroke-width="2"/>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="3"/>
+            <line x1="12" y1="2" x2="12" y2="5"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="5" y2="12"/>
+            <line x1="19" y1="12" x2="22" y2="12"/>
           </svg>
         </div>
         <span class="brand-title">originless</span>
         <span class="brand-badge" id="net-badge">mesh</span>
       </div>
-
-      <nav class="header-nav">
-        <a href="#stats" class="nav-link">Overview</a>
-        <a href="#publish" class="nav-link">Publish</a>
-        <a href="#storage" class="nav-link">Storage</a>
-        <a href="#events" class="nav-link">Events</a>
-        <a href="#swarm" class="nav-link">Swarm</a>
-      </nav>
 
       <div class="header-status">
         <div class="status-pill" id="conn-pill" title="P2P Swarm & SSE Status">
@@ -836,73 +1067,168 @@ footer.app-footer {
 <main class="app-content">
   <div class="container">
 
-    <!-- Section 1: Telemetry Overview -->
-    <section id="stats" style="margin-bottom: 28px;">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-top">
-            <span class="stat-label">Events</span>
-            <span class="stat-badge" id="stat-sse-badge">Live</span>
+    <!-- Section 1: SPELLS ORIGINLESS & DYNAMIC SVG NODE VITALS STUDIO -->
+    <section class="spells-section">
+      <div class="spells-header">
+        <div class="spells-heading-group">
+          <span class="spells-word">O R I G I N L E S S</span>
+          <span class="spells-sub">Decentralized Runtime & Node Telemetry</span>
+        </div>
+        <div class="spells-badge">
+          <span class="pulse-dot"></span>
+          <span>Live Telemetry</span>
+        </div>
+      </div>
+
+      <!-- 10 Tiles Spelling ORIGINLESS with Node Vitals -->
+      <div class="letter-grid">
+        <div class="letter-cell letter-c1" title="Operations & Node Uptime">
+          <span class="letter-char">O</span>
+          <span class="letter-value" id="letter-val-o">-</span>
+          <span class="letter-title">Uptime</span>
+        </div>
+        <div class="letter-cell letter-c2" title="RAM Allocation in Memory">
+          <span class="letter-char">R</span>
+          <span class="letter-value" id="letter-val-r">-</span>
+          <span class="letter-title">RAM Alloc</span>
+        </div>
+        <div class="letter-cell letter-c3" title="Inbound Traffic Requests">
+          <span class="letter-char">I</span>
+          <span class="letter-value" id="letter-val-i1">-</span>
+          <span class="letter-title">Inbound</span>
+        </div>
+        <div class="letter-cell letter-c4" title="Active Goroutines Workers">
+          <span class="letter-char">G</span>
+          <span class="letter-value" id="letter-val-g">-</span>
+          <span class="letter-title">Goroutines</span>
+        </div>
+        <div class="letter-cell letter-c5" title="Identity Ed25519 Peer ID">
+          <span class="letter-char">I</span>
+          <span class="letter-value" id="letter-val-i2">-</span>
+          <span class="letter-title">Identity</span>
+        </div>
+        <div class="letter-cell letter-c6" title="Network Swarm Peers">
+          <span class="letter-char">N</span>
+          <span class="letter-value" id="letter-val-n">-</span>
+          <span class="letter-title">Network</span>
+        </div>
+        <div class="letter-cell letter-c7" title="Live SSE Streaming Subscribers">
+          <span class="letter-char">L</span>
+          <span class="letter-value" id="letter-val-l">-</span>
+          <span class="letter-title">Live SSE</span>
+        </div>
+        <div class="letter-cell letter-c8" title="Events Stored in Database">
+          <span class="letter-char">E</span>
+          <span class="letter-value" id="letter-val-e">-</span>
+          <span class="letter-title">Events</span>
+        </div>
+        <div class="letter-cell letter-c9" title="Storage Blobs on Disk">
+          <span class="letter-char">S</span>
+          <span class="letter-value" id="letter-val-s1">-</span>
+          <span class="letter-title">Storage</span>
+        </div>
+        <div class="letter-cell letter-c10" title="System CPU Architecture">
+          <span class="letter-char">S</span>
+          <span class="letter-value" id="letter-val-s2">-</span>
+          <span class="letter-title">System</span>
+        </div>
+      </div>
+
+      <!-- Modern SVG Graphics Telemetry Grid (Generated from /status) -->
+      <div class="svg-telemetry-grid">
+        <!-- SVG Card 1: Memory Donut Gauge -->
+        <div class="svg-telemetry-card">
+          <div class="svg-card-head">
+            <span class="svg-card-title">Memory Allocation Gauge</span>
+            <span class="svg-card-badge" id="svg-mem-pct">0%</span>
           </div>
-          <div class="stat-value" id="stat-events">0</div>
-          <div class="stat-sub" id="stat-events-sub">0 SSE subscribers</div>
+          <div class="svg-wrap" id="svg-mem-container">
+            <!-- Dynamically generated SVG Donut -->
+          </div>
+          <div class="svg-card-footer">
+            <div>Alloc: <strong id="svg-mem-alloc">0 MB</strong></div>
+            <div>Sys: <strong id="svg-mem-sys">0 MB</strong></div>
+            <div>GC: <strong id="svg-mem-gc">0 runs</strong></div>
+          </div>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-top">
-            <span class="stat-label">Storage</span>
-            <span class="stat-badge" id="stat-storage-badge">Disk</span>
+        <!-- SVG Card 2: P2P Swarm Constellation Mesh -->
+        <div class="svg-telemetry-card">
+          <div class="svg-card-head">
+            <span class="svg-card-title">P2P Swarm Constellation</span>
+            <span class="svg-card-badge" id="svg-peers-badge">0 / 8 peers</span>
           </div>
-          <div class="stat-value" id="stat-storage-size">0 B</div>
-          <div class="stat-sub" id="stat-storage-sub">0 blobs (0 B DB)</div>
+          <div class="svg-wrap" id="svg-swarm-container">
+            <!-- Dynamically generated SVG Mesh -->
+          </div>
+          <div class="svg-card-footer">
+            <div>NAT: <strong id="svg-swarm-nat">unknown</strong></div>
+            <div>Net: <strong id="svg-swarm-net">originless</strong></div>
+            <div>Port: <strong>3232</strong></div>
+          </div>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-top">
-            <span class="stat-label">P2P Swarm</span>
-            <span class="stat-badge" id="stat-nat-badge">NAT</span>
+        <!-- SVG Card 3: Storage Distribution & Runtime Activity -->
+        <div class="svg-telemetry-card">
+          <div class="svg-card-head">
+            <span class="svg-card-title">Storage & Runtime Waves</span>
+            <span class="svg-card-badge" id="svg-storage-total">0 B</span>
           </div>
-          <div class="stat-value" id="stat-peers">0 peers</div>
-          <div class="stat-sub" id="stat-net-sub">network: originless</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-top">
-            <span class="stat-label">Node Vitals</span>
-            <span class="stat-badge" id="stat-ver-badge">v0.1</span>
+          <div class="svg-wrap" id="svg-storage-container">
+            <!-- Dynamically generated Stack Bar & Sparkline -->
           </div>
-          <div class="stat-value" id="stat-ram">0 MB</div>
-          <div class="stat-sub" id="stat-uptime-sub">uptime: 0s</div>
+          <div class="svg-card-footer">
+            <div>Blobs: <strong id="svg-storage-blobs">0 B</strong></div>
+            <div>DB: <strong id="svg-storage-db">0 B</strong></div>
+            <div>Threads: <strong id="svg-goroutines-count">0</strong></div>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Section 2: Two-Column Operational Split (Sign & Publish + Blob Vault) -->
-    <section style="margin-bottom: 28px;">
-      <div class="two-col-grid">
-
-        <!-- Column Left: In-Browser Cryptographic Signer & Publisher -->
-        <div class="panel-card" id="publish">
-          <div class="panel-head">
-            <span class="panel-head-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Sign & Publish Event
-            </span>
-            <button class="btn btn-outline btn-sm" id="btn-new-key" title="Generate New Ed25519 Keypair">New Key</button>
+    <!-- Section 2: COMBINED PUBLISH & BLOB STORAGE UNIFIED PANEL -->
+    <section id="publish-storage" style="margin-bottom: 24px;">
+      <div class="combined-panel">
+        <div class="panel-head">
+          <div class="panel-head-brand">
+            <div class="panel-head-icon" style="background: var(--blue-50); color: var(--blue-600); border: 1px solid var(--blue-border);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </div>
+            <div>
+              <div class="panel-head-title">Publish Record & Blob Storage</div>
+              <div class="panel-head-sub">Sign immutable records with Ed25519 & manage content-addressed blobs</div>
+            </div>
           </div>
-          <div class="panel-body">
-            <div class="key-box">
-              <div class="key-info">
-                <span class="key-label">Signer</span>
-                <span class="key-value" id="pub-owner-display">generating key...</span>
+
+          <!-- Signer Key Info with Copy & Regenerate -->
+          <div class="key-box">
+            <div class="key-info">
+              <span class="key-status-dot"></span>
+              <span class="key-label">Signer</span>
+              <span class="key-value" id="pub-owner-display">generating key...</span>
+            </div>
+            <button class="btn btn-outline btn-xs" id="btn-copy-owner">Copy</button>
+            <button class="btn btn-outline btn-xs" id="btn-new-key">New Key</button>
+          </div>
+        </div>
+
+        <div class="combined-content">
+
+          <!-- Left Column: The Event Publisher & Attachment -->
+          <div class="combined-col form-col">
+            <div class="col-heading">
+              <span class="col-title">Create Signed Event</span>
+              <div class="collection-chips">
+                <span class="quick-chip active" id="chip-notes">notes</span>
+                <span class="quick-chip" id="chip-blobs">blobs</span>
+                <span class="quick-chip" id="chip-telemetry">telemetry</span>
               </div>
-              <button class="btn btn-outline btn-sm" id="btn-copy-owner" style="padding: 2px 7px; font-size: 11px;">Copy</button>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label" for="pub-col">Collection</label>
-                <input type="text" class="input-text" id="pub-col" value="notes" placeholder="e.g. notes, telemetry">
+                <input type="text" class="input-text" id="pub-col" value="notes" placeholder="e.g. notes">
               </div>
               <div class="form-group">
                 <label class="form-label" for="pub-labels">Labels <span class="form-label-desc">(CSV)</span></label>
@@ -911,45 +1237,62 @@ footer.app-footer {
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="pub-data">JSON Payload</label>
+              <div class="form-label">
+                <span>JSON Payload</span>
+                <span id="btn-format-json" style="cursor: pointer; font-size: 11px; color: var(--blue-600); font-weight: 500;">Format JSON</span>
+              </div>
               <textarea class="input-textarea" id="pub-data" rows="4">{"message": "Hello from Originless control panel", "timestamp": 1727050000}</textarea>
             </div>
 
+            <!-- Integrated File Dropzone / Attachment -->
             <div class="form-group">
-              <label class="form-label" for="pub-file">Attach Blob File <span class="form-label-desc">(optional)</span></label>
-              <input type="file" id="pub-file" style="font-size: 12px; color: var(--text-muted);">
+              <div class="form-label">
+                <span>Attach Blob File</span>
+                <span class="form-label-desc" id="file-status-desc">Optional binary attachment</span>
+              </div>
+              <div class="dropzone-compact" id="pub-dropzone">
+                <input type="file" id="pub-file" style="display: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div id="dropzone-label" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <span class="dropzone-action">Click or drop file</span> to attach blob
+                </div>
+                <button class="btn btn-outline btn-xs" id="btn-remove-file" style="display: none; margin-left: auto;">Remove</button>
+              </div>
             </div>
 
             <button class="btn btn-primary" id="btn-publish-submit">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              Sign with Ed25519 & Publish
+              <span>Sign with Ed25519 & Publish</span>
             </button>
           </div>
-        </div>
 
-        <!-- Column Right: Blob Storage Vault & Upload -->
-        <div class="panel-card" id="storage">
-          <div class="panel-head">
-            <span class="panel-head-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-              Blob Vault & Upload
-            </span>
-            <button class="btn btn-outline btn-sm" id="btn-refresh-blobs">Refresh</button>
-          </div>
-          <div class="panel-body">
-            <div class="dropzone" id="blob-dropzone">
-              <input type="file" id="blob-file-input" style="display: none;">
-              <svg class="dropzone-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <div class="dropzone-title">Drag & drop a file here, or click to upload</div>
-              <div class="dropzone-sub">Raw binary is signed & stored by SHA-256 content address</div>
+          <!-- Right Column: Stored Blobs Vault & Standalone Quick Storer -->
+          <div class="combined-col storage-col">
+            <div class="col-heading">
+              <div>
+                <span class="col-title">Blob Vault</span>
+                <span class="badge-count" id="blobs-count-badge">0 stored</span>
+              </div>
+              <button class="btn btn-outline btn-xs" id="btn-refresh-blobs">Refresh</button>
             </div>
 
-            <div class="form-label" style="margin-top: 4px;">Recent Blobs on Node</div>
+            <!-- Fast Standalone Blob Dropzone -->
+            <div class="dropzone-standalone" id="blob-dropzone" title="Drop file here to auto-sign & store directly as a blob">
+              <input type="file" id="blob-file-input" style="display: none;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">Quick Store Raw Blob</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Drop file to auto-hash (SHA-256) & upload directly</div>
+              </div>
+            </div>
+
+            <!-- Stored Blobs List -->
+            <div class="form-label" style="margin-top: 2px;">Stored Content on Node</div>
             <div class="blob-table-wrap">
               <table class="blob-table">
                 <thead>
                   <tr>
-                    <th>Hash (SHA-256)</th>
+                    <th>Content Hash (SHA-256)</th>
                     <th>Size</th>
                     <th style="text-align: right;">Action</th>
                   </tr>
@@ -960,17 +1303,17 @@ footer.app-footer {
               </table>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </section>
 
     <!-- Section 3: Live Events Explorer (Full Width Table) -->
-    <section id="events" style="margin-bottom: 28px;">
+    <section id="events" style="margin-bottom: 24px;">
       <div class="section-header">
         <div>
           <h2 class="section-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Events Explorer
           </h2>
           <div class="section-desc">Search, inspect, and verify immutable signed records</div>
@@ -1024,7 +1367,7 @@ footer.app-footer {
       <div class="section-header">
         <div>
           <h2 class="section-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             P2P Swarm & Node Inspector
           </h2>
           <div class="section-desc">Decentralized libp2p mesh routing, NAT status, and discovery</div>
@@ -1034,7 +1377,7 @@ footer.app-footer {
       <div class="swarm-panel">
         <div class="info-row">
           <span class="info-label">Peer ID</span>
-          <span class="info-value" id="swarm-peer-id" style="cursor: pointer;" title="Click to copy">Loading...</span>
+          <span class="info-value" id="swarm-peer-id" style="cursor: pointer; color: var(--blue-600);" title="Click to copy">Loading...</span>
         </div>
         <div class="info-row">
           <span class="info-label">Network ID</span>
@@ -1111,7 +1454,8 @@ const App = {
   events: [],
   blobs: [],
   streamActive: true,
-  eventSource: null
+  eventSource: null,
+  attachedFile: null
 };
 
 // Toast notification helper
@@ -1184,6 +1528,207 @@ $('btn-copy-owner').onclick = () => {
   }
 };
 
+// Collection quick chips
+function selectChip(name) {
+  $('pub-col').value = name;
+  document.querySelectorAll('.quick-chip').forEach(c => c.classList.remove('active'));
+  const activeChip = $('chip-' + name);
+  if (activeChip) activeChip.classList.add('active');
+}
+$('chip-notes').onclick = () => selectChip('notes');
+$('chip-blobs').onclick = () => selectChip('blobs');
+$('chip-telemetry').onclick = () => selectChip('telemetry');
+
+$('pub-col').oninput = function() {
+  document.querySelectorAll('.quick-chip').forEach(c => {
+    c.classList.toggle('active', c.textContent.trim() === this.value.trim());
+  });
+};
+
+// JSON format helper
+$('btn-format-json').onclick = function() {
+  try {
+    const val = JSON.parse($('pub-data').value);
+    $('pub-data').value = JSON.stringify(val, null, 2);
+    showToast('JSON formatted');
+  } catch (err) {
+    alert('Invalid JSON: ' + err.message);
+  }
+};
+
+// Integrated file dropzone in publish form
+const pubDropzone = $('pub-dropzone');
+const pubFileInput = $('pub-file');
+
+pubDropzone.onclick = (e) => {
+  if (e.target !== $('btn-remove-file')) pubFileInput.click();
+};
+pubDropzone.ondragover = (e) => { e.preventDefault(); pubDropzone.classList.add('dragover'); };
+pubDropzone.ondragleave = () => { pubDropzone.classList.remove('dragover'); };
+pubDropzone.ondrop = (e) => {
+  e.preventDefault();
+  pubDropzone.classList.remove('dragover');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    setAttachedFile(e.dataTransfer.files[0]);
+  }
+};
+pubFileInput.onchange = function() {
+  if (this.files && this.files[0]) setAttachedFile(this.files[0]);
+};
+
+function setAttachedFile(file) {
+  App.attachedFile = file;
+  pubDropzone.classList.add('has-file');
+  $('dropzone-label').innerHTML = `<strong>${file.name}</strong> (${formatBytes(file.size)})`;
+  $('btn-remove-file').style.display = 'inline-flex';
+  $('file-status-desc').textContent = 'Attached: ' + formatBytes(file.size);
+}
+
+$('btn-remove-file').onclick = (e) => {
+  e.stopPropagation();
+  App.attachedFile = null;
+  pubFileInput.value = '';
+  pubDropzone.classList.remove('has-file');
+  $('dropzone-label').innerHTML = `<span class="dropzone-action">Click or drop file</span> to attach blob`;
+  $('btn-remove-file').style.display = 'none';
+  $('file-status-desc').textContent = 'Optional binary attachment';
+};
+
+// Update Vitals Studio (Letters Spelling ORIGINLESS + Dynamic SVGs)
+function updateVitalsStudio(data) {
+  if (!data) return;
+
+  const p2p = data.p2p || {};
+  const vitals = data.vitals || {};
+  const storage = data.storage || {};
+  const traffic = data.traffic || {};
+  const sse = data.sse || {};
+  const events = data.events || {};
+
+  // 1. Update the 10 Letters Spelling ORIGINLESS
+  const elO = $('letter-val-o'); if (elO) elO.textContent = data.uptime || '0s';
+  const elR = $('letter-val-r'); if (elR) elR.textContent = vitals.alloc_str || '0 MB';
+  const elI1 = $('letter-val-i1'); if (elI1) elI1.textContent = (traffic.total_requests || 0) + ' req';
+  const elG = $('letter-val-g'); if (elG) elG.textContent = (vitals.goroutines || 0).toLocaleString();
+  const elI2 = $('letter-val-i2'); if (elI2) elI2.textContent = truncate(p2p.peer_id || 'unknown', 8);
+  const elN = $('letter-val-n'); if (elN) elN.textContent = `${p2p.peers_connected || 0}/${p2p.max_peers || 8}`;
+  const elL = $('letter-val-l'); if (elL) elL.textContent = `${sse.clients || 0} live`;
+  const elE = $('letter-val-e'); if (elE) elE.textContent = (events.count || 0).toLocaleString();
+  const elS1 = $('letter-val-s1'); if (elS1) elS1.textContent = storage.total_size_str || '0 B';
+  const elS2 = $('letter-val-s2'); if (elS2) elS2.textContent = `${vitals.num_cpu || 1} CPU`;
+
+  // 2. Render SVG 1: Memory Donut Gauge
+  const allocBytes = vitals.alloc_bytes || 0;
+  const sysBytes = vitals.sys_bytes || (allocBytes > 0 ? allocBytes * 1.5 : 1);
+  const memPct = Math.min(100, Math.round((allocBytes / sysBytes) * 100)) || 15;
+  const circ = 2 * Math.PI * 38; // ~238.76
+  const offset = circ - (memPct / 100) * circ;
+
+  $('svg-mem-pct').textContent = memPct + '%';
+  $('svg-mem-alloc').textContent = vitals.alloc_str || '0 MB';
+  $('svg-mem-sys').textContent = vitals.sys_str || '0 MB';
+  $('svg-mem-gc').textContent = (vitals.gc_cycles || 0) + ' runs';
+
+  $('svg-mem-container').innerHTML = `
+    <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
+      <defs>
+        <linearGradient id="memGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#2563eb"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
+        </linearGradient>
+      </defs>
+      <circle cx="80" cy="65" r="38" fill="none" stroke="#f1f5f9" stroke-width="10"/>
+      <circle cx="80" cy="65" r="38" fill="none" stroke="url(#memGrad)" stroke-width="10"
+        stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+        transform="rotate(-90 80 65)" style="transition: stroke-dashoffset 0.6s ease;"/>
+      <text x="80" y="62" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a" font-family="Inter, sans-serif">${memPct}%</text>
+      <text x="80" y="78" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" font-family="Inter, sans-serif">ALLOCATED</text>
+      <text x="80" y="118" text-anchor="middle" font-size="10" font-weight="500" fill="#94a3b8" font-family="JetBrains Mono, monospace">${vitals.os || 'linux'}/${vitals.arch || 'amd64'}</text>
+    </svg>
+  `;
+
+  // 3. Render SVG 2: P2P Swarm Constellation Mesh
+  const peersConnected = p2p.peers_connected || 0;
+  const maxPeers = p2p.max_peers || 8;
+  $('svg-peers-badge').textContent = `${peersConnected} / ${maxPeers} peers`;
+  $('svg-swarm-nat').textContent = p2p.nat || 'unknown';
+  $('svg-swarm-net').textContent = p2p.network_id || 'originless';
+
+  let peerNodesSvg = '';
+  const cx = 80, cy = 65, radius = 42;
+  for (let i = 0; i < maxPeers; i++) {
+    const angle = (2 * Math.PI / maxPeers) * i - Math.PI / 2;
+    const px = cx + radius * Math.cos(angle);
+    const py = cy + radius * Math.sin(angle);
+    const isActive = i < peersConnected;
+    if (isActive) {
+      peerNodesSvg += `
+        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#10b981" stroke-width="1.8" stroke-dasharray="3,2"/>
+        <circle cx="${px}" cy="${py}" r="6" fill="#10b981" stroke="#ecfdf5" stroke-width="2"/>
+        <circle cx="${px}" cy="${py}" r="10" fill="none" stroke="#10b981" stroke-opacity="0.3" stroke-width="1.5"/>
+      `;
+    } else {
+      peerNodesSvg += `
+        <line x1="${cx}" y1="${cy}" x2="${px}" y2="${py}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,2"/>
+        <circle cx="${px}" cy="${py}" r="4" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+      `;
+    }
+  }
+
+  $('svg-swarm-container').innerHTML = `
+    <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
+      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#f1f5f9" stroke-width="1.5" stroke-dasharray="4,4"/>
+      ${peerNodesSvg}
+      <circle cx="${cx}" cy="${cy}" r="14" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+      <circle cx="${cx}" cy="${cy}" r="5" fill="#2563eb"/>
+      <text x="80" y="122" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" font-family="Inter, sans-serif">PORT 3232 (TCP/QUIC)</text>
+    </svg>
+  `;
+
+  // 4. Render SVG 3: Storage & Runtime Waves
+  const blobSize = storage.blob_size || 0;
+  const dbSize = storage.db_size || 0;
+  const totalSt = (blobSize + dbSize) || 1;
+  const blobPct = Math.round((blobSize / totalSt) * 100);
+  const dbPct = 100 - blobPct;
+  const barWidth = 140;
+  const blobWidth = Math.max(8, Math.round((blobPct / 100) * barWidth));
+  const dbWidth = barWidth - blobWidth;
+
+  $('svg-storage-total').textContent = storage.total_size_str || '0 B';
+  $('svg-storage-blobs').textContent = storage.blob_size_str || '0 B';
+  $('svg-storage-db').textContent = storage.db_size_str || '0 B';
+  $('svg-goroutines-count').textContent = (vitals.goroutines || 0).toString();
+
+  $('svg-storage-container').innerHTML = `
+    <svg viewBox="0 0 160 130" width="100%" height="130" style="display: block; margin: 0 auto;">
+      <defs>
+        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <!-- Stacked Storage Bar -->
+      <text x="10" y="20" font-size="11" font-weight="600" fill="#0f172a" font-family="Inter, sans-serif">Storage Distribution</text>
+      <rect x="10" y="28" width="${barWidth}" height="14" rx="4" fill="#f1f5f9"/>
+      <rect x="10" y="28" width="${blobWidth}" height="14" rx="4" fill="#7c3aed"/>
+      <rect x="${10 + blobWidth}" y="28" width="${dbWidth}" height="14" rx="4" fill="#0284c7"/>
+      
+      <!-- Legend -->
+      <circle cx="14" cy="54" r="3.5" fill="#7c3aed"/>
+      <text x="22" y="57" font-size="10" fill="#64748b" font-family="Inter, sans-serif">Blobs (${blobPct}%)</text>
+      <circle cx="85" cy="54" r="3.5" fill="#0284c7"/>
+      <text x="93" y="57" font-size="10" fill="#64748b" font-family="Inter, sans-serif">SQLite DB (${dbPct}%)</text>
+
+      <!-- Goroutines & Traffic Wave Sparkline -->
+      <path d="M 10 105 Q 35 85, 60 98 T 110 90 T 150 100 L 150 120 L 10 120 Z" fill="url(#waveGrad)"/>
+      <path d="M 10 105 Q 35 85, 60 98 T 110 90 T 150 100" fill="none" stroke="#2563eb" stroke-width="2"/>
+      <text x="10" y="80" font-size="10" font-weight="600" fill="#0f172a" font-family="Inter, sans-serif">Runtime Workers</text>
+      <text x="150" y="80" text-anchor="end" font-size="10" font-family="JetBrains Mono, monospace" fill="#2563eb">${vitals.goroutines || 0} active</text>
+    </svg>
+  `;
+}
+
 // Fetch Node Status
 async function fetchStatus() {
   try {
@@ -1191,23 +1736,11 @@ async function fetchStatus() {
     if (!res.ok) throw new Error('Status returned ' + res.status);
     const data = await res.json();
 
-    // Stats
-    $('stat-events').textContent = (data.events?.count || 0).toLocaleString();
-    $('stat-events-sub').textContent = (data.sse?.clients || 0) + ' SSE subscribers';
-    
-    $('stat-storage-size').textContent = data.storage?.total_size_str || formatBytes(data.storage?.total_size || 0);
-    $('stat-storage-sub').textContent = `${data.storage?.blob_count || 0} blobs (${data.storage?.db_size_str || '0 B'} DB)`;
-    
-    const peers = data.p2p?.peers_connected || 0;
-    $('stat-peers').textContent = peers + (peers === 1 ? ' peer' : ' peers');
-    $('stat-net-sub').textContent = 'network: ' + (data.p2p?.network_id || 'originless');
-    $('stat-nat-badge').textContent = data.p2p?.nat || 'NAT';
-    
-    $('stat-ram').textContent = data.vitals?.alloc_str || '0 MB';
-    $('stat-uptime-sub').textContent = 'uptime: ' + (data.uptime || '0s');
-    $('stat-ver-badge').textContent = data.version || 'v0.1';
+    // Update Vitals Studio (Letters + SVGs)
+    updateVitalsStudio(data);
 
     // Header pill
+    const peers = data.p2p?.peers_connected || 0;
     $('conn-text').textContent = `${peers} peers connected`;
     $('status-dot').className = 'status-indicator online';
     $('net-badge').textContent = data.p2p?.network_id || 'mesh';
@@ -1276,8 +1809,8 @@ function renderEventsTable(events) {
     const idTrunc = truncate(ev.id, 14);
     const colChip = `<span class="chip chip-col">${ev.collection || 'default'}</span>`;
     const payloadPreview = truncate(JSON.stringify(ev.data || {}), 45);
-    const blobChip = ev.blob ? `<a href="/blobs/${ev.blob}" target="_blank" class="chip chip-blob" onclick="event.stopPropagation();" title="Download blob">blob:${truncate(ev.blob, 10)}</a>` : '<span class="text-subtle" style="color: #9ca3af;">—</span>';
-    const labelsList = (ev.labels || []).map(l => `<span class="chip">${l}</span>`).join(' ') || '<span style="color: #9ca3af;">—</span>';
+    const blobChip = ev.blob ? `<a href="/blobs/${ev.blob}" target="_blank" class="chip chip-blob" onclick="event.stopPropagation();" title="Download blob">blob:${truncate(ev.blob, 10)}</a>` : '<span style="color: #94a3b8;">—</span>';
+    const labelsList = (ev.labels || []).map(l => `<span class="chip">${l}</span>`).join(' ') || '<span style="color: #94a3b8;">—</span>';
     const dateStr = formatDate(ev.created_at);
 
     return `
@@ -1315,6 +1848,8 @@ async function loadBlobs() {
     const data = await res.json();
     const blobs = (data.events || []).filter(e => e.blob);
 
+    $('blobs-count-badge').textContent = `${blobs.length} stored`;
+
     const tbody = $('blob-table-body');
     if (blobs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="3" class="empty-box">No blobs uploaded yet</td></tr>`;
@@ -1328,12 +1863,12 @@ async function loadBlobs() {
       return `
         <tr>
           <td>
-            <a href="/blobs/${bHash}" target="_blank" class="hash-link" title="${bHash}">${truncate(bHash, 16)}</a>
+            <a href="/blobs/${bHash}" target="_blank" class="hash-link" title="${bHash}">${truncate(bHash, 14)}</a>
             <div style="font-size: 11px; color: var(--text-muted);">${name}</div>
           </td>
           <td style="font-family: var(--font-mono); font-size: 11px;">${sizeStr}</td>
           <td style="text-align: right;">
-            <a href="/blobs/${bHash}" target="_blank" download class="btn btn-outline btn-sm" style="padding: 2px 7px; font-size: 11px;">Download</a>
+            <a href="/blobs/${bHash}" target="_blank" download class="btn btn-outline btn-xs" style="padding: 2px 7px; font-size: 11px;">Download</a>
           </td>
         </tr>
       `;
@@ -1370,11 +1905,9 @@ $('btn-publish-submit').onclick = async function() {
     const labels = $('pub-labels').value.split(',').map(s => s.trim()).filter(Boolean);
     const labelsCsv = labels.join(',');
 
-    const fileInput = $('pub-file');
     let blobHash = '';
-    let fileBlob = null;
-    if (fileInput.files && fileInput.files[0]) {
-      fileBlob = fileInput.files[0];
+    const fileBlob = App.attachedFile;
+    if (fileBlob) {
       const arrayBuf = await fileBlob.arrayBuffer();
       const hashBuf = await window.crypto.subtle.digest("SHA-256", arrayBuf);
       blobHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1425,6 +1958,12 @@ $('btn-publish-submit').onclick = async function() {
     const pubRes = await res.json();
     if (res.ok && pubRes.status === 'success') {
       showToast('Event signed & published successfully!');
+      
+      // Reset attached file
+      if (App.attachedFile) {
+        $('btn-remove-file').click();
+      }
+
       loadEvents();
       fetchStatus();
       if (blobHash) loadBlobs();
@@ -1435,18 +1974,18 @@ $('btn-publish-submit').onclick = async function() {
     alert('Signing error: ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Sign with Ed25519 & Publish`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span>Sign with Ed25519 & Publish</span>`;
   }
 };
 
-// Drag and drop blob upload
-const dropzone = $('blob-dropzone');
-dropzone.onclick = () => $('blob-file-input').click();
-dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
-dropzone.ondragleave = () => { dropzone.classList.remove('dragover'); };
-dropzone.ondrop = (e) => {
+// Fast standalone drag-and-drop blob storer
+const blobDropzone = $('blob-dropzone');
+blobDropzone.onclick = () => $('blob-file-input').click();
+blobDropzone.ondragover = (e) => { e.preventDefault(); blobDropzone.classList.add('dragover'); };
+blobDropzone.ondragleave = () => { blobDropzone.classList.remove('dragover'); };
+blobDropzone.ondrop = (e) => {
   e.preventDefault();
-  dropzone.classList.remove('dragover');
+  blobDropzone.classList.remove('dragover');
   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
     uploadBlob(e.dataTransfer.files[0]);
   }
@@ -1456,7 +1995,7 @@ $('blob-file-input').onchange = function() {
 };
 
 async function uploadBlob(file) {
-  showToast('Signing & uploading ' + file.name + '...');
+  showToast('Signing & storing ' + file.name + '...');
   try {
     const key = await ensureKeypair();
     const pubRaw = await window.crypto.subtle.exportKey("raw", key.publicKey);
@@ -1517,7 +2056,6 @@ function initStream() {
       if (!App.streamActive) return;
       try {
         const ev = JSON.parse(e.data);
-        // Prepend to current events if not duplicate
         if (!App.events.some(x => x.id === ev.id)) {
           App.events.unshift(ev);
           renderEventsTable(App.events);
