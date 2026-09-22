@@ -48,6 +48,12 @@ Multiplayer real-time soundboard with synthesized Web Audio effects.
 - Triggering a pad broadcasts a signed event to the room via Originless.
 - Sub-100ms synchronized audio playback across all open browser tabs and devices over SSE.
 
+### 6. [Global Music Lounge (`music-lounge.html`)](./music-lounge.html)
+Decentralized music sharing jukebox with interactive YouTube embeds.
+- Paste YouTube or YouTube Music links to broadcast playable video embeds.
+- Global room plus dedicated regional rooms for the **top 20 most populated countries** (India, China, USA, Indonesia, Pakistan, Nigeria, Brazil, etc.).
+- Live real-time track drops and interactive player synced across peers over SSE.
+
 ---
 
 ## Live Demo & Local Testing
