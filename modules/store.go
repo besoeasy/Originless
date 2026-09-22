@@ -105,6 +105,12 @@ func migrate(db *sql.DB) error {
 			PRIMARY KEY (record_id, label)
 		);
 		CREATE INDEX IF NOT EXISTS idx_record_labels_label ON record_labels(label);
+		CREATE TABLE IF NOT EXISTS record_blobs (
+			record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+			blob_hash TEXT NOT NULL,
+			PRIMARY KEY (record_id, blob_hash)
+		);
+		CREATE INDEX IF NOT EXISTS idx_record_blobs_blob ON record_blobs(blob_hash);
 		CREATE TABLE IF NOT EXISTS blobs (
 			hash         TEXT PRIMARY KEY,
 			size         INTEGER NOT NULL,
@@ -115,7 +121,50 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_blobs_last_access ON blobs(last_access);
 		CREATE INDEX IF NOT EXISTS idx_blobs_created ON blobs(created_at);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Backfill record_blobs for rows written before the link table existed
+	// (or ingested by older peers still carrying "_blob"). The janitor
+	// protects blobs via this table, so a stale gap would dangle events.
+	return backfillRecordBlobs(db)
+}
+
+// backfillRecordBlobs populates record_blobs from stored record data for any
+// row missing a linkage entry. Data is scanned once and links are inserted
+// for both the current "bin" key and the legacy "_blob" key.
+func backfillRecordBlobs(db *sql.DB) error {
+	rows, err := db.Query(`SELECT id, data FROM records`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var missing []struct{ id, hash string }
+	for rows.Next() {
+		var id, dataStr string
+		if err := rows.Scan(&id, &dataStr); err != nil {
+			return err
+		}
+		for _, key := range []string{"bin", "_blob"} {
+			h, err := blobHashFromObject([]byte(dataStr), key)
+			if err != nil || h == "" {
+				continue
+			}
+			var exists int
+			if err := db.QueryRow(`SELECT 1 FROM record_blobs WHERE record_id = ? AND blob_hash = ?`, id, h).Scan(&exists); err == sql.ErrNoRows {
+				missing = append(missing, struct{ id, hash string }{id, h})
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, m := range missing {
+		if _, err := db.Exec(`INSERT OR IGNORE INTO record_blobs (record_id, blob_hash) VALUES (?, ?)`, m.id, m.hash); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // InsertRecord stores a verified record + labels. Duplicate IDs are idempotent:
@@ -148,6 +197,14 @@ func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err erro
 	defer stmt.Close()
 	for _, l := range r.Labels {
 		if _, err := stmt.Exec(r.ID, l); err != nil {
+			return false, "", err
+		}
+	}
+	// Record the blob linkage (if any). The janitor protects blobs via
+	// this table, so it must be written inside the same transaction as
+	// the record that claims it.
+	if h, err := RecordBlobHash(r.Data); err == nil && h != "" {
+		if _, err := tx.Exec(`INSERT OR IGNORE INTO record_blobs (record_id, blob_hash) VALUES (?, ?)`, r.ID, h); err != nil {
 			return false, "", err
 		}
 	}
@@ -342,8 +399,8 @@ func scanRecord(row *sql.Row) (*Record, error) {
 }
 
 // BlobMeta tracks a content-addressed .bin blob for LRU accounting.
-// RetentionSecs/RetainedUntil/Protected are computed from the
-// size-weighted retention policy (see retention.go), not stored.
+// RetentionSecs/RetainedUntil/Protected are computed from the blob's
+// referencing records (or orphan grace when unreferenced), not stored.
 type BlobMeta struct {
 	Hash          string    `json:"hash"`
 	Size          int64     `json:"size"`
@@ -355,14 +412,36 @@ type BlobMeta struct {
 	Protected     bool      `json:"protected"`
 }
 
-// fillBlobRetention populates the computed retention fields of m as of now.
-func fillBlobRetention(m *BlobMeta, now time.Time) {
+// orphanGrace maps BlobOrphanGraceDays to a duration once.
+var orphanGrace = time.Duration(BlobOrphanGraceDays) * 24 * time.Hour
+
+// fillBlobLifecycle populates the computed lifecycle fields of m as of now.
+// deadlineUnix is the latest expires_at of a live referencing record (0 when
+// the blob is an orphan). A blob is protected while referenced by a live
+// record or until orphan grace elapses since upload.
+func fillBlobLifecycle(m *BlobMeta, now time.Time, deadlineUnix int64) {
 	if m == nil {
 		return
 	}
-	m.RetentionSecs = int64(BlobRetentionForSize(m.Size) / time.Second)
-	m.RetainedUntil = BlobRetainedUntil(m.CreatedAt, m.Size)
-	m.Protected = now.Before(m.RetainedUntil)
+	var retained time.Time
+	if deadlineUnix > 0 {
+		refDeadline := time.Unix(deadlineUnix, 0)
+		orphanUntil := m.CreatedAt.Add(orphanGrace)
+		if refDeadline.After(orphanUntil) {
+			retained = refDeadline
+		} else {
+			retained = orphanUntil
+		}
+	} else {
+		retained = m.CreatedAt.Add(orphanGrace)
+	}
+	m.RetainedUntil = retained
+	m.Protected = now.Before(retained)
+	if secs := int64(retained.Sub(now) / time.Second); secs > 0 {
+		m.RetentionSecs = secs
+	} else {
+		m.RetentionSecs = 0
+	}
 }
 
 // UpsertBlob inserts a new blob row or touches the existing one.
@@ -397,7 +476,11 @@ func (s *Store) GetBlob(hash string) (*BlobMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-	fillBlobRetention(&m, time.Now())
+	deadline, err := s.getBlobDeadline(m.Hash, time.Now().Unix())
+	if err != nil {
+		return nil, err
+	}
+	fillBlobLifecycle(&m, time.Now(), deadline)
 	return &m, nil
 }
 
@@ -485,26 +568,66 @@ func (s *Store) GetBlobsByLRU(limit, offset int) ([]BlobRow, error) {
 	return out, rows.Err()
 }
 
-// GetReferencedBlobHashes returns the set of blob hashes linked via
-// "_blob" from live (unexpired) records. The janitor exempts these from
-// eviction so a stored record never dangles off an evicted blob.
-func (s *Store) GetReferencedBlobHashes(nowUnix int64) (map[string]bool, error) {
-	rows, err := s.db.Query(`SELECT data FROM records WHERE expires_at > ?`, nowUnix)
+// GetReferencedBlobDeadlines returns blob_hash -> max(expires_at) across all
+// live (unexpired) records that reference it. The janitor uses this as the
+// single source of truth for blob protection: a blob survives while any live
+// record pins it. Indexed via record_blobs(blob_hash); no record.data scan.
+func (s *Store) GetReferencedBlobDeadlines(nowUnix int64) (map[string]int64, error) {
+	rows, err := s.db.Query(
+		`SELECT rb.blob_hash, MAX(r.expires_at)
+		   FROM record_blobs rb
+		   JOIN records r ON r.id = rb.record_id
+		  WHERE r.expires_at > ?
+		  GROUP BY rb.blob_hash`,
+		nowUnix,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := make(map[string]bool)
+	out := make(map[string]int64)
 	for rows.Next() {
-		var dataStr string
-		if err := rows.Scan(&dataStr); err != nil {
+		var h string
+		var deadline int64
+		if err := rows.Scan(&h, &deadline); err != nil {
 			return nil, err
 		}
-		if h, err := RecordBlobHash(json.RawMessage(dataStr)); err == nil && h != "" {
-			out[h] = true
-		}
+		out[h] = deadline
 	}
 	return out, rows.Err()
+}
+
+// GetReferencedBlobHashes returns the set of blob hashes referenced by at
+// least one live record. The janitor exempts these from eviction.
+func (s *Store) GetReferencedBlobHashes(nowUnix int64) (map[string]bool, error) {
+	deadlines, err := s.GetReferencedBlobDeadlines(nowUnix)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(deadlines))
+	for h := range deadlines {
+		out[h] = true
+	}
+	return out, nil
+}
+
+// getBlobDeadline returns the max referencing-record expiry for one hash, or 0
+// when no live record references it.
+func (s *Store) getBlobDeadline(hash string, nowUnix int64) (int64, error) {
+	var deadline sql.NullInt64
+	if err := s.db.QueryRow(
+		`SELECT MAX(r.expires_at)
+		   FROM record_blobs rb
+		   JOIN records r ON r.id = rb.record_id
+		  WHERE rb.blob_hash = ? AND r.expires_at > ?`,
+		hash, nowUnix,
+	).Scan(&deadline); err != nil {
+		return 0, err
+	}
+	if !deadline.Valid {
+		return 0, nil
+	}
+	return deadline.Int64, nil
 }
 
 // ListBlobHashes returns every tracked hash (for startup reconciliation).
@@ -557,12 +680,15 @@ func (s *Store) ListRecordIDs(unexpiredOnly bool) ([]string, error) {
 }
 
 // DeleteExpiredRecords removes records with expires_at <= nowUnix.
-// record_labels rows cascade via FK (PRAGMA foreign_keys=ON); a defensive
-// orphan cleanup runs first for DBs created before the pragma was set.
-// Returns the number of records removed.
+// record_labels/record_blobs rows cascade via FK (PRAGMA foreign_keys=ON);
+// a defensive orphan cleanup runs first for DBs created before the pragma
+// was set. Returns the number of records removed.
 func (s *Store) DeleteExpiredRecords(nowUnix int64) (int64, error) {
 	// Defensive: drop orphan labels left by pre-FK databases.
 	if _, err := s.db.Exec(`DELETE FROM record_labels WHERE record_id IN (SELECT record_id FROM record_labels LEFT JOIN records ON records.id = record_labels.record_id WHERE records.id IS NULL)`); err != nil {
+		return 0, err
+	}
+	if _, err := s.db.Exec(`DELETE FROM record_blobs WHERE record_id IN (SELECT record_id FROM record_blobs LEFT JOIN records ON records.id = record_blobs.record_id WHERE records.id IS NULL)`); err != nil {
 		return 0, err
 	}
 	res, err := s.db.Exec(`DELETE FROM records WHERE expires_at <= ?`, nowUnix)
@@ -594,14 +720,18 @@ func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []BlobMeta
 	now := time.Now()
+	deadlines, derr := s.GetReferencedBlobDeadlines(now.Unix())
+	if derr != nil {
+		return nil, derr
+	}
+	var out []BlobMeta
 	for rows.Next() {
 		var m BlobMeta
 		if err := rows.Scan(&m.Hash, &m.Size, &m.CreatedAt, &m.LastAccess, &m.AccessCount); err != nil {
 			return nil, err
 		}
-		fillBlobRetention(&m, now)
+		fillBlobLifecycle(&m, now, deadlines[m.Hash])
 		out = append(out, m)
 	}
 	if out == nil {

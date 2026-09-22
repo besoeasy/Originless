@@ -67,9 +67,11 @@ func (m *Manager) PurgeExpiredRecords(nowUnix int64) (int64, error) {
 	return m.store.DeleteExpiredRecords(nowUnix)
 }
 
-// EvictBlobs deletes blobs whose size-weighted retention has expired and
-// that are not linked via "_blob" from a live record. There is no total
-// storage quota: blobs persist until their retention window elapses.
+// EvictBlobs deletes orphan blobs whose grace period has elapsed.
+// A blob is an orphan when no live record references it via data.bin
+// (linked blobs live as long as their referencing record). Orphans are
+// evicted oldest-access-first; there is no total storage quota, so blobs
+// with live references are never evicted to make room.
 func (m *Manager) EvictBlobs() error {
 	if m == nil || m.store == nil {
 		return nil
@@ -82,10 +84,10 @@ func (m *Manager) EvictBlobs() error {
 	// the table so they must not advance the page cursor.
 	offset := 0
 	now := time.Now()
-	// Blobs linked via "_blob" from live records are exempt: evicting
-	// them would dangle a stored record. Fetched once per pass; a
-	// concurrent publish may reference a blob mid-pass, in which case it
-	// is picked up on the next janitor tick.
+	// Blobs referenced via data.bin by live records are exempt: evicting
+	// them would dangle a stored event. Computed once per pass via the
+	// record_blobs join; a concurrent publish may pin a blob mid-pass, in
+	// which case it is picked up on the next janitor tick.
 	referenced, err := m.store.GetReferencedBlobHashes(now.Unix())
 	if err != nil {
 		log.Printf("[janitor] failed to list referenced blobs (proceeding without exemptions): %v", err)
@@ -104,7 +106,7 @@ func (m *Manager) EvictBlobs() error {
 				protected++
 				continue
 			}
-			if !BlobRetentionExpired(b.CreatedAt, b.Size, now) {
+			if b.CreatedAt.Add(orphanGrace).After(now) {
 				offset++
 				protected++
 				continue
@@ -124,14 +126,14 @@ func (m *Manager) EvictBlobs() error {
 			}
 			freed += b.Size
 			evicted++
-			log.Printf("[janitor] evicted blob %s (%s, retention %s)", b.Hash, FormatBytes(b.Size), BlobRetentionForSize(b.Size))
+			log.Printf("[janitor] evicted orphan blob %s (%s, grace %s)", b.Hash, FormatBytes(b.Size), orphanGrace)
 		}
 		if scanned < pageSize {
 			break
 		}
 	}
 	if protected > 0 {
-		log.Printf("[janitor] %d blobs still protected (retention or live reference)", protected)
+		log.Printf("[janitor] %d blobs still protected (live reference or orphan grace)", protected)
 	}
 	if evicted > 0 {
 		log.Printf("[janitor] blob eviction done: evicted %d blobs, freed %s", evicted, FormatBytes(freed))

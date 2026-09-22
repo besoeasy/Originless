@@ -34,15 +34,6 @@ func EnsureBlobDir(dir string) error {
 	return os.MkdirAll(dir, 0o755)
 }
 
-// IsBinFile reports whether an uploaded filename qualifies for /up.
-func IsBinFile(name string) bool {
-	base := strings.ToLower(strings.TrimSpace(name))
-	if base == "" || base == "." {
-		return false
-	}
-	return strings.HasSuffix(base, ".bin")
-}
-
 // blockedContentTypes are sniffed MIME families /up refuses. The blob
 // store holds opaque bytes, so renderable or plainly textual payloads
 // (phishing HTML, images, PDFs, pasted text) are rejected even when

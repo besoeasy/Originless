@@ -22,19 +22,15 @@ var (
 	MaxSSESubscribers int
 )
 
-// Blob retention policy (size-weighted):
+// Blob lifecycle (reference-driven):
 //
-//	min_age  = 30 days  (applies at max_size)
-//	max_age  = 1 year   (applies at size 0)
-//	max_size = 512 MiB  (normalization point)
-//
-// retention(size) = min_age + (min_age - max_age) * (size/max_size - 1)^3
-// Small blobs are retained longest; the guarantee decays cubically to
-// min_age as the blob approaches max_size.
+// A blob is owned by the events that reference it via data.bin. It is
+// protected from eviction while at least one live (unexpired) event
+// references it; once no live event references it, it is an orphan and
+// survives at most BlobOrphanGraceDays counted from its upload before
+// the janitor evicts it. There is no size-weighted retention.
 const (
-	BlobMinAgeDays   = 30
-	BlobMaxAgeDays   = 365
-	BlobMaxSizeBytes = 512 * 1024 * 1024 // 512 MiB
+	BlobOrphanGraceDays = 7
 )
 
 func init() {

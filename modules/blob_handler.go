@@ -11,183 +11,94 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 )
 
-// Up stores a .bin upload as <sha256>.bin (content-addressed, deduped).
-// POST /up with multipart field "file" (filename must end in .bin).
-func (h *Handler) Up(w http.ResponseWriter, r *http.Request) {
-	select {
-	case h.semaphore <- struct{}{}:
-		defer func() { <-h.semaphore }()
-	default:
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"error": "Server busy", "status": "error",
-			"message":   "Too many concurrent uploads, try again later",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
-		return
-	}
+// errBlockedContent signals an upload whose head bytes sniffed as
+// renderable or textual content (mapped to 415 by the caller).
+type errBlockedContent struct{ detected string }
 
-	st := h.recordStore()
-	if st == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"status": "error", "error": "store unavailable",
-		})
-		return
-	}
-	if err := EnsureBlobDir(BlobDir); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"status": "error", "error": "blob storage unavailable",
-		})
-		return
-	}
+func (e *errBlockedContent) Error() string {
+	return "non-binary content rejected"
+}
 
-	reader, err := r.MultipartReader()
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"status": "error", "error": "expected multipart/form-data with field \"file\"",
-		})
-		return
-	}
+// errEmptyBlob signals an upload that contained zero bytes (mapped to 400).
+var errEmptyBlob = errors.New("empty file")
 
-	var partName string
-	var partReader io.Reader
-	var partCloser io.Closer
-	for {
-		part, err := reader.NextPart()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
-			return
-		}
-		if part.FormName() != "file" {
-			part.Close()
-			continue
-		}
-		partName = part.FileName()
-		partReader = part
-		partCloser = part
-		break
-	}
-	if partReader == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"status": "error", "error": "missing \"file\" part",
-		})
-		return
-	}
-	defer partCloser.Close()
-
-	if !IsBinFile(partName) {
-		if c, ok := partCloser.(interface{ Close() error }); ok {
-			_ = c
-		}
-		writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{
-			"status": "error", "error": "only .bin files accepted",
-		})
-		return
-	}
-
-	// Extension lies: renamed PNGs/HTML/text sail through IsBinFile, so
-	// sniff the head bytes and refuse renderable or textual payloads.
-	// (Empty bodies skip the sniff and hit the empty-file check below —
-	// DetectContentType reports "" as text/plain.)
+// stageBlobData streams opaque binary bytes to a temp file while hashing
+// them with SHA-256, applying the same abuse-immunity guard the old /up
+// used: renderable or textual payloads (text/*, image/*, application/pdf)
+// are refused even though there is no filename to trust. Returns the temp
+// path, byte count and hash; callers either commit via commitBlob or remove
+// the temp.
+func stageBlobData(dir string, r io.Reader) (tmpName string, size int64, h [32]byte, err error) {
+	// Sniff the head before trusting the bytes. Empty bodies skip the
+	// sniff (DetectContentType reports "" as text/plain) and fall through
+	// to the empty-file check.
 	var head [512]byte
-	headLen, _ := io.ReadFull(partReader, head[:])
+	headLen, _ := io.ReadFull(r, head[:])
 	headBytes := head[:headLen]
 	if len(headBytes) > 0 {
 		if ctype := http.DetectContentType(headBytes); isBlockedContentType(ctype) {
-			writeJSON(w, http.StatusUnsupportedMediaType, map[string]any{
-				"status": "error", "error": "non-binary content rejected", "detected": ctype,
-			})
-			return
+			return "", 0, [32]byte{}, &errBlockedContent{detected: ctype}
 		}
 	}
 
-	tmp, err := os.CreateTemp(BlobDir, "up-*")
+	tmp, err := os.CreateTemp(dir, "up-*")
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot stage upload"})
-		return
+		return "", 0, [32]byte{}, err
 	}
-	tmpName := tmp.Name()
-	defer func() {
+	tmpName = tmp.Name()
+	abort := func() {
 		tmp.Close()
-		// Best-effort cleanup: if rename succeeded the temp name is gone.
 		os.Remove(tmpName)
-	}()
-
+	}
 	hasher := sha256.New()
 	// Replays the sniffed head so no byte is lost or double-counted.
-	stream := io.MultiReader(bytes.NewReader(headBytes), partReader)
+	stream := io.MultiReader(bytes.NewReader(headBytes), r)
 	written, err := io.Copy(tmp, io.TeeReader(stream, hasher))
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
-		return
+		abort()
+		return "", 0, [32]byte{}, err
 	}
 	if written == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "empty file"})
-		return
+		abort()
+		return "", 0, [32]byte{}, errEmptyBlob
 	}
 	if err := tmp.Close(); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store upload"})
-		return
+		os.Remove(tmpName)
+		return "", 0, [32]byte{}, err
 	}
-
 	sum := hasher.Sum(nil)
-	hash := hex.EncodeToString(sum)
-	dest := BlobPath(BlobDir, hash)
+	var digest [32]byte
+	copy(digest[:], sum)
+	return tmpName, written, digest, nil
+}
 
-	duplicate := false
+// commitBlob atomically publishes a staged temp file under its content
+// address (<sha256>.bin) and upserts the accounting row. Identical bytes
+// already on disk collapse to a dedupe touch (duplicate=true).
+func commitBlob(dir string, st *Store, tmpName string, size int64, digest [32]byte) (duplicate bool, err error) {
+	hash := hex.EncodeToString(digest[:])
+	dest := BlobPath(dir, hash)
+	duplicate = false
 	if _, err := os.Stat(dest); err == nil {
+		os.Remove(tmpName)
 		duplicate = true
-		if _, err := st.UpsertBlob(hash, written); err != nil {
-			log.Printf("[blob] touch failed for %s: %v", hash, err)
-		}
-	} else {
-		// Atomic publish: temp (0600) -> dest (0644, hashed name is the address).
-		if err := os.Chmod(tmpName, 0o644); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store upload"})
-			return
-		}
-		if err := os.Rename(tmpName, dest); err != nil {
-			// Lost a rename race with an identical concurrent upload.
-			if _, statErr := os.Stat(dest); statErr == nil {
-				duplicate = true
-			} else {
-				writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store upload"})
-				return
-			}
-		}
-		if _, err := st.UpsertBlob(hash, written); err != nil {
-			log.Printf("[blob] db insert failed for %s: %v", hash, err)
+	} else if err := os.Chmod(tmpName, 0o644); err != nil {
+		return false, err
+	} else if err := os.Rename(tmpName, dest); err != nil {
+		// Lost a rename race with an identical concurrent upload.
+		if _, statErr := os.Stat(dest); statErr == nil {
+			os.Remove(tmpName)
+			duplicate = true
+		} else {
+			return false, err
 		}
 	}
-
-	h.metrics.IncUpload(written)
-	if h.p2p != nil {
-		h.p2p.BroadcastBlob(hash, written)
+	if _, err := st.UpsertBlob(hash, size); err != nil {
+		return false, err
 	}
-
-	// Best-effort cleanup of retention-expired blobs (never fails the upload itself).
-	if h.janitor != nil {
-		if err := h.janitor.EvictBlobs(); err != nil {
-			log.Printf("[blob] eviction error: %v", err)
-		}
-	}
-
-	status := http.StatusCreated
-	if duplicate {
-		status = http.StatusOK
-	}
-	writeJSON(w, status, map[string]any{
-		"status":    "success",
-		"hash":      hash,
-		"size":      written,
-		"url":       "/down/" + hash,
-		"duplicate": duplicate,
-	})
+	return duplicate, nil
 }
 
 // Down serves a stored blob by sha256.

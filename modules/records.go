@@ -184,25 +184,34 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 	}, nil
 }
 
-// RecordBlobHash extracts the optional "_blob" linkage from record data.
-// Returns "" when the record links no blob. A present-but-malformed value
-// is an error; callers check existence against the blob store.
+// RecordBlobHash extracts the optional blob linkage from record data.
+// The reserved root key "bin" holds a sha256 hex string: a signed event
+// pins a content-addressed blob by naming its hash. A present-but-
+// malformed value is an error (the server refuses to guess a hash that
+// was signed), so "bin" cannot be repurposed client-side.
 func RecordBlobHash(data json.RawMessage) (string, error) {
+	return blobHashFromObject([]byte(data), "bin")
+}
+
+// blobHashFromObject reads key from a JSON object and validates it as a
+// sha256 hex string. Returns "" for absent/null values; errors for malformed
+// ones. Non-object JSON yields "" with no error (shape is validated elsewhere).
+func blobHashFromObject(data []byte, key string) (string, error) {
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return "", nil // shape validated elsewhere; nothing to extract
 	}
-	raw, ok := obj["_blob"]
+	raw, ok := obj[key]
 	if !ok || string(bytes.TrimSpace(raw)) == "null" {
 		return "", nil
 	}
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
-		return "", fmt.Errorf("invalid _blob: must be a sha256 hex string")
+		return "", fmt.Errorf("invalid %s: must be a sha256 hex string", key)
 	}
 	h, err := NormalizeBlobHash(s)
 	if err != nil {
-		return "", fmt.Errorf("invalid _blob: %v", err)
+		return "", fmt.Errorf("invalid %s: %v", key, err)
 	}
 	return h, nil
 }
