@@ -69,11 +69,10 @@ func LoadConfig() Config {
 		return cfg
 	}
 
-	boot := strings.TrimSpace(os.Getenv("BOOTSTRAP_PEERS"))
-	if boot != "" {
+	// Built-in DHT bootstrap peers are hardcoded for zero-config discovery
+	cfg.BootstrapPeers = parseAddrInfos(strings.Join(DefaultBootstrapPeers, ","))
+	if boot := strings.TrimSpace(os.Getenv("BOOTSTRAP_PEERS")); boot != "" {
 		cfg.BootstrapPeers = parseAddrInfos(boot)
-	} else if netID == DefaultNetworkID {
-		cfg.BootstrapPeers = parseAddrInfos(strings.Join(DefaultBootstrapPeers, ","))
 	}
 
 	if announce := strings.TrimSpace(os.Getenv("ANNOUNCE_ADDRS")); announce != "" {

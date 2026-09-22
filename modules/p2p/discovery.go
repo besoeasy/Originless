@@ -9,7 +9,6 @@ import (
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/libp2p/go-libp2p/p2p/discovery/util"
@@ -50,9 +49,6 @@ func startMeshDiscovery(parent context.Context, h host.Host, networkID string, b
 		dhtOpts := []dht.Option{
 			dht.Mode(dht.ModeAuto),
 			dht.BootstrapPeers(bootstrap...),
-		}
-		if networkID != DefaultNetworkID {
-			dhtOpts = append(dhtOpts, dht.ProtocolPrefix(protocol.ID(DHTProtocolPrefix)))
 		}
 		kad, err := dht.New(h, dhtOpts...)
 		if err != nil {

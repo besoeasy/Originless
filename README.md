@@ -68,15 +68,13 @@ All environment variables are optional with zero-config defaults:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `NETWORK_ID` | `originless` | P2P swarm network ID. Nodes with matching IDs discover and sync with each other. Set to `off` (or `none`, `false`, `0`) to disable P2P sync entirely and run strictly offline. Set to a custom name (e.g. `my-project`) to create an isolated private swarm. |
-| `BOOTSTRAP_PEERS` | *(built-in DHT)* | Comma-separated list of libp2p multiaddrs (e.g. `/ip4/1.2.3.4/tcp/3232/ws/p2p/<peer-id>`) to bootstrap DHT routing and connect to specific seed peers. |
-| `ANNOUNCE_ADDRS` | *(auto-detected)* | Comma-separated list of multiaddrs to advertise to the DHT instead of auto-detected local IPs. Useful when running behind a reverse proxy, NAT port forward, or custom domain. |
+| `NETWORK_ID` | `originless` | P2P swarm network ID. Nodes with matching IDs discover and sync with each other automatically across the internet. Set to `off` (or `none`, `false`, `0`) to disable P2P sync and run strictly offline. Set to a custom name (e.g. `my-project`) to create a private sync swarm. |
 | `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent Server-Sent Events subscribers (`GET /events/stream`) before returning HTTP 503. Set to `0` or negative for unlimited. |
 
 ### Mesh Network Modes
 
 * **Public Mesh (Default)**: Zero configuration. By default, `NETWORK_ID` is `originless` — nodes automatically join the global libp2p Kad DHT via built-in bootstrap peers, rendezvous under `originless/originless`, punch holes across NATs, and relay through peers when needed.
-* **Private Mesh**: Add `-e NETWORK_ID=my-project` and `-e BOOTSTRAP_PEERS=<multiaddrs>` so isolated swarms can find each other.
+* **Custom Swarm**: Add `-e NETWORK_ID=my-project` — nodes with the same ID automatically find and sync with each other over the global DHT with zero manual bootstrap setup.
 * **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
 
 * **Dashboard**: Open **http://localhost:3232** in your browser.
@@ -90,14 +88,12 @@ Originless is built for zero-config Docker and Podman deployments. With P2P acti
 
 1. **libp2p WebSocket on TCP 3232**: The HTTP API and P2P share one published port. Docker `-p 3232:3232` is enough for outbound mesh join and inbound WS.
 2. **QUIC on UDP 3232** (optional): Enables hole punching when you also publish UDP.
-3. **Kad DHT Rendezvous**: Nodes automatically join the global Kad DHT via built-in public bootstrap peers and rendezvous under `originless/<NETWORK_ID>` with zero configuration. Private meshes (`NETWORK_ID != originless`) isolate under `/originless/kad/1.0.0` with custom bootstrap peers.
+3. **Kad DHT Rendezvous**: Nodes automatically join the global Kad DHT via built-in public bootstrap peers and rendezvous under `originless/<NETWORK_ID>` with zero configuration.
 4. **AutoNAT, Identify, DCUtR**: Observed addresses replace UPnP. Direct connect first, then hole punch.
 5. **Circuit relay v2**: Any publicly reachable Originless node may hop traffic for NATted Docker peers, with resource caps.
 6. **mDNS**: Same-LAN / `--network host` discovery at local wire speed.
 7. **Bloom Filter Set Reconciliation**: Upon connection, nodes exchange 1% false-positive Bloom filters to transfer missing records and binary blobs without redundant bandwidth.
 8. **Persistent identity**: Peer ID is stored at `/data/p2p.key` so a volume keeps the same node across restarts.
-
-Private meshes set `BOOTSTRAP_PEERS` to one or more libp2p multiaddrs (including `/p2p/<peer-id>`). Optional `ANNOUNCE_ADDRS` overrides advertised listen addresses behind a reverse proxy.
 
 ---
 

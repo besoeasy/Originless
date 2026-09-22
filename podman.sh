@@ -25,8 +25,6 @@ Environment Variables:
   DATA_VOLUME     Named volume or host directory to mount at /data (optional)
   NETWORK_ID      P2P swarm network ID (optional, default: originless, set 'off' to disable)
   NETWORK         Podman network to attach (default: podman)
-  BOOTSTRAP_PEERS Multiaddrs to bootstrap P2P connection (optional)
-  ANNOUNCE_ADDRS  Public advertised addresses override (optional)
   SKIP_BUILD      Set to 1 to skip image build and run immediately (default: 0)
 
 Examples:
