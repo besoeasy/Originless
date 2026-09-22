@@ -3,509 +3,688 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Originless Control Panel</title>
+<title>Originless — Decentralized Control Panel</title>
 <link rel="icon" type="image/svg+xml" href="/logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f8fafc;
-  --panel: #ffffff;
-  --panel-alt: #f1f5f9;
-  --panel-hover: #f8fafc;
-  --border: #e2e8f0;
-  --border-subtle: #edf2f7;
-  --border-focus: #0284c7;
+  /* Pure White Modern Palette */
+  --bg-page: #ffffff;
+  --bg-card: #ffffff;
+  --bg-subtle: #f9fafb;
+  --bg-hover: #f3f4f6;
   
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --border: #e5e7eb;
+  --border-light: #f3f4f6;
+  --border-focus: #111827;
   
-  --primary: #0284c7;
-  --primary-light: #e0f2fe;
-  --primary-dark: #0369a1;
-  --primary-hover: #0ea5e9;
+  --text-main: #111827;
+  --text-muted: #4b5563;
+  --text-subtle: #9ca3af;
   
-  --success: #059669;
-  --success-light: #ecfdf5;
-  --success-border: #a7f3d0;
+  --primary: #111827;
+  --primary-hover: #1f2937;
+  --primary-text: #ffffff;
   
-  --warning: #d97706;
-  --warning-light: #fffbeb;
+  --accent-blue: #0284c7;
+  --accent-blue-light: #f0f9ff;
+  --accent-blue-border: #bae6fd;
+  
+  --accent-green: #059669;
+  --accent-green-light: #ecfdf5;
+  --accent-green-border: #a7f3d0;
   
   --danger: #dc2626;
   --danger-light: #fef2f2;
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg);
+  background-color: var(--bg-page);
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  display: flex;
 }
 
-/* App Shell Layout */
-#app-sidebar {
-  width: 260px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0; bottom: 0; left: 0;
-  z-index: 40;
+/* Containerized Max-Width System */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+@media (min-width: 640px) {
+  .container { max-width: 640px; padding-left: 24px; padding-right: 24px; }
+}
+@media (min-width: 768px) {
+  .container { max-width: 768px; }
+}
+@media (min-width: 1024px) {
+  .container { max-width: 1024px; }
+}
+@media (min-width: 1280px) {
+  .container { max-width: 1240px; }
+}
+@media (min-width: 1440px) {
+  .container { max-width: 1320px; }
 }
 
-#app-main {
-  margin-left: 260px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 100vh;
+/* Top Sticky Navigation Header */
+header.app-header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
-
-/* Sidebar Branding */
-.brand {
-  padding: 20px 22px;
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  gap: 16px;
+}
+.brand-group {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
 }
 .brand-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .brand-title {
-  font-weight: 700;
   font-size: 17px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-main);
 }
 .brand-badge {
   font-size: 11px;
   font-weight: 600;
-  color: var(--primary);
-  background: var(--primary-light);
-  padding: 2px 7px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
   border-radius: 9999px;
-  margin-left: auto;
+  font-family: var(--font-mono);
 }
 
-/* Nav Menu */
-.nav-menu {
-  padding: 16px 12px;
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.nav-item {
+.header-nav {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 14px;
+  gap: 6px;
+}
+.nav-link {
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s ease;
-  border: 1px solid transparent;
 }
-.nav-item:hover {
-  background: var(--panel-alt);
+.nav-link:hover {
   color: var(--text-main);
-}
-.nav-item.active {
-  background: var(--primary-light);
-  color: var(--primary-dark);
-  font-weight: 600;
-}
-.nav-item svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-.nav-badge {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 12px;
-  background: var(--panel-alt);
-  color: var(--text-muted);
-}
-.nav-item.active .nav-badge {
-  background: white;
-  color: var(--primary);
-}
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--success);
-  margin-left: auto;
-  box-shadow: 0 0 0 2px var(--success-light);
-  animation: pulse-ring 2s infinite;
-}
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(5, 150, 105, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+  background: var(--bg-subtle);
 }
 
-/* Sidebar Footer / Node Info */
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border-subtle);
-  background: var(--panel);
-}
-.node-quick-card {
-  background: var(--panel-alt);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 12px;
-}
-.node-quick-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  color: var(--text-muted);
-}
-.node-quick-row:last-child { margin-bottom: 0; }
-.node-quick-row b { color: var(--text-main); }
-
-/* Top Header Bar */
-#app-header {
-  height: 64px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+.header-status {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
-  position: sticky;
-  top: 0;
-  z-index: 30;
+  gap: 10px;
 }
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.header-title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.header-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* Global Buttons & Inputs */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text-main);
-  text-decoration: none;
-}
-.btn:hover {
-  background: var(--panel-alt);
-  border-color: #cbd5e1;
-}
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary-dark);
-}
-.btn-primary:hover {
-  background: var(--primary-hover);
-}
-.btn-sm {
-  padding: 5px 10px;
-  font-size: 12px;
-}
-.btn-icon {
-  padding: 8px;
-  border-radius: 7px;
-}
-
-.input-text {
-  font-family: inherit;
-  font-size: 13px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--panel);
-  color: var(--text-main);
-  outline: none;
-  transition: border-color 0.15s;
-}
-.input-text:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
-}
-
-/* Main Content Views */
-.view-container {
-  padding: 28px;
-  flex: 1;
-}
-.view-panel {
-  display: none;
-}
-.view-panel.active {
-  display: block;
-}
-
-/* Dashboard Metric Cards */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.metric-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  flex-direction: column;
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-.metric-card:hover {
-  box-shadow: var(--shadow);
-  transform: translateY(-1px);
-}
-.metric-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.metric-label {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-.metric-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--panel-alt);
-  color: var(--primary);
-}
-.metric-val {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-main);
-}
-.metric-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-/* Panels & Cards */
-.card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 24px;
-  overflow: hidden;
-}
-.card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel);
-}
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.card-body {
-  padding: 20px;
-}
-
-/* Modern Data Table */
-.table-container {
-  overflow-x: auto;
-  border-radius: 0 0 12px 12px;
-}
-table.app-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  text-align: left;
-}
-table.app-table th {
-  background: var(--panel-alt);
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-table.app-table td {
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-main);
-  vertical-align: middle;
-}
-table.app-table tbody tr {
-  transition: background 0.15s;
-}
-table.app-table tbody tr:hover {
-  background: var(--panel-hover);
-}
-table.app-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Badges & Pills */
-.pill {
+.status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 9999px;
-  white-space: nowrap;
-}
-.pill-success {
-  background: var(--success-light);
-  color: var(--success);
-  border: 1px solid var(--success-border);
-}
-.pill-primary {
-  background: var(--primary-light);
-  color: var(--primary-dark);
-}
-.pill-muted {
-  background: var(--panel-alt);
-  color: var(--text-muted);
   border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text-muted);
 }
-.pill-tag {
-  background: #f3f4f6;
-  color: #374151;
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+}
+.status-indicator.online {
+  background: var(--accent-green);
+  box-shadow: 0 0 0 2px var(--accent-green-border);
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-icon:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+}
+
+/* Page Layout Spacing */
+main.app-content {
+  padding-top: 28px;
+  padding-bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Section Headings */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title svg {
+  color: var(--text-muted);
+}
+.section-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Telemetry Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
+
+.stat-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: border-color 0.15s ease;
+}
+.stat-card:hover {
+  border-color: #cbd5e1;
+}
+.stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.stat-badge {
   font-size: 11px;
   font-family: var(--font-mono);
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+.stat-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
 }
 
-/* Monospace Helpers */
-.mono {
-  font-family: var(--font-mono);
-  font-size: 12px;
+/* Two-Column Operation Split (Publish & Storage) */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
-.hash-truncate {
+@media (max-width: 960px) {
+  .two-col-grid { grid-template-columns: 1fr; }
+}
+
+.panel-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-head-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-body {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Forms & Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.form-label-desc {
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+.input-text, select.input-select, textarea.input-textarea {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-main);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+.input-text:focus, select.input-select:focus, textarea.input-textarea:focus {
+  border-color: var(--border-focus);
+}
+textarea.input-textarea {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--primary-dark);
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 500px) {
+  .form-row { grid-template-columns: 1fr; }
+}
+
+/* Key Management Bar */
+.key-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.key-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.key-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.key-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
   text-decoration: none;
 }
-.hash-truncate:hover {
-  text-decoration: underline;
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-text);
+  border-color: var(--primary);
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+.btn-outline {
+  background: #ffffff;
+  color: var(--text-main);
+  border-color: var(--border);
+}
+.btn-outline:hover {
+  background: var(--bg-subtle);
+  border-color: #cbd5e1;
+}
+.btn-sm {
+  font-size: 12px;
+  padding: 5px 10px;
 }
 
-/* Filter Toolbars */
-.toolbar {
+/* Drag and Drop Zone */
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px 16px;
+  text-align: center;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--primary);
+  background: var(--bg-subtle);
+}
+.dropzone-icon {
+  color: var(--text-muted);
+}
+.dropzone-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.dropzone-sub {
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+
+/* Blob Vault Compact Table */
+.blob-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.blob-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+}
+.blob-table th {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+.blob-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+}
+.blob-table tr:last-child td {
+  border-bottom: none;
+}
+.blob-table tr:hover td {
+  background: var(--bg-subtle);
+}
+
+/* Full Width Events Explorer Panel */
+.events-panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.events-toolbar {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 20px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+  background: #ffffff;
 }
-.search-box {
+.search-input-wrap {
   position: relative;
   flex: 1;
-  min-width: 220px;
+  min-width: 200px;
 }
-.search-box svg {
+.search-input-wrap svg {
   position: absolute;
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-subtle);
-  width: 15px;
-  height: 15px;
 }
-.search-box input {
-  padding-left: 32px;
+.search-input {
   width: 100%;
+  padding-left: 32px;
+  padding-right: 12px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: #ffffff;
+}
+.search-input:focus {
+  border-color: var(--border-focus);
 }
 
-/* Modal Drawer */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+.events-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.events-table th {
+  background: var(--bg-subtle);
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.events-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+.events-table tr:hover td {
+  background: var(--bg-subtle);
+}
+.events-table tr {
+  cursor: pointer;
+}
+
+/* Chips & Badges */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.chip-col {
+  font-weight: 600;
+  color: var(--accent-blue);
+  background: var(--accent-blue-light);
+  border-color: var(--accent-blue-border);
+}
+.chip-blob {
+  font-weight: 600;
+  color: var(--accent-green);
+  background: var(--accent-green-light);
+  border-color: var(--accent-green-border);
+  text-decoration: none;
+}
+.chip-blob:hover {
+  text-decoration: underline;
+}
+
+.hash-link {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-main);
+  text-decoration: none;
+}
+.hash-link:hover {
+  text-decoration: underline;
+}
+
+/* Events Table Footer Pagination */
+.events-footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* P2P Swarm & Node Details */
+.swarm-panel {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+}
+.info-row {
+  display: flex;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 13px;
+  gap: 16px;
+}
+.info-row:last-child {
+  border-bottom: none;
+}
+.info-label {
+  width: 140px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.info-value {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* Modal Inspector */
 .modal-overlay {
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
   z-index: 100;
   align-items: center;
   justify-content: center;
@@ -514,898 +693,665 @@ table.app-table tbody tr:last-child td {
 .modal-overlay.active {
   display: flex;
 }
-.modal-content {
-  background: var(--panel);
-  border-radius: 12px;
+.modal-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 680px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border);
   overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
-.modal-header {
-  padding: 18px 22px;
+.modal-head {
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
 .modal-body {
-  padding: 22px;
+  padding: 20px;
   overflow-y: auto;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.code-block {
+.json-viewer {
   background: #0f172a;
   color: #f8fafc;
-  padding: 16px;
-  border-radius: 8px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 12px;
   overflow-x: auto;
-  white-space: pre;
-  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
 }
 
-/* Live Stream Feed Items */
-.stream-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.stream-item {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 18px;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  transition: all 0.2s ease;
-  animation: slide-in 0.2s ease-out;
-}
-@keyframes slide-in {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.stream-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: var(--shadow-sm);
-}
-
-/* Toast Notification */
+/* Toast Message */
 #toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: #0f172a;
-  color: white;
+  background: #111827;
+  color: #ffffff;
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: none;
   align-items: center;
   gap: 8px;
   z-index: 200;
 }
 
-/* Drag and Drop Upload Zone */
-.dropzone {
-  border: 2px dashed var(--border);
-  border-radius: 10px;
+/* Empty State */
+.empty-box {
   padding: 36px 20px;
   text-align: center;
-  background: var(--panel-alt);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.dropzone:hover, .dropzone.dragover {
-  border-color: var(--primary);
-  background: var(--primary-light);
+  color: var(--text-subtle);
+  font-size: 13px;
 }
 
-@media(max-width: 860px) {
-  #app-sidebar { width: 70px; }
-  #app-sidebar .brand-title, #app-sidebar .brand-badge, #app-sidebar span.nav-text, #app-sidebar .sidebar-footer { display: none; }
-  #app-main { margin-left: 70px; }
-  .nav-item { justify-content: center; padding: 12px; }
+footer.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  margin-top: 40px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.footer-links {
+  display: flex;
+  gap: 16px;
+}
+.footer-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.footer-links a:hover {
+  color: var(--text-main);
+  text-decoration: underline;
 }
 </style>
 </head>
 <body>
 
-<!-- Left Navigation Sidebar -->
-<aside id="app-sidebar">
-  <div class="brand">
-    <div class="brand-logo">
-      <img src="/logo.svg" alt="Originless Logo" width="28" height="28">
-    </div>
-    <div class="brand-title">Originless</div>
-    <span class="brand-badge" id="side-version">v1.0.1</span>
-  </div>
+<!-- Header Bar -->
+<header class="app-header">
+  <div class="container">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#111827" stroke-width="2"/>
+            <circle cx="12" cy="12" r="4" fill="#111827"/>
+            <line x1="12" y1="2" x2="12" y2="6" stroke="#111827" stroke-width="2"/>
+            <line x1="12" y1="18" x2="12" y2="22" stroke="#111827" stroke-width="2"/>
+            <line x1="2" y1="12" x2="6" y2="12" stroke="#111827" stroke-width="2"/>
+            <line x1="18" y1="12" x2="22" y2="12" stroke="#111827" stroke-width="2"/>
+          </svg>
+        </div>
+        <span class="brand-title">originless</span>
+        <span class="brand-badge" id="net-badge">mesh</span>
+      </div>
 
-  <nav class="nav-menu">
-    <a class="nav-item active" data-view="dashboard">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      <span class="nav-text">Dashboard</span>
-    </a>
-    <a class="nav-item" data-view="stream">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-      <span class="nav-text">Live Stream</span>
-      <div class="live-dot" title="SSE Stream connected"></div>
-    </a>
-    <a class="nav-item" data-view="events">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-      <span class="nav-text">Events</span>
-      <span class="nav-badge" id="nav-badge-events">0</span>
-    </a>
-    <a class="nav-item" data-view="blobs">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      <span class="nav-text">Blob Vault</span>
-      <span class="nav-badge" id="nav-badge-blobs">0</span>
-    </a>
-    <a class="nav-item" data-view="p2p">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-      <span class="nav-text">P2P Mesh</span>
-      <span class="nav-badge" id="nav-badge-peers">0</span>
-    </a>
-    <a class="nav-item" data-view="publisher">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      <span class="nav-text">Sign & Publish</span>
-    </a>
-    <a class="nav-item" data-view="diagnostics">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span class="nav-text">API & System</span>
-    </a>
-  </nav>
+      <nav class="header-nav">
+        <a href="#stats" class="nav-link">Overview</a>
+        <a href="#publish" class="nav-link">Publish</a>
+        <a href="#storage" class="nav-link">Storage</a>
+        <a href="#events" class="nav-link">Events</a>
+        <a href="#swarm" class="nav-link">Swarm</a>
+      </nav>
 
-  <div class="sidebar-footer">
-    <div class="node-quick-card">
-      <div class="node-quick-row">
-        <span>Uptime</span>
-        <b id="side-uptime">--</b>
-      </div>
-      <div class="node-quick-row">
-        <span>Memory</span>
-        <b id="side-ram">--</b>
-      </div>
-      <div class="node-quick-row">
-        <span>Database</span>
-        <b id="side-db">--</b>
-      </div>
-      <div class="node-quick-row">
-        <span>Network</span>
-        <b id="side-net">originless</b>
+      <div class="header-status">
+        <div class="status-pill" id="conn-pill" title="P2P Swarm & SSE Status">
+          <span class="status-indicator online" id="status-dot"></span>
+          <span id="conn-text">Connecting...</span>
+        </div>
+        <button class="btn-icon" id="btn-refresh" title="Refresh Node Data">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
       </div>
     </div>
   </div>
-</aside>
+</header>
 
-<!-- Main Workspace Panel -->
-<main id="app-main">
-  <!-- Top Bar -->
-  <header id="app-header">
-    <div class="header-left">
-      <div>
-        <div class="header-title" id="page-title">Dashboard Overview</div>
-        <div class="header-subtitle" id="page-subtitle">Real-time telemetry and node vitals</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <span class="pill pill-success" id="node-status-pill">
-        <span class="live-dot" style="position:static;animation:none;"></span>
-        <span id="node-status-text">Node Online</span>
-      </span>
-      <button class="btn btn-sm" id="btn-refresh-all" title="Refresh all data">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-        <span>Refresh</span>
-      </button>
-      <button class="btn btn-primary btn-sm" id="btn-header-publish">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <span>Publish Event</span>
-      </button>
-    </div>
-  </header>
+<!-- Main Containerized Page -->
+<main class="app-content">
+  <div class="container">
 
-  <!-- Views Area -->
-  <div class="view-container">
-
-    <!-- VIEW 1: DASHBOARD OVERVIEW -->
-    <div class="view-panel active" id="view-dashboard">
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-header">
-            <span class="metric-label">Stored Events</span>
-            <div class="metric-icon" style="color:#0284c7;background:#e0f2fe;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            </div>
+    <!-- Section 1: Telemetry Overview -->
+    <section id="stats" style="margin-bottom: 28px;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Events</span>
+            <span class="stat-badge" id="stat-sse-badge">Live</span>
           </div>
-          <div class="metric-val" id="dash-events-count">0</div>
-          <div class="metric-sub">Cryptographically signed records</div>
+          <div class="stat-value" id="stat-events">0</div>
+          <div class="stat-sub" id="stat-events-sub">0 SSE subscribers</div>
         </div>
 
-        <div class="metric-card">
-          <div class="metric-header">
-            <span class="metric-label">Content Blobs</span>
-            <div class="metric-icon" style="color:#059669;background:#ecfdf5;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-            </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Storage</span>
+            <span class="stat-badge" id="stat-storage-badge">Disk</span>
           </div>
-          <div class="metric-val" id="dash-blobs-count">0</div>
-          <div class="metric-sub" id="dash-blobs-size">0 Bytes stored</div>
+          <div class="stat-value" id="stat-storage-size">0 B</div>
+          <div class="stat-sub" id="stat-storage-sub">0 blobs (0 B DB)</div>
         </div>
 
-        <div class="metric-card">
-          <div class="metric-header">
-            <span class="metric-label">P2P Swarm</span>
-            <div class="metric-icon" style="color:#7c3aed;background:#f5f3ff;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">P2P Swarm</span>
+            <span class="stat-badge" id="stat-nat-badge">NAT</span>
           </div>
-          <div class="metric-val" id="dash-peers-count">0</div>
-          <div class="metric-sub" id="dash-reachability">DHT: Connecting...</div>
+          <div class="stat-value" id="stat-peers">0 peers</div>
+          <div class="stat-sub" id="stat-net-sub">network: originless</div>
         </div>
 
-        <div class="metric-card">
-          <div class="metric-header">
-            <span class="metric-label">Live Subscribers</span>
-            <div class="metric-icon" style="color:#d97706;background:#fffbeb;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/></svg>
-            </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Node Vitals</span>
+            <span class="stat-badge" id="stat-ver-badge">v0.1</span>
           </div>
-          <div class="metric-val" id="dash-sse-count">0</div>
-          <div class="metric-sub" id="dash-traffic-reqs">0 total HTTP requests</div>
+          <div class="stat-value" id="stat-ram">0 MB</div>
+          <div class="stat-sub" id="stat-uptime-sub">uptime: 0s</div>
         </div>
       </div>
+    </section>
 
-      <!-- Quick Recent Events & Blobs Split -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Recent Events</span>
-            <button class="btn btn-sm" onclick="switchView('events')">View All</button>
-          </div>
-          <div class="table-container">
-            <table class="app-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Collection</th>
-                  <th>Age</th>
-                </tr>
-              </thead>
-              <tbody id="dash-recent-events-tbody">
-                <tr><td colspan="3" style="text-align:center;color:var(--text-subtle);padding:24px;">No events recorded yet</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+    <!-- Section 2: Two-Column Operational Split (Sign & Publish + Blob Vault) -->
+    <section style="margin-bottom: 28px;">
+      <div class="two-col-grid">
 
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Recent Blobs</span>
-            <button class="btn btn-sm" onclick="switchView('blobs')">View All</button>
-          </div>
-          <div class="table-container">
-            <table class="app-table">
-              <thead>
-                <tr>
-                  <th>SHA-256 Hash</th>
-                  <th>Size</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="dash-recent-blobs-tbody">
-                <tr><td colspan="3" style="text-align:center;color:var(--text-subtle);padding:24px;">No binary blobs stored</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 2: LIVE STREAM (SSE) -->
-    <div class="view-panel" id="view-stream">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>Real-time SSE Stream (`GET /events/stream`)</span>
-            <span class="pill pill-success" style="font-size:11px;">
-              <span class="live-dot" style="position:static;animation:none;width:6px;height:6px;"></span> Connected
+        <!-- Column Left: In-Browser Cryptographic Signer & Publisher -->
+        <div class="panel-card" id="publish">
+          <div class="panel-head">
+            <span class="panel-head-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Sign & Publish Event
             </span>
+            <button class="btn btn-outline btn-sm" id="btn-new-key" title="Generate New Ed25519 Keypair">New Key</button>
           </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-sm" id="btn-pause-stream">Pause Stream</button>
-            <button class="btn btn-sm" id="btn-clear-stream">Clear</button>
+          <div class="panel-body">
+            <div class="key-box">
+              <div class="key-info">
+                <span class="key-label">Signer</span>
+                <span class="key-value" id="pub-owner-display">generating key...</span>
+              </div>
+              <button class="btn btn-outline btn-sm" id="btn-copy-owner" style="padding: 2px 7px; font-size: 11px;">Copy</button>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="pub-col">Collection</label>
+                <input type="text" class="input-text" id="pub-col" value="notes" placeholder="e.g. notes, telemetry">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="pub-labels">Labels <span class="form-label-desc">(CSV)</span></label>
+                <input type="text" class="input-text" id="pub-labels" value="env:prod" placeholder="tag1, tag2">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pub-data">JSON Payload</label>
+              <textarea class="input-textarea" id="pub-data" rows="4">{"message": "Hello from Originless control panel", "timestamp": 1727050000}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="pub-file">Attach Blob File <span class="form-label-desc">(optional)</span></label>
+              <input type="file" id="pub-file" style="font-size: 12px; color: var(--text-muted);">
+            </div>
+
+            <button class="btn btn-primary" id="btn-publish-submit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Sign with Ed25519 & Publish
+            </button>
           </div>
         </div>
-        <div class="toolbar">
-          <div class="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" class="input-text" id="stream-filter-input" placeholder="Filter stream by collection or label...">
+
+        <!-- Column Right: Blob Storage Vault & Upload -->
+        <div class="panel-card" id="storage">
+          <div class="panel-head">
+            <span class="panel-head-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              Blob Vault & Upload
+            </span>
+            <button class="btn btn-outline btn-sm" id="btn-refresh-blobs">Refresh</button>
           </div>
-        </div>
-        <div class="card-body" style="background:var(--panel-alt);min-height:420px;max-height:680px;overflow-y:auto;" id="stream-container">
-          <div class="stream-list" id="stream-items-list">
-            <div style="text-align:center;padding:48px;color:var(--text-muted);">
-              Listening for events published across the node & P2P swarm...
+          <div class="panel-body">
+            <div class="dropzone" id="blob-dropzone">
+              <input type="file" id="blob-file-input" style="display: none;">
+              <svg class="dropzone-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <div class="dropzone-title">Drag & drop a file here, or click to upload</div>
+              <div class="dropzone-sub">Raw binary is signed & stored by SHA-256 content address</div>
+            </div>
+
+            <div class="form-label" style="margin-top: 4px;">Recent Blobs on Node</div>
+            <div class="blob-table-wrap">
+              <table class="blob-table">
+                <thead>
+                  <tr>
+                    <th>Hash (SHA-256)</th>
+                    <th>Size</th>
+                    <th style="text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="blob-table-body">
+                  <tr><td colspan="3" class="empty-box">No blobs uploaded yet</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- VIEW 3: EVENTS EXPLORER -->
-    <div class="view-panel" id="view-events">
-      <div class="card">
-        <div class="toolbar">
-          <div class="search-box">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" class="input-text" id="events-search-input" placeholder="Search events by ID, content, or blob hash...">
-          </div>
-          <input type="text" class="input-text" id="events-col-input" placeholder="Collection filter" style="max-width:160px;">
-          <input type="text" class="input-text" id="events-label-input" placeholder="Label filter" style="max-width:140px;">
-          <button class="btn btn-sm" id="btn-events-refresh">Refresh</button>
+      </div>
+    </section>
+
+    <!-- Section 3: Live Events Explorer (Full Width Table) -->
+    <section id="events" style="margin-bottom: 28px;">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Events Explorer
+          </h2>
+          <div class="section-desc">Search, inspect, and verify immutable signed records</div>
         </div>
-        <div class="table-container">
-          <table class="app-table">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button class="btn btn-outline btn-sm" id="btn-toggle-stream">Pause Stream</button>
+          <button class="btn btn-outline btn-sm" id="btn-refresh-events">Refresh</button>
+        </div>
+      </div>
+
+      <div class="events-panel">
+        <div class="events-toolbar">
+          <div class="search-input-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="search-input" id="search-events" placeholder="Search events by payload or ID...">
+          </div>
+          <input type="text" class="input-text" id="filter-col" placeholder="Collection filter" style="width: 150px; padding: 7px 12px; font-size: 13px;">
+          <input type="text" class="input-text" id="filter-label" placeholder="Label (key:val)" style="width: 150px; padding: 7px 12px; font-size: 13px;">
+        </div>
+
+        <div class="table-responsive">
+          <table class="events-table">
             <thead>
               <tr>
                 <th>Event ID</th>
                 <th>Collection</th>
-                <th>Data Preview</th>
-                <th>Blob Attachment</th>
+                <th>Payload Data</th>
+                <th>Attached Blob</th>
+                <th>Created</th>
                 <th>Labels</th>
-                <th>Age</th>
-                <th>Expires</th>
-                <th>Action</th>
               </tr>
             </thead>
-            <tbody id="events-tbody">
-              <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">Loading events...</td></tr>
+            <tbody id="events-table-body">
+              <tr><td colspan="6" class="empty-box">Loading records...</td></tr>
             </tbody>
           </table>
         </div>
-        <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--panel);">
-          <span style="font-size:12px;color:var(--text-muted);" id="events-page-info">Showing 0-0 of 0</span>
-          <div style="display:flex;gap:6px;" id="events-pagination"></div>
-        </div>
-      </div>
-    </div>
 
-    <!-- VIEW 4: BLOB VAULT -->
-    <div class="view-panel" id="view-blobs">
-      <!-- Drag & Drop Upload Zone -->
-      <div class="card" style="margin-bottom:20px;">
-        <div class="card-body">
-          <div class="dropzone" id="blob-dropzone">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">Upload & Store Content-Addressed Blob</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Drag and drop any binary file, or click to browse</div>
-            <input type="file" id="blob-file-input" style="display:none;">
-            <button class="btn btn-sm" type="button" onclick="document.getElementById('blob-file-input').click()">Select File</button>
+        <div class="events-footer">
+          <span id="events-count-label">Showing 0 events</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-outline btn-sm" id="btn-page-prev" disabled>Previous</button>
+            <button class="btn btn-outline btn-sm" id="btn-page-next" disabled>Next</button>
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- Blob List -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Stored Binary Blobs (Deduplicated by SHA-256)</span>
-          <button class="btn btn-sm" id="btn-blobs-refresh">Refresh</button>
-        </div>
-        <div class="table-container">
-          <table class="app-table">
-            <thead>
-              <tr>
-                <th>SHA-256 Checksum</th>
-                <th>File Size</th>
-                <th>Uploaded</th>
-                <th>Retention</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="blobs-tbody">
-              <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">Loading stored blobs...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 5: P2P MESH NETWORK -->
-    <div class="view-panel" id="view-p2p">
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Network ID</div>
-          <div class="metric-val mono" style="font-size:20px;" id="p2p-net-id">originless</div>
-          <div class="metric-sub">Active libp2p swarm namespace</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Peers Connected</div>
-          <div class="metric-val" id="p2p-connected-peers">0</div>
-          <div class="metric-sub">Full-duplex live sync sessions</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">NAT Reachability</div>
-          <div class="metric-val" id="p2p-nat-status" style="font-size:20px;">Unknown</div>
-          <div class="metric-sub" id="p2p-relay-info">DCUtR Hole Punching Active</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Records Reconciled</div>
-          <div class="metric-val" id="p2p-synced-count">0</div>
-          <div class="metric-sub" id="p2p-last-sync">Bloom filter sync ready</div>
+    <!-- Section 4: P2P Swarm & Node Connectivity -->
+    <section id="swarm">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            P2P Swarm & Node Inspector
+          </h2>
+          <div class="section-desc">Decentralized libp2p mesh routing, NAT status, and discovery</div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Node Network Identity & Addresses</span>
+      <div class="swarm-panel">
+        <div class="info-row">
+          <span class="info-label">Peer ID</span>
+          <span class="info-value" id="swarm-peer-id" style="cursor: pointer;" title="Click to copy">Loading...</span>
         </div>
-        <div class="card-body">
-          <div style="display:flex;flex-direction:column;gap:14px;font-size:13px;">
-            <div>
-              <span style="color:var(--text-muted);display:block;margin-bottom:4px;font-weight:500;">Local Peer ID:</span>
-              <span class="mono" style="background:var(--panel-alt);padding:6px 10px;border-radius:6px;border:1px solid var(--border);display:inline-block;" id="p2p-peer-id">Loading...</span>
-            </div>
-            <div>
-              <span style="color:var(--text-muted);display:block;margin-bottom:4px;font-weight:500;">Observed Public Addresses (Advertised to DHT):</span>
-              <div id="p2p-addrs-list" style="display:flex;flex-direction:column;gap:4px;">
-                <span class="mono" style="color:var(--text-muted);">None detected yet</span>
-              </div>
-            </div>
-          </div>
+        <div class="info-row">
+          <span class="info-label">Network ID</span>
+          <span class="info-value" id="swarm-network-id">originless</span>
         </div>
-      </div>
-    </div>
-
-    <!-- VIEW 6: SIGN & PUBLISH STUDIO -->
-    <div class="view-panel" id="view-publisher">
-      <div class="card" style="max-width:800px;margin:0 auto;">
-        <div class="card-header">
-          <span class="card-title">In-Browser Cryptographic Publisher</span>
-          <span class="pill pill-primary" style="font-size:11px;">Ed25519 Zero-Auth</span>
+        <div class="info-row">
+          <span class="info-label">NAT Status</span>
+          <span class="info-value" id="swarm-nat">unknown</span>
         </div>
-        <div class="card-body">
-          <form id="publish-form" onsubmit="return false;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-              <div>
-                <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Collection Name</label>
-                <input type="text" class="input-text" id="pub-col" value="notes" style="width:100%;" required>
-              </div>
-              <div>
-                <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Labels (comma-separated)</label>
-                <input type="text" class="input-text" id="pub-labels" value="demo, web-panel" style="width:100%;">
-              </div>
-            </div>
-
-            <div style="margin-bottom:16px;">
-              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Event Data (JSON Object)</label>
-              <textarea class="input-text mono" id="pub-data" style="width:100%;height:140px;resize:vertical;" spellcheck="false">{
-  "message": "Hello from Originless modern panel!",
-  "app": "originless-console"
-}</textarea>
-            </div>
-
-            <div style="margin-bottom:20px;">
-              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-muted);">Attach Binary Blob (Optional)</label>
-              <input type="file" id="pub-file" class="input-text" style="width:100%;">
-              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When selected, file is hashed via SHA-256 and uploaded atomically in the same multipart request.</div>
-            </div>
-
-            <div style="display:flex;justify-content:flex-end;gap:10px;">
-              <button class="btn" type="button" id="btn-pub-demo">Load Sample</button>
-              <button class="btn btn-primary" type="button" id="btn-pub-submit">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                <span>Sign & Publish Event</span>
-              </button>
-            </div>
-          </form>
+        <div class="info-row">
+          <span class="info-label">Connected Peers</span>
+          <span class="info-value" id="swarm-peers-detail">0 / 8 maximum</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Listen Multiaddrs</span>
+          <span class="info-value" id="swarm-listen-addrs">None</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Observed Multiaddrs</span>
+          <span class="info-value" id="swarm-observed-addrs">None</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">DHT Sync Stats</span>
+          <span class="info-value" id="swarm-sync-stats">0 events synced, 0 blobs synced</span>
         </div>
       </div>
-    </div>
-
-    <!-- VIEW 7: API & SYSTEM DIAGNOSTICS -->
-    <div class="view-panel" id="view-diagnostics">
-      <div class="card">
-        <div class="card-header">
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-sm active" id="btn-diag-status">GET /status</button>
-            <button class="btn btn-sm" id="btn-diag-metrics">GET /metrics</button>
-            <button class="btn btn-sm" id="btn-diag-agent">GET /agent.txt</button>
-          </div>
-          <button class="btn btn-sm" id="btn-diag-copy">Copy Output</button>
-        </div>
-        <div class="card-body" style="padding:0;">
-          <pre class="code-block" style="border-radius:0;max-height:600px;" id="diag-output">Loading system diagnostics...</pre>
-        </div>
-      </div>
-    </div>
+    </section>
 
   </div>
 </main>
 
-<!-- Event Details Inspector Modal -->
+<!-- Footer -->
+<footer class="app-footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div>Originless — Decentralized Event Sourcing & Blob Engine</div>
+      <div class="footer-links">
+        <a href="/status" target="_blank">Raw /status</a>
+        <a href="/events" target="_blank">Raw /events</a>
+        <a href="https://github.com/besoeasy/originless" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Event Inspector Modal -->
 <div class="modal-overlay" id="event-modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <div style="font-weight:700;font-size:16px;">Event Details</div>
-      <button class="btn btn-sm btn-icon" onclick="closeModal()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <span class="modal-title">Event Record Inspector</span>
+      <button class="btn-icon" id="btn-modal-close">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <div class="modal-body">
-      <div style="margin-bottom:16px;">
-        <span class="mono" style="font-size:13px;font-weight:600;word-break:break-all;" id="modal-event-id"></span>
-      </div>
-      <pre class="code-block" id="modal-event-json" style="max-height:420px;overflow-y:auto;"></pre>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-        <button class="btn btn-sm" id="modal-copy-id">Copy ID</button>
-        <button class="btn btn-primary btn-sm" id="modal-copy-json">Copy JSON</button>
+      <div class="form-label">Canonical Event Record JSON</div>
+      <div class="json-viewer" id="modal-json"></div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-outline btn-sm" id="btn-copy-modal">Copy JSON</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Toast Box -->
-<div id="toast">
-  <span id="toast-text">Message</span>
-</div>
+<!-- Toast Pill -->
+<div id="toast"></div>
 
 <script>
-// Originless App State & Logic
+// Originless Core Client
+const $ = (id) => document.getElementById(id);
 const App = {
-  currentView: 'dashboard',
-  origin: window.location.origin && window.location.origin !== "null" ? window.location.origin : "http://localhost:3232",
-  statusData: null,
-  streamEventSource: null,
-  isStreamPaused: false,
-  eventsCache: [],
-  blobsCache: [],
-  ed25519Key: null
+  origin: window.location.origin || '',
+  keypair: null,
+  events: [],
+  blobs: [],
+  streamActive: true,
+  eventSource: null
 };
 
-// Utilities
-function $(id) { return document.getElementById(id); }
-function truncate(str, len = 12) {
+// Toast notification helper
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'flex';
+  clearTimeout(t.timer);
+  t.timer = setTimeout(() => { t.style.display = 'none'; }, 3200);
+}
+
+// Helpers
+function truncate(str, len = 16) {
   if (!str) return '';
   if (str.length <= len) return str;
-  return str.slice(0, 6) + '…' + str.slice(-6);
+  return str.slice(0, 8) + '...' + str.slice(-6);
 }
+
 function formatBytes(bytes) {
-  if (!bytes || bytes <= 0) return '0 B';
+  if (bytes === 0 || !bytes) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-function formatAgo(unix) {
-  if (!unix) return '';
-  const sec = Math.floor((Date.now() / 1000) - unix);
-  if (sec < 5) return 'just now';
-  if (sec < 60) return sec + 's ago';
-  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
-  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
-  return Math.floor(sec / 86400) + 'd ago';
-}
-function showToast(msg) {
-  const t = $('toast');
-  $('toast-text').textContent = msg;
-  t.style.display = 'flex';
-  setTimeout(() => { t.style.display = 'none'; }, 2400);
-}
-function copyText(txt) {
-  navigator.clipboard.writeText(txt).then(() => {
-    showToast('Copied to clipboard!');
-  });
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Navigation View Switcher
-function switchView(viewName) {
-  App.currentView = viewName;
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.view === viewName);
-  });
-  document.querySelectorAll('.view-panel').forEach(el => {
-    el.classList.toggle('active', el.id === 'view-' + viewName);
-  });
+function formatDate(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts * 1000);
+  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
-  const titles = {
-    dashboard: ['Dashboard Overview', 'Real-time telemetry and node vitals'],
-    stream: ['Live Stream Feed', 'Real-time Server-Sent Events live feed'],
-    events: ['Events Explorer', 'Query, filter, and inspect signed JSON documents'],
-    blobs: ['Content-Addressed Blobs', 'Deduplicated binary storage verified by SHA-256'],
-    p2p: ['P2P Swarm & Mesh', 'Connected peers, DHT routing, and synchronization'],
-    publisher: ['Sign & Publish Studio', 'Zero-auth Ed25519 client-side event signer'],
-    diagnostics: ['System Diagnostics', 'Raw endpoints and Prometheus metrics']
-  };
-  if (titles[viewName]) {
-    $('page-title').textContent = titles[viewName][0];
-    $('page-subtitle').textContent = titles[viewName][1];
+// Key Management using Web Crypto Ed25519
+async function ensureKeypair(forceNew = false) {
+  if (!forceNew && App.keypair) return App.keypair;
+  
+  if (!window.crypto || !window.crypto.subtle) {
+    alert("Web Crypto is not supported in this browser. Please use a modern browser.");
+    return null;
   }
 
-  if (viewName === 'events') loadEvents();
-  if (viewName === 'blobs') loadBlobs();
-  if (viewName === 'diagnostics') loadDiagnostics('status');
+  // Generate new Ed25519 Keypair
+  const kp = await window.crypto.subtle.generateKey(
+    { name: "Ed25519" },
+    true,
+    ["sign", "verify"]
+  );
+  App.keypair = kp;
+
+  // Export raw public key
+  const pubRaw = await window.crypto.subtle.exportKey("raw", kp.publicKey);
+  const pubHex = Array.from(new Uint8Array(pubRaw)).map(b => b.toString(16).padStart(2, '0')).join('');
+  const owner = "ed25519:" + pubHex;
+
+  $('pub-owner-display').textContent = owner;
+  $('pub-owner-display').title = owner;
+  return kp;
 }
 
-document.querySelectorAll('.nav-item').forEach(el => {
-  el.addEventListener('click', () => switchView(el.dataset.view));
-});
-$('btn-header-publish').addEventListener('click', () => switchView('publisher'));
-$('btn-refresh-all').addEventListener('click', refreshAll);
+$('btn-new-key').onclick = async () => {
+  await ensureKeypair(true);
+  showToast('Generated fresh Ed25519 keypair');
+};
 
-// Refresh Telemetry / Status
+$('btn-copy-owner').onclick = () => {
+  const owner = $('pub-owner-display').textContent;
+  if (owner) {
+    navigator.clipboard.writeText(owner);
+    showToast('Copied owner public key to clipboard');
+  }
+};
+
+// Fetch Node Status
 async function fetchStatus() {
   try {
     const res = await fetch(App.origin + '/status');
+    if (!res.ok) throw new Error('Status returned ' + res.status);
     const data = await res.json();
-    App.statusData = data;
 
-    // Sidebar & header
-    $('side-version').textContent = 'v' + (data.version || '1.0.1');
-    $('side-uptime').textContent = data.uptime || '--';
-    $('side-ram').textContent = data.vitals?.alloc_str || '--';
-    $('side-db').textContent = data.storage?.db_size_str || '--';
-    $('side-net').textContent = data.p2p?.network_id || 'originless';
-
-    // Dashboard metrics
-    const evCount = data.events?.count ?? data.records?.count ?? 0;
-    const blobCount = data.blobs?.count ?? 0;
-    const blobSize = data.blobs?.sizeStr ?? formatBytes(data.blobs?.size || 0);
-    const peerCount = data.p2p?.peers_connected ?? 0;
-    const sseCount = data.sse?.clients ?? 0;
-
-    $('dash-events-count').textContent = evCount;
-    $('dash-blobs-count').textContent = blobCount;
-    $('dash-blobs-size').textContent = blobSize + ' stored';
-    $('dash-peers-count').textContent = peerCount;
-    $('dash-sse-count').textContent = sseCount;
-    $('dash-traffic-reqs').textContent = (data.traffic?.total_requests || 0) + ' total HTTP requests';
+    // Stats
+    $('stat-events').textContent = (data.events?.count || 0).toLocaleString();
+    $('stat-events-sub').textContent = (data.sse?.clients || 0) + ' SSE subscribers';
     
-    // Badges
-    $('nav-badge-events').textContent = evCount;
-    $('nav-badge-blobs').textContent = blobCount;
-    $('nav-badge-peers').textContent = peerCount;
+    $('stat-storage-size').textContent = data.storage?.total_size_str || formatBytes(data.storage?.total_size || 0);
+    $('stat-storage-sub').textContent = `${data.storage?.blob_count || 0} blobs (${data.storage?.db_size_str || '0 B'} DB)`;
+    
+    const peers = data.p2p?.peers_connected || 0;
+    $('stat-peers').textContent = peers + (peers === 1 ? ' peer' : ' peers');
+    $('stat-net-sub').textContent = 'network: ' + (data.p2p?.network_id || 'originless');
+    $('stat-nat-badge').textContent = data.p2p?.nat || 'NAT';
+    
+    $('stat-ram').textContent = data.vitals?.alloc_str || '0 MB';
+    $('stat-uptime-sub').textContent = 'uptime: ' + (data.uptime || '0s');
+    $('stat-ver-badge').textContent = data.version || 'v0.1';
 
-    // P2P Screen
-    $('p2p-net-id').textContent = data.p2p?.network_id || 'originless';
-    $('p2p-connected-peers').textContent = peerCount;
-    $('p2p-nat-status').textContent = data.p2p?.nat ? (data.p2p.nat.toUpperCase()) : 'ACTIVE';
-    $('p2p-peer-id').textContent = data.p2p?.peer_id || '--';
-    $('p2p-synced-count').textContent = data.p2p?.events_synced || 0;
-    $('p2p-last-sync').textContent = data.p2p?.last_sync ? ('Last synced: ' + data.p2p.last_sync) : 'Ready';
+    // Header pill
+    $('conn-text').textContent = `${peers} peers connected`;
+    $('status-dot').className = 'status-indicator online';
+    $('net-badge').textContent = data.p2p?.network_id || 'mesh';
 
-    const addrsContainer = $('p2p-addrs-list');
-    if (data.p2p?.observed_addrs && data.p2p.observed_addrs.length) {
-      addrsContainer.innerHTML = data.p2p.observed_addrs.map(a => `<span class="mono" style="background:var(--panel-alt);padding:4px 8px;border-radius:4px;">${a}</span>`).join('');
-    }
+    // Swarm Panel
+    $('swarm-peer-id').textContent = data.p2p?.peer_id || 'unknown';
+    $('swarm-network-id').textContent = data.p2p?.network_id || 'originless';
+    $('swarm-nat').textContent = data.p2p?.nat || 'unknown';
+    $('swarm-peers-detail').textContent = `${peers} / ${data.p2p?.max_peers || 8} connected`;
+    
+    const listen = (data.p2p?.listen_addrs || []).join(', ');
+    $('swarm-listen-addrs').textContent = listen || 'None';
 
-    $('node-status-text').textContent = 'Node Online';
-    $('node-status-pill').className = 'pill pill-success';
+    const obs = (data.p2p?.observed_addrs || []).join(', ');
+    $('swarm-observed-addrs').textContent = obs || 'None';
+
+    $('swarm-sync-stats').textContent = `${data.p2p?.events_synced || 0} events synced, ${data.p2p?.blobs_synced || 0} blobs synced`;
+
   } catch (err) {
-    $('node-status-text').textContent = 'Node Disconnected';
-    $('node-status-pill').className = 'pill pill-muted';
+    $('conn-text').textContent = 'Node Offline';
+    $('status-dot').className = 'status-indicator';
   }
 }
 
-// Fetch Events
+// Load Events Explorer
 async function loadEvents() {
-  const search = $('events-search-input').value.trim();
-  const col = $('events-col-input').value.trim();
-  const label = $('events-label-input').value.trim();
+  const col = $('filter-col').value.trim();
+  const label = $('filter-label').value.trim();
+  const search = $('search-events').value.trim().toLowerCase();
 
-  let url = `${App.origin}/events?limit=25`;
-  if (col) url += `&collection=${encodeURIComponent(col)}`;
-  if (label) url += `&label=${encodeURIComponent(label)}`;
-  if (/^[0-9a-fA-F]{64}$/.test(search)) {
-    url += `&blob=${encodeURIComponent(search.toLowerCase())}`;
-  } else if (search) {
-    url += `&search=${encodeURIComponent(search)}`;
-  }
+  let url = App.origin + '/events?limit=50';
+  if (col) url += '&col=' + encodeURIComponent(col);
+  if (label) url += '&label=' + encodeURIComponent(label);
 
-  const tbody = $('events-tbody');
   try {
     const res = await fetch(url);
-    const d = await res.json();
-    const list = d.events || d.records || [];
-    App.eventsCache = list;
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    let events = data.events || [];
 
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">No events found matching query.</td></tr>';
+    if (search) {
+      events = events.filter(e => {
+        const idMatch = (e.id || '').toLowerCase().includes(search);
+        const dataMatch = JSON.stringify(e.data || {}).toLowerCase().includes(search);
+        const ownerMatch = (e.owner || '').toLowerCase().includes(search);
+        return idMatch || dataMatch || ownerMatch;
+      });
+    }
+
+    App.events = events;
+    renderEventsTable(events);
+    $('events-count-label').textContent = `Showing ${events.length} events`;
+  } catch (err) {
+    $('events-table-body').innerHTML = `<tr><td colspan="6" class="empty-box">Failed to load events: ${err.message}</td></tr>`;
+  }
+}
+
+function renderEventsTable(events) {
+  const tbody = $('events-table-body');
+  if (!events || events.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-box">No events found matching criteria</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = events.map(ev => {
+    const idTrunc = truncate(ev.id, 14);
+    const colChip = `<span class="chip chip-col">${ev.collection || 'default'}</span>`;
+    const payloadPreview = truncate(JSON.stringify(ev.data || {}), 45);
+    const blobChip = ev.blob ? `<a href="/blobs/${ev.blob}" target="_blank" class="chip chip-blob" onclick="event.stopPropagation();" title="Download blob">blob:${truncate(ev.blob, 10)}</a>` : '<span class="text-subtle" style="color: #9ca3af;">—</span>';
+    const labelsList = (ev.labels || []).map(l => `<span class="chip">${l}</span>`).join(' ') || '<span style="color: #9ca3af;">—</span>';
+    const dateStr = formatDate(ev.created_at);
+
+    return `
+      <tr onclick="inspectEvent('${ev.id}')">
+        <td><span class="hash-link" title="${ev.id}">${idTrunc}</span></td>
+        <td>${colChip}</td>
+        <td style="font-family: var(--font-mono); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${payloadPreview}</td>
+        <td>${blobChip}</td>
+        <td style="font-size: 12px; color: var(--text-muted);">${dateStr}</td>
+        <td>${labelsList}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Modal Inspector
+window.inspectEvent = function(id) {
+  const ev = App.events.find(e => e.id === id);
+  if (!ev) return;
+  $('modal-json').textContent = JSON.stringify(ev, null, 2);
+  $('event-modal').classList.add('active');
+};
+$('btn-modal-close').onclick = () => $('event-modal').classList.remove('active');
+$('event-modal').onclick = (e) => { if (e.target === $('event-modal')) $('event-modal').classList.remove('active'); };
+$('btn-copy-modal').onclick = () => {
+  navigator.clipboard.writeText($('modal-json').textContent);
+  showToast('Event JSON copied to clipboard');
+};
+
+// Load Blobs Table
+async function loadBlobs() {
+  try {
+    const res = await fetch(App.origin + '/events?col=blobs&limit=25');
+    if (!res.ok) return;
+    const data = await res.json();
+    const blobs = (data.events || []).filter(e => e.blob);
+
+    const tbody = $('blob-table-body');
+    if (blobs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-box">No blobs uploaded yet</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = list.map(ev => {
-      const dataStr = typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data);
-      const labels = (ev.labels || []).map(l => `<span class="pill-tag">${l}</span>`).join(' ') || '—';
-      const blobPart = ev.blob ? `<a class="hash-truncate" href="${App.origin}/blob/${ev.blob}" target="_blank" download>${truncate(ev.blob, 10)}</a>` : '—';
+    tbody.innerHTML = blobs.map(e => {
+      const bHash = e.blob;
+      const sizeStr = e.data?.size ? formatBytes(e.data.size) : '-';
+      const name = e.data?.filename || 'blob.bin';
       return `
         <tr>
-          <td><span class="hash-truncate" onclick="openModal('${ev.id}')">${truncate(ev.id, 12)}</span></td>
-          <td><span class="pill pill-primary" style="font-size:11px;">${ev.collection}</span></td>
-          <td class="mono" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${dataStr.replace(/"/g, '&quot;')}">${dataStr}</td>
-          <td>${blobPart}</td>
-          <td>${labels}</td>
-          <td>${formatAgo(ev.created_at)}</td>
-          <td>${ev.expires_at ? formatAgo(ev.expires_at).replace('ago', 'left') : '—'}</td>
-          <td><button class="btn btn-sm" onclick="openModal('${ev.id}')">Inspect</button></td>
+          <td>
+            <a href="/blobs/${bHash}" target="_blank" class="hash-link" title="${bHash}">${truncate(bHash, 16)}</a>
+            <div style="font-size: 11px; color: var(--text-muted);">${name}</div>
+          </td>
+          <td style="font-family: var(--font-mono); font-size: 11px;">${sizeStr}</td>
+          <td style="text-align: right;">
+            <a href="/blobs/${bHash}" target="_blank" download class="btn btn-outline btn-sm" style="padding: 2px 7px; font-size: 11px;">Download</a>
+          </td>
         </tr>
       `;
     }).join('');
-
-    $('events-page-info').textContent = `Showing ${list.length} events`;
-
-    // Also populate recent events on Dashboard
-    const dashTbody = $('dash-recent-events-tbody');
-    if (dashTbody && list.length) {
-      dashTbody.innerHTML = list.slice(0, 5).map(ev => `
-        <tr>
-          <td><span class="hash-truncate" onclick="openModal('${ev.id}')">${truncate(ev.id, 10)}</span></td>
-          <td><span class="pill pill-primary" style="font-size:10px;">${ev.collection}</span></td>
-          <td>${formatAgo(ev.created_at)}</td>
-        </tr>
-      `).join('');
-    }
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger);">Error fetching events: ${err.message}</td></tr>`;
+    // silence
   }
 }
 
-// Fetch Blobs
-async function loadBlobs() {
-  const tbody = $('blobs-tbody');
-  try {
-    const res = await fetch(`${App.origin}/blobs?limit=25`);
-    const d = await res.json();
-    const list = d.blobs || [];
-    App.blobsCache = list;
-
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">No binary blobs stored yet. Drop a file above to upload!</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = list.map(b => `
-      <tr>
-        <td>
-          <a class="hash-truncate" href="${App.origin}/blob/${b.hash}" target="_blank" download>${b.hash}</a>
-          <button class="btn btn-sm" style="margin-left:8px;padding:2px 6px;" onclick="copyText('${b.hash}')">Copy</button>
-        </td>
-        <td><b>${formatBytes(b.size)}</b></td>
-        <td>${formatAgo(b.created_at || b.stored_at)}</td>
-        <td><span class="pill pill-success" style="font-size:11px;">Active</span></td>
-        <td>
-          <a class="btn btn-sm btn-primary" href="${App.origin}/blob/${b.hash}" download="${b.hash}.bin">Download</a>
-        </td>
-      </tr>
-    `).join('');
-
-    // Dashboard preview
-    const dashTbody = $('dash-recent-blobs-tbody');
-    if (dashTbody && list.length) {
-      dashTbody.innerHTML = list.slice(0, 5).map(b => `
-        <tr>
-          <td><span class="mono">${truncate(b.hash, 12)}</span></td>
-          <td>${formatBytes(b.size)}</td>
-          <td><a class="btn btn-sm" href="${App.origin}/blob/${b.hash}" download>Get</a></td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--danger);">Error loading blobs: ${err.message}</td></tr>`;
-  }
-}
-
-// Real-Time SSE Stream Handler
-function initStream() {
-  if (App.streamEventSource) App.streamEventSource.close();
-  const source = new EventSource(`${App.origin}/events/stream`);
-  App.streamEventSource = source;
-
-  source.onmessage = function(e) {
-    if (App.isStreamPaused) return;
-    try {
-      const ev = JSON.parse(e.data);
-      const container = $('stream-items-list');
-      if (container.children.length === 1 && container.children[0].textContent.includes('Listening')) {
-        container.innerHTML = '';
-      }
-      const dataStr = typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data, null, 2);
-      const item = document.createElement('div');
-      item.className = 'stream-item';
-      item.innerHTML = `
-        <div style="flex:1;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-            <span class="pill pill-primary" style="font-size:11px;">${ev.collection}</span>
-            <span class="mono" style="font-weight:600;font-size:12px;">${truncate(ev.id, 14)}</span>
-            <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">${formatAgo(ev.created_at)}</span>
-          </div>
-          <pre class="mono" style="font-size:12px;color:var(--text-main);white-space:pre-wrap;background:var(--panel-alt);padding:8px 12px;border-radius:6px;border:1px solid var(--border);">${dataStr}</pre>
-        </div>
-      `;
-      container.insertBefore(item, container.firstChild);
-      if (container.children.length > 50) container.removeChild(container.lastChild);
-    } catch (_) {}
-  };
-}
-
-$('btn-pause-stream').onclick = function() {
-  App.isStreamPaused = !App.isStreamPaused;
-  this.textContent = App.isStreamPaused ? 'Resume Stream' : 'Pause Stream';
-};
-$('btn-clear-stream').onclick = function() {
-  $('stream-items-list').innerHTML = '<div style="text-align:center;padding:48px;color:var(--text-muted);">Stream cleared. Listening for new events...</div>';
-};
-
-// Event Modal Inspector
-function openModal(id) {
-  const ev = App.eventsCache.find(x => x.id === id);
-  if (!ev) return;
-  $('modal-event-id').textContent = ev.id;
-  $('modal-event-json').textContent = JSON.stringify(ev, null, 2);
-  $('event-modal').classList.add('active');
-  $('modal-copy-id').onclick = () => copyText(ev.id);
-  $('modal-copy-json').onclick = () => copyText(JSON.stringify(ev, null, 2));
-}
-function closeModal() {
-  $('event-modal').classList.remove('active');
-}
-$('event-modal').onclick = function(e) {
-  if (e.target === this) closeModal();
-};
-
-// Diagnostics View
-async function loadDiagnostics(type) {
-  const out = $('diag-output');
-  out.textContent = 'Fetching ' + type + '...';
-  try {
-    let res, text;
-    if (type === 'status') {
-      res = await fetch(App.origin + '/status');
-      text = JSON.stringify(await res.json(), null, 2);
-    } else if (type === 'metrics') {
-      res = await fetch(App.origin + '/metrics');
-      text = await res.text();
-    } else if (type === 'agent') {
-      res = await fetch(App.origin + '/agent.txt');
-      text = await res.text();
-    }
-    out.textContent = text;
-  } catch (err) {
-    out.textContent = 'Error: ' + err.message;
-  }
-}
-$('btn-diag-status').onclick = () => loadDiagnostics('status');
-$('btn-diag-metrics').onclick = () => loadDiagnostics('metrics');
-$('btn-diag-agent').onclick = () => loadDiagnostics('agent');
-$('btn-diag-copy').onclick = () => copyText($('diag-output').textContent);
-
-// Client-Side In-Browser Ed25519 Signer & Publisher
-async function ensureKeypair() {
-  if (!App.ed25519Key) {
-    App.ed25519Key = await window.crypto.subtle.generateKey(
-      { name: "Ed25519" },
-      true,
-      ["sign", "verify"]
-    );
-  }
-  return App.ed25519Key;
-}
-
-$('btn-pub-submit').onclick = async function() {
+// Sign and Publish Event
+$('btn-publish-submit').onclick = async function() {
   const btn = this;
   const col = $('pub-col').value.trim() || 'notes';
   let dataVal;
   try {
     dataVal = JSON.parse($('pub-data').value);
   } catch (err) {
-    alert('Invalid JSON in data payload: ' + err.message);
+    alert('Invalid JSON in payload: ' + err.message);
     return;
   }
 
@@ -1434,7 +1380,7 @@ $('btn-pub-submit').onclick = async function() {
       blobHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // Canonical JSON (sorted keys)
+    // Canonical JSON sort
     function canonicalSort(obj) {
       if (typeof obj !== 'object' || obj === null) return obj;
       if (Array.isArray(obj)) return obj.map(canonicalSort);
@@ -1445,6 +1391,7 @@ $('btn-pub-submit').onclick = async function() {
     }
     const dataCanon = JSON.stringify(canonicalSort(dataVal));
 
+    // ID = SHA-256(owner:col:created:expires:dataCanon:blobHash:labelsCsv)
     const idInput = `${owner}:${col}:${created}:${expires}:${dataCanon}:${blobHash}:${labelsCsv}`;
     const idHash = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(idInput));
     const sigRaw = await window.crypto.subtle.sign({ name: "Ed25519" }, key.privateKey, idHash);
@@ -1477,9 +1424,10 @@ $('btn-pub-submit').onclick = async function() {
 
     const pubRes = await res.json();
     if (res.ok && pubRes.status === 'success') {
-      showToast('Event published successfully!');
-      refreshAll();
-      switchView('events');
+      showToast('Event signed & published successfully!');
+      loadEvents();
+      fetchStatus();
+      if (blobHash) loadBlobs();
     } else {
       alert('Publish failed: ' + (pubRes.error || JSON.stringify(pubRes)));
     }
@@ -1487,26 +1435,27 @@ $('btn-pub-submit').onclick = async function() {
     alert('Signing error: ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span>Sign & Publish Event</span>`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Sign with Ed25519 & Publish`;
   }
 };
 
-// Drag & Drop Upload Handler
+// Drag and drop blob upload
 const dropzone = $('blob-dropzone');
+dropzone.onclick = () => $('blob-file-input').click();
 dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
 dropzone.ondragleave = () => { dropzone.classList.remove('dragover'); };
-dropzone.ondrop = async (e) => {
+dropzone.ondrop = (e) => {
   e.preventDefault();
   dropzone.classList.remove('dragover');
   if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-    uploadBlobFile(e.dataTransfer.files[0]);
+    uploadBlob(e.dataTransfer.files[0]);
   }
 };
 $('blob-file-input').onchange = function() {
-  if (this.files && this.files[0]) uploadBlobFile(this.files[0]);
+  if (this.files && this.files[0]) uploadBlob(this.files[0]);
 };
 
-async function uploadBlobFile(file) {
+async function uploadBlob(file) {
   showToast('Signing & uploading ' + file.name + '...');
   try {
     const key = await ensureKeypair();
@@ -1546,8 +1495,9 @@ async function uploadBlobFile(file) {
 
     const res = await fetch(App.origin + '/events', { method: 'POST', body: fd });
     if (res.ok) {
-      showToast('Blob uploaded: ' + truncate(blobHash, 12));
+      showToast('Blob saved: ' + truncate(blobHash, 12));
       loadBlobs();
+      loadEvents();
       fetchStatus();
     } else {
       const err = await res.json();
@@ -1558,22 +1508,55 @@ async function uploadBlobFile(file) {
   }
 }
 
-// Search debounce
-let filterTimeout;
-$('events-search-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
-$('events-col-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
-$('events-label-input').oninput = () => { clearTimeout(filterTimeout); filterTimeout = setTimeout(loadEvents, 250); };
-$('btn-events-refresh').onclick = loadEvents;
-$('btn-blobs-refresh').onclick = loadBlobs;
-
-function refreshAll() {
-  fetchStatus();
-  if (App.currentView === 'events') loadEvents();
-  if (App.currentView === 'blobs') loadBlobs();
-  if (App.currentView === 'dashboard') { loadEvents(); loadBlobs(); }
+// Real-Time SSE Stream Handler
+function initStream() {
+  if (App.eventSource) App.eventSource.close();
+  try {
+    App.eventSource = new EventSource(App.origin + '/events/stream');
+    App.eventSource.addEventListener('event', (e) => {
+      if (!App.streamActive) return;
+      try {
+        const ev = JSON.parse(e.data);
+        // Prepend to current events if not duplicate
+        if (!App.events.some(x => x.id === ev.id)) {
+          App.events.unshift(ev);
+          renderEventsTable(App.events);
+          $('events-count-label').textContent = `Showing ${App.events.length} events`;
+          showToast(`New live event: ${ev.collection}`);
+        }
+      } catch (err) {}
+    });
+  } catch (err) {}
 }
 
+$('btn-toggle-stream').onclick = function() {
+  App.streamActive = !App.streamActive;
+  this.textContent = App.streamActive ? 'Pause Stream' : 'Resume Stream';
+  showToast(App.streamActive ? 'Stream resumed' : 'Stream paused');
+};
+
+// Search & Filter Listeners
+let searchDebounce;
+$('search-events').oninput = () => { clearTimeout(searchDebounce); searchDebounce = setTimeout(loadEvents, 250); };
+$('filter-col').oninput = () => { clearTimeout(searchDebounce); searchDebounce = setTimeout(loadEvents, 250); };
+$('filter-label').oninput = () => { clearTimeout(searchDebounce); searchDebounce = setTimeout(loadEvents, 250); };
+
+// Refresh buttons
+$('btn-refresh').onclick = () => { fetchStatus(); loadEvents(); loadBlobs(); showToast('Refreshed data'); };
+$('btn-refresh-events').onclick = loadEvents;
+$('btn-refresh-blobs').onclick = loadBlobs;
+
+// Peer ID copy
+$('swarm-peer-id').onclick = () => {
+  const pid = $('swarm-peer-id').textContent;
+  if (pid && pid !== 'Loading...') {
+    navigator.clipboard.writeText(pid);
+    showToast('Copied Peer ID to clipboard');
+  }
+};
+
 // Startup
+ensureKeypair();
 fetchStatus();
 loadEvents();
 loadBlobs();
