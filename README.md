@@ -24,7 +24,7 @@ Instead of running and configuring half a dozen microservices, API keys, and dat
 | **ntfy / Pusher** | Real-time live pub/sub streams via Server-Sent Events (`GET /events/stream?label=...`). | No WebSockets, no server daemons. Subscribe directly in browser `EventSource` or `curl -N`. |
 | **Sentry** | Fire-and-forget signed telemetry and error logs (`POST /events`) with labels and automatic TTL expiry. | Zero auth tokens to provision or rotate. Filter by error tag or live-tail critical alerts. |
 | **Nostr Relays** | Cryptographically signed Ed25519 events with tamper-proof IDs and DHT swarm sync. | No complex NIP protocols, no paid relay operators. Standard HTTP REST + SSE. |
-| **0x0.st / Pastebin** | Content-addressed ephemeral binary file drops (`POST /events` with a `data` part, `GET /down/<sha256>`). | Deduplicated by SHA-256. Reference-driven retention pins blobs while any signed event links them, then auto-evicts orphans cleanly. |
+| **0x0.st / Pastebin** | Content-addressed ephemeral binary file drops (`POST /events` with a `blob` part, `GET /down/<sha256>`). | Deduplicated by SHA-256. Reference-driven retention pins blobs while any signed event links them, then auto-evicts orphans cleanly. |
 | **Redis Pub/Sub** | Ephemeral JSON documents with self-expiring TTLs and real-time streaming. | Pure SQLite WAL storage with microsecond query latency and zero RAM bloat. |
 | **S3 / Object Store** | Content-addressed `.bin` storage with streaming downloads and checksum verification. | Zero IAM policies or bucket configuration. Upload once, verify everywhere. |
 
@@ -81,23 +81,25 @@ BASE=http://localhost:3232
 # 1. Health check: active events, blobs, and connected P2P peers
 curl $BASE/status
 
-# 2. Publish a signed event AND raw bytes in one request.
-# The reply carries the blob's SHA-256 (it isn't linked into the event below,
-# but the same request shape is used for linked blob uploads — see step 5).
+# 2. Publish a signed event AND raw bytes in one request (event part first).
+# The event below carries top-level "blob": "<sha256>" (signed); the server
+# validates the signature before staging any bytes, then re-hashes them.
 head -c 64 /dev/urandom > data.bin
 HASH=$(sha256sum data.bin | cut -d' ' -f1)
 curl -X POST -F "event=@event.json;type=application/json" \
-     -F "data=@data.bin;type=application/octet-stream" $BASE/events
+     -F "blob=@data.bin;type=application/octet-stream" $BASE/events
 
-# 3. Any machine in the swarm can fetch the bytes back by content address
+# 3. Any machine in the swarm can fetch the bytes back by content address,
+#    or straight off the event with no hash lookup:
 curl -O $BASE/down/$HASH
+curl -O $BASE/events/<id>/blob
 
-# 4. Query signed events (filtered by collection or label)
+# 4. Query signed events (filtered by collection, label, or blob link)
 curl "$BASE/events?collection=chat&label=room:general&limit=20"
+curl "$BASE/events?blob=$HASH"
 
-# 5. Link bytes to an event: set "bin": "<sha256>" in data BEFORE signing
-#    (covered by the signature), then send event + bytes together.
-curl "$BASE/events/stream?collection=chat&label=room:general"
+# 5. Live stream events (Server-Sent Events — no WebSocket required)
+curl -N "$BASE/events/stream?collection=chat&label=room:general"
 ```
 
 ---
@@ -110,8 +112,9 @@ Events are immutable, cryptographically signed JSON documents. You own the priva
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/events` | Publish a signed event (`201` created, `200` duplicate). Alias: `/records` |
-| `GET` | `/events?collection=&label=&owner=&since=&until=&search=&limit=&cursor=` | Query newest-first. Expired events hidden by default. |
+| `GET` | `/events?collection=&label=&owner=&since=&until=&search=&blob=&limit=&cursor=` | Query newest-first. Expired events hidden by default. |
 | `GET` | `/events/{id}` | Fetch a single event. Add `?resolve=blob` to inline linked blob metadata. |
+| `GET` | `/events/{id}/blob` | Stream the event's attached bytes directly (404 if none). |
 | `GET` | `/events/stream?collection=&label=&owner=&search=` | Real-time Server-Sent Events (SSE) feed. |
 
 ```json
@@ -121,6 +124,7 @@ Events are immutable, cryptographically signed JSON documents. You own the priva
   "created_at": 1758420000,
   "expires_at": 1789956000,
   "data": { "service": "api", "error": "database connection timeout" },
+  "blob": "<64 hex sha256> (optional top-level attachment pointer, omit or null for none)",
   "labels": ["severity:critical", "env:prod"],
   "sig": "<128 hex chars>"
 }
@@ -131,12 +135,13 @@ Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it 
 
 | **Method** | **Endpoint** | **Description** |
 | :--- | :--- | :--- |
-| `POST` | `/events` | Publish a signed event; add a `data` multipart part to carry the raw bytes of one content-addressed blob in the same request. |
+| `POST` | `/events` | Publish a signed event; add a `blob` multipart part (after the `event` part) to carry the raw bytes of one content-addressed blob in the same request. Signature is validated before any bytes touch disk. |
 | `GET` | `/down/{hash}` | Download by SHA-256 hash (64-char hex). Supports `HEAD`, `ETag`, and byte ranges. |
+| `GET` | `/events/{id}/blob` | Stream the bytes attached to an event directly. |
 | `GET` | `/blobs?limit=50&offset=0` | List stored blobs sorted by newest upload. |
 
 * **Retention**: Reference-driven, size-neutral. A blob is pinned while any unexpired signed event references it; once the last event expires it becomes an orphan and is auto-evicted after `BlobOrphanGraceDays` (default 7).
-* **Link to Events**: Add `data.bin = "<sha256>"` (a reserved key) inside any event. The hash is covered by the signature within the event ID, so a linked blob can't be silently swapped.
+* **Link to Events**: Set the top-level `blob = "<sha256>"` field before signing. The hash feeds the event ID, so a linked blob can't be silently swapped — and `data` stays 100% yours, no reserved keys inside it.
 
 #### Why `.bin` Only? (Abuse Immunity & Security)
 Originless strictly accepts `.bin` files and rejects renderable/textual payloads (`text/*`, `image/*`, `application/pdf`). All downloads are served as `application/octet-stream` with `X-Content-Type-Options: nosniff`:
@@ -145,7 +150,7 @@ Originless strictly accepts `.bin` files and rejects renderable/textual payloads
 * **Immunity to XSS & Phishing**: Browsers never execute, parse, or inline-render uploaded files under your origin. Malicious HTML, scripts, or weaponized SVGs are completely neutralized.
 * **Legal & Abuse Shield**: Open unauthenticated image/video hosts are magnets for copyright infringement, pirate streaming, and illicit media. Opaque `.bin` keeps Originless a blind, neutral data pipe.
 * **Zero Parsing Attack Surface**: No image thumbnailers, EXIF extractors, or video transcoders that can be targeted by decompression bombs or memory corruption exploits.
-* **Client-Sovereign Media**: Need to store an image or document? Package or encrypt it into a `.bin`, link its hash inside a signed event (`data.bin = "<sha256>"`, the reserved resident key), and decode or render it client-side (`URL.createObjectURL`).
+* **Client-Sovereign Media**: Need to store an image or document? Package or encrypt it into a `.bin`, set the event's top-level `blob` field to its SHA-256, and decode or render it client-side (`URL.createObjectURL`).
 
 ---
 
@@ -187,10 +192,11 @@ address is yours:
 # Compute the content address first, so you can sign an event about it
 HASH=$(sha256sum backup.bin | cut -d' ' -f1)     # the bytes' SHA-256
 
-# Publish a signed event carrying data.bin = <HASH> with the bytes attached
-EVENT=$(build_signed_event_json data="{\"bin\":\"$HASH\"}")   # your signing step
+# Publish a signed event with top-level blob = <HASH>, bytes attached
+# (event part first — the server checks the signature before staging bytes)
+EVENT=$(build_signed_event_json blob="$HASH")   # your signing step
 curl -X POST -F "event=$EVENT;type=application/json" \
-     -F "data=@backup.bin;type=application/octet-stream" http://localhost:3232/events
+     -F "blob=@backup.bin;type=application/octet-stream" http://localhost:3232/events
 
 # Download from any machine in the swarm
 curl -O http://localhost:3232/down/$HASH
@@ -262,10 +268,11 @@ print(res.status_code, res.json())
 | :--- | :--- | :--- |
 | `GET /status` | `GET` | Health, event/blob counts, active SSE clients, and P2P mesh status |
 | `POST /events` | `POST` | Publish signed event (`/records` alias) |
-| `GET /events` | `GET` | Query events with filtering (`collection`, `label`, `owner`, `since`, `until`, `cursor`) |
+| `GET /events` | `GET` | Query events with filtering (`collection`, `label`, `owner`, `since`, `until`, `blob`, `cursor`) |
 | `GET /events/{id}` | `GET` | Fetch event by ID (`?resolve=blob` to inline linked blob) |
+| `GET /events/{id}/blob` | `GET` | Stream the event's attached bytes directly |
 | `GET /events/stream` | `GET` | Real-time Server-Sent Events stream |
-| `POST /events` (with `data` part) | `POST` | Publish a signed event and attach one content-addressed blob's raw bytes in the same request |
+| `POST /events` (with `blob` part) | `POST` | Publish a signed event and attach one content-addressed blob's raw bytes in the same request (event part first) |
 | `GET /down/{hash}` | `GET` | Download `.bin` binary file (`HEAD` supported) |
 | `GET /blobs` | `GET` | List stored blobs |
 | `GET /metrics` | `GET` | Prometheus telemetry metrics |

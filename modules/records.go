@@ -30,6 +30,9 @@ var (
 )
 
 // Record is the stored signed object. ID is server-computed, never client-sent.
+// Blob is a top-level content-addressed attachment pointer ("" when none):
+// it names the sha256 of the bytes published with the event and is covered
+// by the signature via the record ID, so a linked blob cannot be swapped.
 type Record struct {
 	ID         string          `json:"id"`
 	Owner      string          `json:"owner"`
@@ -37,6 +40,7 @@ type Record struct {
 	CreatedAt  int64           `json:"created_at"`
 	ExpiresAt  int64           `json:"expires_at"`
 	Data       json.RawMessage `json:"data"`
+	Blob       string          `json:"blob,omitempty"`
 	Labels     []string        `json:"labels"`
 	Sig        string          `json:"sig"`
 	StoredAt   string          `json:"stored_at,omitempty"`
@@ -50,6 +54,7 @@ type recordInput struct {
 	CreatedAt  *int64          `json:"created_at"`
 	ExpiresAt  *int64          `json:"expires_at"`
 	Data       json.RawMessage `json:"data"`
+	Blob       *string         `json:"blob"`
 	Labels     []string        `json:"labels"`
 	Sig        *string         `json:"sig"`
 }
@@ -157,16 +162,21 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 		return nil, fmt.Errorf("data must be a JSON object")
 	}
 
-	// Optional blob linkage: data may carry "_blob": "<sha256 hex>" to
-	// attach this record to a stored binary blob. The hash is covered by
-	// the signature (it is part of the canonical data in the record ID),
-	// so the link is tamper-proof. Existence is enforced by the caller
-	// against the store; here we only check the shape.
-	if _, err := RecordBlobHash(canonical); err != nil {
-		return nil, err
+	// Optional top-level blob attachment pointer. Absent/null means a
+	// blob-less event; otherwise it must be a sha256 hex string naming the
+	// content-addressed bytes. The value feeds the record ID, so the link
+	// is tamper-proof. Existence is enforced by the caller against the
+	// store; here we only check the shape.
+	var blob string
+	if in.Blob != nil {
+		h, err := NormalizeBlobHash(strings.ToLower(strings.TrimSpace(*in.Blob)))
+		if err != nil {
+			return nil, fmt.Errorf("invalid blob: %v", err)
+		}
+		blob = h
 	}
 
-	idHex, idBytes := computeRecordID(owner, collection, created, expires, canonical, in.Labels)
+	idHex, idBytes := computeRecordID(owner, collection, created, expires, canonical, blob, in.Labels)
 	if !ed25519.Verify(pub, idBytes, sig) {
 		return nil, fmt.Errorf("bad sig")
 	}
@@ -178,42 +188,11 @@ func ValidateRecordBody(raw []byte, nowUnix int64) (*Record, error) {
 		CreatedAt:  created,
 		ExpiresAt:  expires,
 		Data:       json.RawMessage(canonical),
+		Blob:       blob,
 		Labels:     append([]string{}, in.Labels...),
 		Sig:        sigHex,
 		Size:       int64(len(raw)),
 	}, nil
-}
-
-// RecordBlobHash extracts the optional blob linkage from record data.
-// The reserved root key "bin" holds a sha256 hex string: a signed event
-// pins a content-addressed blob by naming its hash. A present-but-
-// malformed value is an error (the server refuses to guess a hash that
-// was signed), so "bin" cannot be repurposed client-side.
-func RecordBlobHash(data json.RawMessage) (string, error) {
-	return blobHashFromObject([]byte(data), "bin")
-}
-
-// blobHashFromObject reads key from a JSON object and validates it as a
-// sha256 hex string. Returns "" for absent/null values; errors for malformed
-// ones. Non-object JSON yields "" with no error (shape is validated elsewhere).
-func blobHashFromObject(data []byte, key string) (string, error) {
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(data, &obj); err != nil {
-		return "", nil // shape validated elsewhere; nothing to extract
-	}
-	raw, ok := obj[key]
-	if !ok || string(bytes.TrimSpace(raw)) == "null" {
-		return "", nil
-	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return "", fmt.Errorf("invalid %s: must be a sha256 hex string", key)
-	}
-	h, err := NormalizeBlobHash(s)
-	if err != nil {
-		return "", fmt.Errorf("invalid %s: %v", key, err)
-	}
-	return h, nil
 }
 
 func parseOwnerPubkey(owner string) (ed25519.PublicKey, error) {
@@ -229,7 +208,7 @@ func parseOwnerPubkey(owner string) (ed25519.PublicKey, error) {
 	return ed25519.PublicKey(raw), nil
 }
 
-func computeRecordID(owner, collection string, created, expires int64, canonicalData []byte, labels []string) (string, []byte) {
+func computeRecordID(owner, collection string, created, expires int64, canonicalData []byte, blob string, labels []string) (string, []byte) {
 	var sb strings.Builder
 	sb.WriteString(owner)
 	sb.WriteByte(':')
@@ -240,6 +219,8 @@ func computeRecordID(owner, collection string, created, expires int64, canonical
 	sb.WriteString(strconv.FormatInt(expires, 10))
 	sb.WriteByte(':')
 	sb.Write(canonicalData)
+	sb.WriteByte(':')
+	sb.WriteString(blob)
 	sb.WriteByte(':')
 	sb.WriteString(strings.Join(labels, ","))
 	sum := sha256.Sum256([]byte(sb.String()))

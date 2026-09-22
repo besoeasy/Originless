@@ -68,7 +68,7 @@ func (m *Manager) PurgeExpiredRecords(nowUnix int64) (int64, error) {
 }
 
 // EvictBlobs deletes orphan blobs whose grace period has elapsed.
-// A blob is an orphan when no live record references it via data.bin
+// A blob is an orphan when no live record references it via data.blob
 // (linked blobs live as long as their referencing record). Orphans are
 // evicted oldest-access-first; there is no total storage quota, so blobs
 // with live references are never evicted to make room.
@@ -84,10 +84,10 @@ func (m *Manager) EvictBlobs() error {
 	// the table so they must not advance the page cursor.
 	offset := 0
 	now := time.Now()
-	// Blobs referenced via data.bin by live records are exempt: evicting
-	// them would dangle a stored event. Computed once per pass via the
-	// record_blobs join; a concurrent publish may pin a blob mid-pass, in
-	// which case it is picked up on the next janitor tick.
+	// Blobs referenced via data.blob by live records are exempt: evicting
+	// them would dangle a stored event. Computed once per pass from the
+	// indexed records.blob_hash column; a concurrent publish may pin a
+	// blob mid-pass, in which case it is picked up on the next janitor tick.
 	referenced, err := m.store.GetReferencedBlobHashes(now.Unix())
 	if err != nil {
 		log.Printf("[janitor] failed to list referenced blobs (proceeding without exemptions): %v", err)

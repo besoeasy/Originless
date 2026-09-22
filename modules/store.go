@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,6 +92,7 @@ func migrate(db *sql.DB) error {
 			created_at  INTEGER NOT NULL,
 			expires_at  INTEGER NOT NULL,
 			data        TEXT NOT NULL,
+			blob_hash   TEXT NOT NULL DEFAULT '',
 			sig         TEXT NOT NULL,
 			size        INTEGER NOT NULL,
 			stored_at   DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -99,18 +101,13 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_records_collection ON records(collection);
 		CREATE INDEX IF NOT EXISTS idx_records_created ON records(created_at);
 		CREATE INDEX IF NOT EXISTS idx_records_expires ON records(expires_at);
+		CREATE INDEX IF NOT EXISTS idx_records_blob ON records(blob_hash);
 		CREATE TABLE IF NOT EXISTS record_labels (
 			record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
 			label     TEXT NOT NULL,
 			PRIMARY KEY (record_id, label)
 		);
 		CREATE INDEX IF NOT EXISTS idx_record_labels_label ON record_labels(label);
-		CREATE TABLE IF NOT EXISTS record_blobs (
-			record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
-			blob_hash TEXT NOT NULL,
-			PRIMARY KEY (record_id, blob_hash)
-		);
-		CREATE INDEX IF NOT EXISTS idx_record_blobs_blob ON record_blobs(blob_hash);
 		CREATE TABLE IF NOT EXISTS blobs (
 			hash         TEXT PRIMARY KEY,
 			size         INTEGER NOT NULL,
@@ -124,43 +121,37 @@ func migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	// Backfill record_blobs for rows written before the link table existed
-	// (or ingested by older peers still carrying "_blob"). The janitor
-	// protects blobs via this table, so a stale gap would dangle events.
-	return backfillRecordBlobs(db)
+	return migrateBlobColumn(db)
 }
 
-// backfillRecordBlobs populates record_blobs from stored record data for any
-// row missing a linkage entry. Data is scanned once and links are inserted
-// for both the current "bin" key and the legacy "_blob" key.
-func backfillRecordBlobs(db *sql.DB) error {
-	rows, err := db.Query(`SELECT id, data FROM records`)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	var missing []struct{ id, hash string }
-	for rows.Next() {
-		var id, dataStr string
-		if err := rows.Scan(&id, &dataStr); err != nil {
+// migrateBlobColumn moves blob linkage from the retired record_blobs join
+// table (and its data.bin/data.blob predecessors) onto records.blob_hash.
+// Fresh DBs already have the column from the schema above; pre-existing DBs
+// get ALTER TABLE plus a one-shot copy, then the join table is dropped.
+func migrateBlobColumn(db *sql.DB) error {
+	if _, err := db.Exec(`ALTER TABLE records ADD COLUMN blob_hash TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
 			return err
 		}
-		for _, key := range []string{"bin", "_blob"} {
-			h, err := blobHashFromObject([]byte(dataStr), key)
-			if err != nil || h == "" {
-				continue
-			}
-			var exists int
-			if err := db.QueryRow(`SELECT 1 FROM record_blobs WHERE record_id = ? AND blob_hash = ?`, id, h).Scan(&exists); err == sql.ErrNoRows {
-				missing = append(missing, struct{ id, hash string }{id, h})
-			}
-		}
 	}
-	if err := rows.Err(); err != nil {
+	var hasLinkTable int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='record_blobs'`,
+	).Scan(&hasLinkTable); err != nil {
 		return err
 	}
-	for _, m := range missing {
-		if _, err := db.Exec(`INSERT OR IGNORE INTO record_blobs (record_id, blob_hash) VALUES (?, ?)`, m.id, m.hash); err != nil {
+	if hasLinkTable > 0 {
+		if _, err := db.Exec(
+			`UPDATE records SET blob_hash = (
+				SELECT rb.blob_hash FROM record_blobs rb
+				WHERE rb.record_id = records.id
+			) WHERE EXISTS (
+				SELECT 1 FROM record_blobs rb WHERE rb.record_id = records.id
+			)`,
+		); err != nil {
+			return err
+		}
+		if _, err := db.Exec(`DROP TABLE record_blobs`); err != nil {
 			return err
 		}
 	}
@@ -178,8 +169,8 @@ func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err erro
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT OR IGNORE INTO records (id, owner, collection, created_at, expires_at, data, sig, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.ID, r.Owner, r.Collection, r.CreatedAt, r.ExpiresAt, string(r.Data), r.Sig, r.Size,
+		`INSERT OR IGNORE INTO records (id, owner, collection, created_at, expires_at, data, blob_hash, sig, size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.ID, r.Owner, r.Collection, r.CreatedAt, r.ExpiresAt, string(r.Data), r.Blob, r.Sig, r.Size,
 	)
 	if err != nil {
 		return false, "", err
@@ -200,14 +191,6 @@ func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err erro
 			return false, "", err
 		}
 	}
-	// Record the blob linkage (if any). The janitor protects blobs via
-	// this table, so it must be written inside the same transaction as
-	// the record that claims it.
-	if h, err := RecordBlobHash(r.Data); err == nil && h != "" {
-		if _, err := tx.Exec(`INSERT OR IGNORE INTO record_blobs (record_id, blob_hash) VALUES (?, ?)`, r.ID, h); err != nil {
-			return false, "", err
-		}
-	}
 	if err := tx.QueryRow(`SELECT stored_at FROM records WHERE id = ?`, r.ID).Scan(&storedAt); err != nil {
 		return false, "", err
 	}
@@ -219,7 +202,7 @@ func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err erro
 
 func (s *Store) GetRecord(id string) (*Record, error) {
 	row := s.db.QueryRow(
-		`SELECT id, owner, collection, created_at, expires_at, data, sig, size, stored_at FROM records WHERE id = ?`,
+		`SELECT id, owner, collection, created_at, expires_at, data, blob_hash, sig, size, stored_at FROM records WHERE id = ?`,
 		id,
 	)
 	r, err := scanRecord(row)
@@ -258,6 +241,7 @@ type RecordFilter struct {
 	Owner          string
 	Collection     string
 	Label          string
+	Blob           string
 	Since          int64
 	Until          int64
 	Search         string
@@ -274,7 +258,7 @@ type RecordFilter struct {
 
 // QueryRecords returns newest-first, expired hidden unless IncludeExpired.
 func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
-	q := `SELECT id, owner, collection, created_at, expires_at, data, sig, size, stored_at FROM records WHERE 1=1`
+	q := `SELECT id, owner, collection, created_at, expires_at, data, blob_hash, sig, size, stored_at FROM records WHERE 1=1`
 	var args []any
 	if !f.IncludeExpired {
 		q += ` AND expires_at > ?`
@@ -291,6 +275,10 @@ func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
 	if f.Label != "" {
 		q += ` AND EXISTS (SELECT 1 FROM record_labels WHERE record_id = records.id AND label = ?)`
 		args = append(args, f.Label)
+	}
+	if f.Blob != "" {
+		q += ` AND blob_hash = ?`
+		args = append(args, f.Blob)
 	}
 	if f.Since > 0 {
 		q += ` AND created_at >= ?`
@@ -326,7 +314,7 @@ func (s *Store) QueryRecords(f RecordFilter) ([]Record, error) {
 	for rows.Next() {
 		var r Record
 		var dataStr, storedAt string
-		if err := rows.Scan(&r.ID, &r.Owner, &r.Collection, &r.CreatedAt, &r.ExpiresAt, &dataStr, &r.Sig, &r.Size, &storedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Owner, &r.Collection, &r.CreatedAt, &r.ExpiresAt, &dataStr, &r.Blob, &r.Sig, &r.Size, &storedAt); err != nil {
 			return nil, err
 		}
 		r.Data = jsonRaw(dataStr)
@@ -389,7 +377,7 @@ func joinPlaceholders(ph []string) string {
 func scanRecord(row *sql.Row) (*Record, error) {
 	var r Record
 	var dataStr, storedAt string
-	if err := row.Scan(&r.ID, &r.Owner, &r.Collection, &r.CreatedAt, &r.ExpiresAt, &dataStr, &r.Sig, &r.Size, &storedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.Owner, &r.Collection, &r.CreatedAt, &r.ExpiresAt, &dataStr, &r.Blob, &r.Sig, &r.Size, &storedAt); err != nil {
 		return nil, err
 	}
 	r.Data = jsonRaw(dataStr)
@@ -539,8 +527,8 @@ type BlobRow struct {
 }
 
 // GetBlobsByLRU returns blobs oldest-access-first for eviction scans.
-// Retention filtering happens in the janitor (per-blob, size-weighted),
-// so this returns every tracked blob in pages.
+// Retention filtering happens in the janitor (reference-driven orphan
+// grace), so this returns every tracked blob in pages.
 func (s *Store) GetBlobsByLRU(limit, offset int) ([]BlobRow, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 50
@@ -571,14 +559,13 @@ func (s *Store) GetBlobsByLRU(limit, offset int) ([]BlobRow, error) {
 // GetReferencedBlobDeadlines returns blob_hash -> max(expires_at) across all
 // live (unexpired) records that reference it. The janitor uses this as the
 // single source of truth for blob protection: a blob survives while any live
-// record pins it. Indexed via record_blobs(blob_hash); no record.data scan.
+// record pins it. Served by the indexed records.blob_hash column.
 func (s *Store) GetReferencedBlobDeadlines(nowUnix int64) (map[string]int64, error) {
 	rows, err := s.db.Query(
-		`SELECT rb.blob_hash, MAX(r.expires_at)
-		   FROM record_blobs rb
-		   JOIN records r ON r.id = rb.record_id
-		  WHERE r.expires_at > ?
-		  GROUP BY rb.blob_hash`,
+		`SELECT blob_hash, MAX(expires_at)
+		   FROM records
+		  WHERE expires_at > ? AND blob_hash != ''
+		  GROUP BY blob_hash`,
 		nowUnix,
 	)
 	if err != nil {
@@ -616,10 +603,9 @@ func (s *Store) GetReferencedBlobHashes(nowUnix int64) (map[string]bool, error) 
 func (s *Store) getBlobDeadline(hash string, nowUnix int64) (int64, error) {
 	var deadline sql.NullInt64
 	if err := s.db.QueryRow(
-		`SELECT MAX(r.expires_at)
-		   FROM record_blobs rb
-		   JOIN records r ON r.id = rb.record_id
-		  WHERE rb.blob_hash = ? AND r.expires_at > ?`,
+		`SELECT MAX(expires_at)
+		   FROM records
+		  WHERE blob_hash = ? AND expires_at > ?`,
 		hash, nowUnix,
 	).Scan(&deadline); err != nil {
 		return 0, err
@@ -680,15 +666,13 @@ func (s *Store) ListRecordIDs(unexpiredOnly bool) ([]string, error) {
 }
 
 // DeleteExpiredRecords removes records with expires_at <= nowUnix.
-// record_labels/record_blobs rows cascade via FK (PRAGMA foreign_keys=ON);
-// a defensive orphan cleanup runs first for DBs created before the pragma
-// was set. Returns the number of records removed.
+// record_labels rows cascade via FK (PRAGMA foreign_keys=ON); a defensive
+// orphan cleanup runs first for DBs created before the pragma was set.
+// Blob linkage needs no cleanup: it lives on records.blob_hash and dies
+// with the row. Returns the number of records removed.
 func (s *Store) DeleteExpiredRecords(nowUnix int64) (int64, error) {
 	// Defensive: drop orphan labels left by pre-FK databases.
 	if _, err := s.db.Exec(`DELETE FROM record_labels WHERE record_id IN (SELECT record_id FROM record_labels LEFT JOIN records ON records.id = record_labels.record_id WHERE records.id IS NULL)`); err != nil {
-		return 0, err
-	}
-	if _, err := s.db.Exec(`DELETE FROM record_blobs WHERE record_id IN (SELECT record_id FROM record_blobs LEFT JOIN records ON records.id = record_blobs.record_id WHERE records.id IS NULL)`); err != nil {
 		return 0, err
 	}
 	res, err := s.db.Exec(`DELETE FROM records WHERE expires_at <= ?`, nowUnix)

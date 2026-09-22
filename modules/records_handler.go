@@ -17,8 +17,8 @@ import (
 
 // PublishRecord stores a verified signed event. The write path is a single
 // endpoint: a JSON body publishes an event alone, while a multipart body
-// (parts "event" + "data") atomically publishes the event together with the
-// bytes it references via the reserved data.bin key. Uploading and linking
+// (parts "event" + "blob") atomically publishes the event together with the
+// bytes it references via the reserved data.blob key. Uploading and linking
 // are one request, so a blob is always born owned by a signed event.
 func (h *Handler) PublishRecord(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -70,10 +70,10 @@ func (h *Handler) publishEventJSON(w http.ResponseWriter, r *http.Request) {
 	// Linked blob must already be stored (link-only mode): upload the
 	// bytes in the same multipart request, or publish the event that
 	// claims an existing blob.
-	if blobHash, _ := RecordBlobHash(rec.Data); blobHash != "" {
-		if _, err := st.GetBlob(blobHash); err != nil {
+	if rec.Blob != "" {
+		if _, err := st.GetBlob(rec.Blob); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"status": "error", "error": "referenced blob not found", "hash": blobHash,
+				"status": "error", "error": "referenced blob not found", "hash": rec.Blob,
 			})
 			return
 		}
@@ -82,10 +82,14 @@ func (h *Handler) publishEventJSON(w http.ResponseWriter, r *http.Request) {
 	h.finishPublish(w, st, rec)
 }
 
+// errValidated marks an event part whose validation response was already
+// written inline (fail-fast path); the part loop just stops.
+var errValidated = errors.New("event validation already answered")
+
 // publishEventMultipart handles the combined blob + event publish. The
 // "event" part is the signed JSON (same schema as the JSON path); the
-// optional "data" part streams the raw bytes. The server re-hashes the
-// bytes and refuses a mismatch with the signed data.bin, so the client
+// optional "blob" part streams the raw bytes. The server re-hashes the
+// bytes and refuses a mismatch with the signed data.blob, so the client
 // must compute sha256 before signing.
 func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) {
 	select {
@@ -117,17 +121,19 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 	reader, err := r.MultipartReader()
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"status": "error", "error": "expected multipart/form-data with part \"event\" and optional part \"data\"",
+			"status": "error", "error": "expected multipart/form-data with part \"event\" and optional part \"blob\"",
 		})
 		return
 	}
 
-	var eventRaw []byte
+	var rec *Record
+	var eventValidated bool
 	var overflow bool
 	var stageName string
 	var stagedSize int64
 	var stagedDigest [32]byte
-	var dataSeen bool
+	var blobSeen bool
+	nowUnix := time.Now().Unix()
 	defer func() {
 		// Best-effort cleanup: committed blobs already renamed the temp away.
 		if stageName != "" {
@@ -159,13 +165,32 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 					overflow = true
 					return nil
 				}
-				eventRaw = raw
-				return nil
-			case "data":
-				if dataSeen {
-					return fmt.Errorf("duplicate data part")
+				// Fail fast: a forged event must not cost a blob staging.
+				// Bytes arriving before a valid event are refused outright.
+				v, verr := ValidateRecordBody(raw, nowUnix)
+				if verr != nil {
+					status := http.StatusBadRequest
+					msg := verr.Error()
+					switch {
+					case contains(msg, "too large"):
+						status = http.StatusRequestEntityTooLarge
+					case contains(msg, "bad sig"):
+						status = http.StatusUnauthorized
+					}
+					writeJSON(w, status, map[string]any{"status": "error", "error": msg})
+					return errValidated
 				}
-				dataSeen = true
+				rec = v
+				eventValidated = true
+				return nil
+			case "blob":
+				if !eventValidated {
+					return fmt.Errorf("event part must come first")
+				}
+				if blobSeen {
+					return fmt.Errorf("duplicate blob part")
+				}
+				blobSeen = true
 				tmp, size, digest, err := stageBlobData(BlobDir, part)
 				if err != nil {
 					return err
@@ -179,6 +204,9 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 			}
 		}()
 		if err != nil {
+			if errors.Is(err, errValidated) {
+				return // response already written
+			}
 			var bc *errBlockedContent
 			switch {
 			case errors.As(err, &bc):
@@ -200,42 +228,28 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 		})
 		return
 	}
-	if len(eventRaw) == 0 {
+	if !eventValidated {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "missing event part"})
 		return
 	}
 
-	rec, err := ValidateRecordBody(eventRaw, time.Now().Unix())
-	if err != nil {
-		status := http.StatusBadRequest
-		msg := err.Error()
-		switch {
-		case contains(msg, "too large"):
-			status = http.StatusRequestEntityTooLarge
-		case contains(msg, "bad sig"):
-			status = http.StatusUnauthorized
-		}
-		writeJSON(w, status, map[string]any{"status": "error", "error": msg})
-		return
-	}
-
-	bin, _ := RecordBlobHash(rec.Data)
+	blobHash := rec.Blob
 	stagedHex := hex.EncodeToString(stagedDigest[:])
 
 	switch {
-	case bin == "" && dataSeen:
+	case blobHash == "" && blobSeen:
 		// The hash must be signed before the bytes arrive; the server
 		// cannot invent it after the fact.
 		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"status": "error", "error": "data part requires data.bin in the event",
+			"status": "error", "error": "blob part requires data.blob in the event",
 		})
 		return
-	case bin != "" && dataSeen:
-		if bin != stagedHex {
+	case blobHash != "" && blobSeen:
+		if blobHash != stagedHex {
 			// Bytes present and signed hash disagree: refuse to store the
 			// data under a false address.
 			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"status": "error", "error": "blob hash mismatch", "claimed": bin, "actual": stagedHex,
+				"status": "error", "error": "blob hash mismatch", "claimed": blobHash, "actual": stagedHex,
 			})
 			return
 		}
@@ -245,11 +259,11 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		stageName = "" // consumed by commit
-	case bin != "":
+	case blobHash != "":
 		// Link-only against an existing blob (dedupe: many events, one blob).
-		if _, err := st.GetBlob(bin); err != nil {
+		if _, err := st.GetBlob(blobHash); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"status": "error", "error": "referenced blob not found", "hash": bin,
+				"status": "error", "error": "referenced blob not found", "hash": blobHash,
 			})
 			return
 		}
@@ -259,10 +273,10 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 	if err != nil || !created {
 		return
 	}
-	if bin != "" && dataSeen {
+	if blobHash != "" && blobSeen {
 		h.metrics.IncUpload(stagedSize)
 		if h.p2p != nil {
-			h.p2p.BroadcastBlob(bin, stagedSize)
+			h.p2p.BroadcastBlob(blobHash, stagedSize)
 		}
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -390,6 +404,14 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 		AfterID:        afterID,
 		Now:            time.Now().Unix(),
 	}
+	if v := q.Get("blob"); v != "" {
+		h, err := NormalizeBlobHash(v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "invalid blob: " + err.Error()})
+			return
+		}
+		f.Blob = h
+	}
 
 	records, err := st.QueryRecords(f)
 	if err != nil {
@@ -443,8 +465,8 @@ func (h *Handler) GetRecordByID(w http.ResponseWriter, r *http.Request) {
 	// ?resolve=blob inlines the linked blob's metadata so clients fetch
 	// record + attachment in one round trip.
 	if r.URL.Query().Get("resolve") == "blob" {
-		if h, _ := RecordBlobHash(rec.Data); h != "" {
-			if meta, err := st.GetBlob(h); err == nil {
+		if rec.Blob != "" {
+			if meta, err := st.GetBlob(rec.Blob); err == nil {
 				writeJSON(w, http.StatusOK, map[string]any{
 					"status": "success",
 					"event":  rec,

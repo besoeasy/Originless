@@ -39,9 +39,10 @@ func createTestSignedRecord(collection string, data map[string]any, nowUnix int6
 		return nil, err
 	}
 
-	// Compute message to sign
+	// Compute message to sign (mirrors modules.computeRecordID:
+	// owner:collection:created:expires:canonical(data):blob:labels).
 	msg := owner + ":" + collection + ":" + strconv.FormatInt(nowUnix, 10) + ":" +
-		strconv.FormatInt(expires, 10) + ":" + string(canonicalBuf) + ":" + strings.Join(labels, ",")
+		strconv.FormatInt(expires, 10) + ":" + string(canonicalBuf) + ":" + "" + ":" + strings.Join(labels, ",")
 	h := sha256.Sum256([]byte(msg))
 	sig := ed25519.Sign(priv, h[:])
 	sigHex := hex.EncodeToString(sig)

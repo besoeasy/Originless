@@ -24,7 +24,7 @@ var (
 
 // Blob lifecycle (reference-driven):
 //
-// A blob is owned by the events that reference it via data.bin. It is
+// A blob is owned by the events that reference it via data.blob. It is
 // protected from eviction while at least one live (unexpired) event
 // references it; once no live event references it, it is an orphan and
 // survives at most BlobOrphanGraceDays counted from its upload before

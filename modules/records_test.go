@@ -40,7 +40,7 @@ func testKeys(t *testing.T) (ed25519.PublicKey, ed25519.PrivateKey, string) {
 	return pub, priv, owner
 }
 
-func signRecord(t *testing.T, priv ed25519.PrivateKey, owner, collection string, created, expires int64, data any, labels []string) map[string]any {
+func signRecord(t *testing.T, priv ed25519.PrivateKey, owner, collection string, created, expires int64, data any, labels []string, blob ...string) map[string]any {
 	t.Helper()
 	rawData, err := json.Marshal(data)
 	if err != nil {
@@ -50,13 +50,19 @@ func signRecord(t *testing.T, priv ed25519.PrivateKey, owner, collection string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	idHex, idBytes := computeRecordID(owner, collection, created, expires, canonical, labels)
+	blobStr := ""
+	if len(blob) > 0 {
+		// Mirror a real client: the signed ID covers the normalized form,
+		// so any case the client sends verifies identically server-side.
+		blobStr = strings.ToLower(strings.TrimSpace(blob[0]))
+	}
+	idHex, idBytes := computeRecordID(owner, collection, created, expires, canonical, blobStr, labels)
 	sig := ed25519.Sign(priv, idBytes)
 	var dataObj map[string]any
 	if err := json.Unmarshal(rawData, &dataObj); err != nil {
 		t.Fatal(err)
 	}
-	return map[string]any{
+	out := map[string]any{
 		"owner":      owner,
 		"collection": collection,
 		"created_at": created,
@@ -66,6 +72,10 @@ func signRecord(t *testing.T, priv ed25519.PrivateKey, owner, collection string,
 		"sig":        hex.EncodeToString(sig),
 		"_id":        idHex,
 	}
+	if blobStr != "" {
+		out["blob"] = blobStr
+	}
+	return out
 }
 
 func TestValidateRecordBodyOK(t *testing.T) {

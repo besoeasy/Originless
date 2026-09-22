@@ -11,11 +11,12 @@ Base URL: the origin you fetched this file from.
 Endpoints (all relative to base URL)
 ------------------------------------
 POST /events          Store a signed JSON event (8 KB max). Alias: /records.
-                      Add a second multipart part named `data` to carry raw
+                      Add a second multipart part named `blob` to carry raw
                       bytes alongside the event (content-addressed blobs).
 GET  /events          Query events, newest-first. Alias: /records
 GET  /events/stream   Live Server-Sent Events feed. Alias: /records/stream
 GET  /events/{id}     Fetch one event by ID. Add ?resolve=blob to inline linked blob.
+                      GET /events/{id}/blob streams the attached bytes directly.
 GET  /blobs           List blobs, newest-first (?limit=50&offset=0)
 GET  /down/{hash}     Download blob by 64-char hex SHA-256 (HEAD also allowed)
 GET  /status          Node snapshot (blobs, events, SSE clients)
@@ -26,42 +27,46 @@ GET  /agent.txt       This file. GET /agent redirects here.
 ----------------
 Events are JSON; bodies <= 8192 bytes.
 Never send `id`; server computes:
-  id = sha256(owner:collection:created_at:expires_at:canonical(data):labels)
+  id = sha256(owner:collection:created_at:expires_at:canonical(data):blob:labels)
 
 Fields:
   owner       required, "ed25519:<64 hex pubkey>"
   collection  required, ^[a-z0-9/_-]{1,32}$  e.g. chat, saves, profile
   created_at  required, unix seconds (max 15 min future skew)
   expires_at  required, unix seconds, created_at < expires_at <= created_at + 31536000 (1y)
-  data        required, JSON object
+  data        required, JSON object (yours alone — no reserved keys inside)
+  blob        optional, "<64 hex sha256>" top-level attachment pointer, "" or absent = none
   labels      required, 0-10 strings, [] for none
   sig         required, 128 hex chars = ed25519_sign(id)
 
 Responses: 201 created, 200 duplicate (same payload = same id),
 401 bad signature, 400 schema/TTL, 413 over 8 KB.
 
-Link a blob in one step: compute sha256 of the bytes locally, set
-data.bin = "<sha256>" (a reserved key), sign the event, then send it
-as multipart. Server re-hashes the bytes; a mismatch is a 400 and
-nothing is stored. The hash is covered by the signature.
-Add label "blob:<hash>" to query it.
+Link a blob in one step: compute sha256 of the bytes locally, set the
+top-level `blob` field to "<sha256>", sign the event, then send it as
+multipart with the `event` part FIRST and the raw bytes as the `blob`
+part. The server validates the signature before staging any bytes
+(a forged event never touches disk) and re-hashes the bytes; a mismatch
+is a 400 and nothing is stored. Query by hash with ?blob=<sha256>.
 Blobs linked from live (unexpired) events are exempt from eviction.
 
 curl (JSON only):
   curl -X POST $BASE/events -H "Content-Type: application/json" \
     -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
 
-curl (event + blob in one request):
+curl (event + blob in one request; event part MUST come first):
   HASH=$(sha256sum save.bin | cut -d' ' -f1)
-  DATA=$(printf '{"bin":"%s"}' "$HASH")
-  EVENT=$(build_signed_event_json with data="$DATA")   # your signing step
+  EVENT=$(build_signed_event_json blob="$HASH")   # your signing step
   curl -X POST $BASE/events \
     -F "event=$EVENT;type=application/json" \
-    -F "data=@save.bin;type=application/octet-stream"
+    -F "blob=@save.bin;type=application/octet-stream"
   # {"status":"created","id":"sha256...","stored_at":...}
+  # or fetch the bytes straight off the event:
+  curl -O "$BASE/events/<id>/blob"
 
 Query:
   curl "$BASE/events?collection=chat&label=room:general&limit=20"
+  curl "$BASE/events?blob=$HASH"   # all live events pointing at one blob
   curl "$BASE/events?owner=ed25519:...&since=...&until=...&search=...&limit=50&cursor=<created_at>:<id>"
   Expired hidden unless ?include_expired=true.
 
@@ -72,8 +77,8 @@ Stream (SSE):
 2) Binary blobs
 ---------------
 Blobs are written through POST /events as the raw-byte multipart part
-named `data`, keyed by the event's data.bin (its SHA-256, reserved key).
-Head bytes are sniffed: text/*, image/*, application/pdf are rejected
+named `blob`, addressed by the event's top-level `blob` field (its
+SHA-256, covered by the signature). Head bytes are sniffed: text/*, image/*, application/pdf are rejected
 (415) even if renamed. Empty bodies are a 400. Identical bytes dedupe
 to the same hash; several events can share one blob. Max 3 concurrent
 blob uploads (503 beyond). No per-file cap, no total quota.
@@ -92,16 +97,16 @@ python:
   BASE = "http://localhost:3232"
   blob = open("save.bin", "rb").read()
   h = hashlib.sha256(blob).hexdigest()
-  event = build_signed_event_json(data={"bin": h})        # your signing step
+  event = build_signed_event_json(blob=h)              # your signing step
   r = requests.post(f"{BASE}/events", files=[("event", (None, event)),
-                                             ("data", ("save.bin", blob))])
+                                             ("blob", ("save.bin", blob))])
   print(r.json())
 
 3) Rules for agents
 -------------------
 - Use this node for all event and blob operations.
 - Generate an Ed25519 keypair locally; never ask the server for keys.
-- Keep event bodies <= 8 KB; put large bytes in blobs, link via data.bin.
+- Keep event bodies <= 8 KB; put large bytes in blobs, link via top-level blob.
 - For replaceable state (profile, save slot): publish a new event per change,
   read with ?limit=1 (latest wins, older fade via expires_at).
 - Multi-node sync: Nodes with the same NETWORK_ID (defaults to 'originless')
