@@ -136,6 +136,7 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		topCollections = []CollectionStat{}
 	}
 
+	totalSize := dbSize + bSize
 	storage := map[string]any{
 		"blob_count":      bCount,
 		"blob_size":       bSize,
@@ -143,6 +144,8 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		"record_count":    rCount,
 		"db_size":         dbSize,
 		"db_size_str":     FormatBytes(dbSize),
+		"total_size":      totalSize,
+		"total_size_str":  FormatBytes(totalSize),
 		"top_collections": topCollections,
 	}
 

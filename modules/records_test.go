@@ -592,7 +592,7 @@ func TestStatusEnrichedFields(t *testing.T) {
 	if !ok {
 		t.Fatal("missing storage block")
 	}
-	for _, field := range []string{"blob_count", "blob_size", "blob_size_str", "record_count", "db_size", "db_size_str", "top_collections"} {
+	for _, field := range []string{"blob_count", "blob_size", "blob_size_str", "record_count", "db_size", "db_size_str", "total_size", "total_size_str", "top_collections"} {
 		if _, exists := storage[field]; !exists {
 			t.Fatalf("missing storage field: %s", field)
 		}

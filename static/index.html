@@ -880,7 +880,11 @@ async function fetchStatus(){
       if($("svgNodeVersionText")) $("svgNodeVersionText").textContent = "v" + (d.version || "0.1.0");
       if($("svgStatEvents")) $("svgStatEvents").textContent = evCount;
       if($("svgStatBlobs")) $("svgStatBlobs").textContent = bCount;
-      if($("svgStatSize")) $("svgStatSize").textContent = bSize;
+      var totalStorageStr = (d.storage && d.storage.total_size_str) ? d.storage.total_size_str : (d.storage && d.storage.db_size_str ? d.storage.db_size_str : bSize);
+      if($("svgStatSize")){
+        $("svgStatSize").textContent = totalStorageStr;
+        $("svgStatSize").title = "Database: " + dbSizeStr + ", Blobs: " + bSize;
+      }
       if($("svgStatSseClients")) $("svgStatSseClients").textContent = sseCount;
 
       // Top collections quick-filter bar
