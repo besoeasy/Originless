@@ -1,114 +1,90 @@
-Originless — Agent Skill (plain text)
-=====================================
-Zero-auth backend: signed events + binary blobs + live streams.
-No API keys, no accounts. Identity is an Ed25519 keypair you hold;
-the server only verifies signatures.
+# Originless — Agent Contract
+Zero-auth backend for autonomous agents: signed events + binary blobs + live streams.
+Identity is a client-held Ed25519 keypair. Server verifies signatures; no API keys or accounts.
+Base URL: The origin serving this file (e.g. http://localhost:3232).
 
-Base URL: the origin you fetched this file from.
-  Example: http://localhost:3232
-  If this file is at http://HOST:PORT/agent.txt, use http://HOST:PORT.
+## Endpoints
+POST /events          Publish signed event (JSON) or event + blob (multipart).
+GET  /events          Query events (newest-first).
+GET  /events/{id}     Fetch event by ID (?resolve=blob inlines blob metadata).
+GET  /events/stream   Server-Sent Events (SSE) live stream.
+GET  /blobs           List blobs (?limit=50&offset=0).
+GET  /blob/{hash}     Download blob by SHA-256 hex (HEAD supported).
+GET  /status          Node health & telemetry snapshot.
+GET  /metrics         Prometheus text metrics.
+GET  /agent.txt       This contract.
 
-Endpoints (all relative to base URL)
-------------------------------------
-POST /events          Store a signed JSON event (8 KB max).
-                      Add a second multipart part named `blob` to carry raw
-                      bytes alongside the event (content-addressed blobs).
-GET  /events          Query events, newest-first.
-GET  /events/stream   Live Server-Sent Events feed.
-GET  /events/{id}     Fetch one event by ID. Add ?resolve=blob to inline linked blob.
-GET  /blobs           List blobs, newest-first (?limit=50&offset=0)
-GET  /blob/{hash}     Download blob by 64-char hex SHA-256 (HEAD also allowed)
-GET  /status          Node snapshot (blobs, events, SSE clients)
-GET  /metrics         Prometheus text metrics
-GET  /agent.txt       This file. GET /agent redirects here.
+## Event Schema (Max 8 KB JSON)
+{
+  "owner": "ed25519:<64-hex-public-key>",
+  "collection": "<^[a-z0-9/_-]{1,32}$>",
+  "created_at": <unix_seconds>,
+  "expires_at": <unix_seconds>,
+  "data": { ... },
+  "blob": "<64-hex-sha256>",
+  "labels": ["string", ...],
+  "sig": "<128-hex-ed25519-signature>"
+}
 
-1) Signed events
-----------------
-Events are JSON; bodies <= 8192 bytes.
-Never send `id`; server computes:
-  id = sha256(owner:collection:created_at:expires_at:canonical(data):blob:labels)
+Constraints:
+- Do NOT include "id" (server computes it).
+- "expires_at": created_at < expires_at <= created_at + 31536000 (max 1 year TTL).
+- "created_at": clock drift up to +15 minutes allowed.
+- "data": must be a JSON object (custom schema).
+- "labels": 0..10 strings matching ^[A-Za-z0-9:_\-/\.\+]{1,64}$.
+- "blob": optional 64-hex SHA-256 hash (omit or "" if none).
 
-Fields:
-  owner       required, "ed25519:<64 hex pubkey>"
-  collection  required, ^[a-z0-9/_-]{1,32}$  e.g. chat, saves, profile
-  created_at  required, unix seconds (max 15 min future skew)
-  expires_at  required, unix seconds, created_at < expires_at <= created_at + 31536000 (1y)
-  data        required, JSON object (yours alone — no reserved keys inside)
-  blob        optional, "<64 hex sha256>" top-level attachment pointer, "" or absent = none
-  labels      required, 0-10 strings, [] for none
-  sig         required, 128 hex chars = ed25519_sign(id)
+## Signing Specification
+1. Format ID input string:
+   "{owner}:{collection}:{created_at}:{expires_at}:{canonical_data}:{blob}:{labels_csv}"
+   - canonical_data: JSON data with sorted keys and no whitespace.
+   - blob: 64-hex SHA-256 or empty string.
+   - labels_csv: labels joined by "," (empty string if no labels).
+2. Compute 32-byte SHA-256 digest: digest = sha256(id_input).
+   Server computes event ID = hex(digest).
+3. Sign the 32-byte digest with Ed25519 private key: sig = hex(ed25519_sign(privkey, digest)).
 
-Responses: 201 created, 200 duplicate (same payload = same id),
-401 bad signature, 400 schema/TTL, 413 over 8 KB.
+## Publishing (POST /events)
+1. JSON Only:
+   Content-Type: application/json
+   Body: <event_json>
 
-Link a blob in one step: compute sha256 of the bytes locally, set the
-top-level `blob` field to "<sha256>", sign the event, then send it as
-multipart with the `event` part FIRST and the raw bytes as the `blob`
-part. The server validates the signature before staging any bytes
-(a forged event never touches disk) and re-hashes the bytes; a mismatch
-is a 400 and nothing is stored. Query by hash with ?blob=<sha256>.
-Blobs linked from live (unexpired) events are exempt from eviction.
+2. Event + Blob (Atomic Multipart):
+   Content-Type: multipart/form-data
+   Part 1 (name="event", Content-Type="application/json"): <event_json with blob field set>
+   Part 2 (name="blob",  Content-Type="application/octet-stream"): <raw_binary_bytes>
+   - "event" part MUST come first.
+   - The event's "blob" field MUST equal sha256(blob_bytes).
+   - Non-binary MIME types (text/*, image/*, application/pdf) and empty files are rejected.
+   - Blobs remain pinned as long as at least one unexpired event references them.
 
-curl (JSON only):
-  curl -X POST $BASE/events -H "Content-Type: application/json" \
-    -d '{"owner":"ed25519:3b6a...29","collection":"chat","created_at":1758420000,"expires_at":1789956000,"data":{"room":"general","text":"gg"},"labels":["room:general"],"sig":"a3f1...c9"}'
+Responses:
+  201 Created      {"status":"success","id":"...","stored_at":"..."}
+  200 OK           {"status":"success","id":"...","duplicate":true}
+  400 Bad Request  Schema error, TTL violation, or blob hash mismatch
+  401 Unauthorized Invalid signature
+  413 Payload Large Event body exceeds 8192 bytes
+  415 Unsupported  Blocked non-binary MIME type
+  503 Unavailable  Upload concurrency cap reached (max 3 concurrent blob uploads)
 
-curl (event + blob in one request; event part MUST come first):
-  HASH=$(sha256sum backup.tar.gz | cut -d' ' -f1)
-  EVENT=$(build_signed_event_json blob="$HASH")   # your signing step
-  curl -X POST $BASE/events \
-    -F "event=$EVENT;type=application/json" \
-    -F "blob=@backup.tar.gz;type=application/octet-stream"
-  # {"status":"created","id":"sha256...","stored_at":...}
+## Querying & Streaming
+Query Events:
+  GET /events?collection=<col>&label=<tag>&owner=<owner>&blob=<hash>&limit=50&cursor=<created_at>:<id>
+  - limit: 1..100 (default 50).
+  - cursor: keyset pagination token returned in "next_cursor".
+  - since / until: unix seconds filter on created_at.
+  - search: substring search across collection, labels, owner, and data.
+  - include_expired: set "true" to include expired records (default false).
 
-Query:
-  curl "$BASE/events?collection=chat&label=room:general&limit=20"
-  curl "$BASE/events?blob=$HASH"   # all live events pointing at one blob
-  curl "$BASE/events?owner=ed25519:...&since=...&until=...&search=...&limit=50&cursor=<created_at>:<id>"
-  Expired hidden unless ?include_expired=true.
+SSE Live Stream:
+  GET /events/stream?collection=<col>&label=<tag>&owner=<owner>&blob=<hash>&search=<term>
+  - Streams frames: event: event\ndata: <json>\n\n
+  - Keepalive comment sent every 15s.
 
-Stream (SSE):
-  curl -N "$BASE/events/stream?collection=chat&label=room:lobby"
-  # events: "event", keepalive comment every 15s. Slow consumers are skipped.
+Download Blob:
+  GET /blob/<sha256>
 
-2) Binary blobs
----------------
-Blobs are written through POST /events as the raw-byte multipart part
-named `blob`, addressed by the event's top-level `blob` field (its
-SHA-256, covered by the signature). Head bytes are sniffed: text/*, image/*, application/pdf are rejected
-(415) even if renamed. Empty bodies are a 400. Identical bytes dedupe
-to the same hash; several events can share one blob. Max 3 concurrent
-blob uploads (503 beyond). No per-file cap, no total quota.
-
-Lifecycle is reference-driven, not size-weighted. A blob is pinned while
-any unexpired event references it; once the last referencing event
-expires, the blob becomes an orphan and is evicted by the janitor after
-BlobOrphanGraceDays (default 7). Re-publishing the same bytes after
-eviction recreates the blob. Downloads refresh last_access.
-
-curl (download):
-  curl -O "$BASE/blob/<sha256>"
-
-python:
-  import requests, hashlib
-  BASE = "http://localhost:3232"
-  blob = open("backup.tar.gz", "rb").read()
-  h = hashlib.sha256(blob).hexdigest()
-  event = build_signed_event_json(blob=h)              # your signing step
-  r = requests.post(f"{BASE}/events", files=[("event", (None, event)),
-                                             ("blob", ("backup.tar.gz", blob))])
-  print(r.json())
-
-3) Rules for agents
--------------------
-- Use this node for all event and blob operations.
-- Generate an Ed25519 keypair locally; never ask the server for keys.
-- Keep event bodies <= 8 KB; put large bytes in blobs, link via top-level blob.
-- For replaceable state (profile, save slot): publish a new event per change,
-  read with ?limit=1 (latest wins, older fade via expires_at).
-- Multi-node sync: Nodes with the same NETWORK_ID (defaults to 'originless')
-  discover each other via libp2p (DHT, mDNS, hole punch, peer relays) and
-  sync all events & blobs over P2P Bloom streams. Set NETWORK_ID=off to disable.
-
-Repo: https://github.com/besoeasy/Originless
-Full contract: GET /agent.txt is the summary; see api.md in the repo.
+## Agent Guidelines
+- Manage Keypairs Locally: Generate Ed25519 keys on the client; never share private keys.
+- State Updates: For mutable state, publish a new event per update and fetch with limit=1 (latest wins).
+- Size Separation: Keep event "data" <= 8 KB; offload larger payloads to "blob".
