@@ -6,6 +6,7 @@
 No accounts. No API keys. Zero complex setup. One single container.
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white)](https://ghcr.io/besoeasy/originless)
+[![Live Examples](https://img.shields.io/badge/live%20apps-originless.besoeasy.com-10b981)](https://originless.besoeasy.com/)
 [![P2P Mesh](https://img.shields.io/badge/p2p-libp2p-orange)](https://github.com/besoeasy/originless)
 [![Agent Contract](https://img.shields.io/badge/agent%20contract-agent.txt-1f6feb)](static/agent.txt)
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/ISC)
@@ -78,6 +79,7 @@ All environment variables are optional with zero-config defaults:
 * **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
 
 * **Dashboard**: Open **http://localhost:3232** in your browser.
+* **Live Web Apps**: Try interactive single-file apps at **[https://originless.besoeasy.com/](https://originless.besoeasy.com/)**.
 * **AI Agents**: Point LLMs or agents at **[/agent.txt](static/agent.txt)** for the complete machine-readable contract.
 
 ---
@@ -153,7 +155,7 @@ Originless requires no proprietary SDKs or API keys. Complete copy-pasteable gui
 * 📖 [**cURL & Shell Guide**](docs/curl.md) — Signing with OpenSSL, multipart atomic blob uploads, SSE streaming with `curl -N`, and keyset pagination.
 * 🐍 [**Python Guide**](docs/python.md) — Zero-auth Ed25519 signing helper, JSON publishing, binary blob uploads, and real-time streaming.
 * 🟢 [**Node.js & JavaScript Guide**](docs/nodejs.md) — Zero-dependency integration using Node.js native `node:crypto`, `fetch`, and `FormData`.
-* 🌐 [**Browser Web Examples**](examples/) — Single-file zero-auth HTML apps (Live Room Comments, 2-Player Board Game) using `esm.sh` and `@noble/curves`.
+* 🌐 [**Browser Web Examples**](examples/) — Single-file zero-auth HTML apps deployed live at **[originless.besoeasy.com](https://originless.besoeasy.com/)** (Room Comments, 2-Player Board Game, Collaborative Pixel Canvas, Zero-Knowledge Encrypted Pastebin) using `esm.sh` and `@noble/curves`.
 * 🤖 [**AI Agent Skill Contract**](static/agent.txt) — Plaintext specification served at `/agent.txt` for autonomous LLM agents (Claude, Cursor, Copilot, Antigravity).
 
 ---
