@@ -9,18 +9,20 @@ import (
 
 // Message Type Constants
 const (
-	MsgHello            byte = 0x01
-	MsgBloomEventsReq   byte = 0x02
-	MsgBloomEventsResp  byte = 0x03
-	MsgEventPush        byte = 0x04
-	MsgEventBroadcast   byte = 0x05
-	MsgBloomBlobsReq    byte = 0x06
-	MsgBloomBlobsResp   byte = 0x07
-	MsgBlobPull         byte = 0x08
-	MsgBlobData         byte = 0x09
-	MsgBlobBroadcast    byte = 0x0A
-	MsgPing             byte = 0x0B
-	MsgPong             byte = 0x0C
+	MsgHello           byte = 0x01
+	MsgBloomEventsReq  byte = 0x02
+	MsgBloomEventsResp byte = 0x03
+	MsgEventPush       byte = 0x04
+	MsgEventBroadcast  byte = 0x05
+	MsgBloomBlobsReq   byte = 0x06
+	MsgBloomBlobsResp  byte = 0x07
+	MsgBlobPull        byte = 0x08
+	MsgBlobData        byte = 0x09
+	MsgBlobBroadcast   byte = 0x0A
+	MsgPing            byte = 0x0B
+	MsgPong            byte = 0x0C
+	MsgSyncCheck       byte = 0x0D
+	MsgSyncCheckResp   byte = 0x0E
 )
 
 const (
@@ -35,13 +37,23 @@ var (
 
 // HelloPayload is exchanged upon connection establishment to verify Network ID and exchange metadata.
 type HelloPayload struct {
-	NodeID     string `json:"node_id"`
-	NetworkID  string `json:"network_id"`
-	Version    string `json:"version"`
+	NodeID     string     `json:"node_id"`
+	NetworkID  string     `json:"network_id"`
+	Version    string     `json:"version"`
+	EventCount int64      `json:"event_count"`
+	BlobCount  int        `json:"blob_count"`
+	EventRoot  string     `json:"event_root,omitempty"`
+	BlobRoot   string     `json:"blob_root,omitempty"`
+	ListenPort int        `json:"listen_port"`
+	Peers      []PeerHint `json:"peers,omitempty"`
+}
+
+// SyncCheckPayload is a lightweight state hash frame used for O(1) steady-state sync checks.
+type SyncCheckPayload struct {
 	EventCount int64  `json:"event_count"`
-	BlobCount  int           `json:"blob_count"`
-	ListenPort int           `json:"listen_port"`
-	Peers      []PeerHint    `json:"peers,omitempty"`
+	EventRoot  string `json:"event_root"`
+	BlobCount  int64  `json:"blob_count"`
+	BlobRoot   string `json:"blob_root"`
 }
 
 // PeerHint is a libp2p peer identity advertised over PEX (not a raw socket address).

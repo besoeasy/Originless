@@ -298,8 +298,13 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 			}
 		}
 
-		// Start reconciliation: send our Event & Blob Bloom filters
-		go se.startReconciliation(session)
+		// Start reconciliation: fallback to direct bloom for legacy peers, else use state root fast-check
+		if hello.EventRoot == "" && hello.BlobRoot == "" {
+			go se.sendEventsBloomFilter(session)
+			go se.sendBlobsBloomFilter(session)
+		} else {
+			go se.startReconciliation(session)
+		}
 
 	case MsgBloomEventsReq:
 		bf, err := DeserializeBloomFilter(payload)
@@ -442,6 +447,51 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 			}
 		}
 
+	case MsgSyncCheck:
+		var peerSync SyncCheckPayload
+		if err := json.Unmarshal(payload, &peerSync); err != nil {
+			return
+		}
+		evCount, evRoot, _ := se.store.EventsStateRoot()
+		bCount, bRoot, _ := se.store.BlobsStateRoot()
+
+		// Always reply with local state roots so requesting peer can also evaluate
+		resp, _ := json.Marshal(SyncCheckPayload{
+			EventCount: evCount,
+			EventRoot:  evRoot,
+			BlobCount:  bCount,
+			BlobRoot:   bRoot,
+		})
+		_ = session.Send(MsgSyncCheckResp, resp)
+
+		// Reconcile events only if roots differ
+		if peerSync.EventCount != evCount || peerSync.EventRoot != evRoot {
+			se.sendEventsBloomFilter(session)
+		}
+
+		// Reconcile blobs only if roots differ
+		if peerSync.BlobCount != bCount || peerSync.BlobRoot != bRoot {
+			se.sendBlobsBloomFilter(session)
+		}
+
+	case MsgSyncCheckResp:
+		var peerSync SyncCheckPayload
+		if err := json.Unmarshal(payload, &peerSync); err != nil {
+			return
+		}
+		evCount, evRoot, _ := se.store.EventsStateRoot()
+		bCount, bRoot, _ := se.store.BlobsStateRoot()
+
+		// Reconcile events only if roots differ
+		if peerSync.EventCount != evCount || peerSync.EventRoot != evRoot {
+			se.sendEventsBloomFilter(session)
+		}
+
+		// Reconcile blobs only if roots differ
+		if peerSync.BlobCount != bCount || peerSync.BlobRoot != bRoot {
+			se.sendBlobsBloomFilter(session)
+		}
+
 	case MsgPing:
 		_ = session.Send(MsgPong, nil)
 
@@ -464,11 +514,20 @@ func (se *SyncEngine) sendBlobsBloomFilter(session *PeerSession) {
 	}
 }
 
-// startReconciliation generates our Bloom filters and exchanges them with the peer.
+// startReconciliation initiates synchronization with a peer.
+// It first attempts a lightweight O(1) state-root fast check via MsgSyncCheck.
 func (se *SyncEngine) startReconciliation(session *PeerSession) {
-	// 1. Send Event Bloom Filter
-	se.sendEventsBloomFilter(session)
+	evCount, evRoot, _ := se.store.EventsStateRoot()
+	bCount, bRoot, _ := se.store.BlobsStateRoot()
 
-	// 2. Send Blob Bloom Filter
-	se.sendBlobsBloomFilter(session)
+	check := SyncCheckPayload{
+		EventCount: evCount,
+		EventRoot:  evRoot,
+		BlobCount:  bCount,
+		BlobRoot:   bRoot,
+	}
+	data, err := json.Marshal(check)
+	if err == nil {
+		_ = session.Send(MsgSyncCheck, data)
+	}
 }

@@ -330,3 +330,55 @@ func TestPrivatePeersSyncViaRelay(t *testing.T) {
 	mgrA.reconcileAll()
 	waitSynced(t, storeB, ev.ID, "", 20*time.Second)
 }
+
+func TestStateRootFastPathSynchronized(t *testing.T) {
+	networkID := "stateroot-fastpath"
+	mgrA, storeA := startTestNode(t, networkID, Options{DisableDHT: true, DisableAutoRelay: true})
+	mgrB, storeB := startTestNode(t, networkID, Options{DisableDHT: true, DisableAutoRelay: true})
+
+	now := time.Now().Unix()
+	ev1, err := createTestSignedRecord("chat", map[string]any{"msg": "fastpath-1"}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev2, err := createTestSignedRecord("chat", map[string]any{"msg": "fastpath-2"}, now+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert both on A
+	if _, _, err := storeA.InsertRecord(ev1); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := storeA.InsertRecord(ev2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify roots differ before sync
+	cntA, rootA, _ := storeA.EventsStateRoot()
+	cntB, rootB, _ := storeB.EventsStateRoot()
+	if cntA == cntB && rootA == rootB {
+		t.Fatalf("roots should differ before sync")
+	}
+
+	// Connect B to A to reconcile
+	mgrB.Connect(context.Background(), mgrA.AddrInfo())
+	waitSynced(t, storeB, ev1.ID, "", 8*time.Second)
+	waitSynced(t, storeB, ev2.ID, "", 8*time.Second)
+
+	// Invalidate cache and recheck roots
+	time.Sleep(100 * time.Millisecond)
+	cntA, rootA, _ = storeA.EventsStateRoot()
+	cntB, rootB, _ = storeB.EventsStateRoot()
+
+	if cntA != cntB || rootA != rootB {
+		t.Fatalf("expected state roots to match after sync: A(cnt=%d, root=%s) vs B(cnt=%d, root=%s)",
+			cntA, rootA, cntB, rootB)
+	}
+
+	// Running reconcileAll when roots match should execute cleanly as an O(1) no-op
+	mgrA.reconcileAll()
+	mgrB.reconcileAll()
+	time.Sleep(200 * time.Millisecond)
+}
+

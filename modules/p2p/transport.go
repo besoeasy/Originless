@@ -288,8 +288,8 @@ func (t *Transport) DialPeerHint(hint PeerHint) {
 }
 
 func (t *Transport) sendHello(session *PeerSession) {
-	evCount, _ := t.engine.store.GetRecordCount()
-	bCount, _ := t.engine.store.GetBlobCount()
+	evCount, evRoot, _ := t.engine.store.EventsStateRoot()
+	bCount, bRoot, _ := t.engine.store.BlobsStateRoot()
 
 	var peers []PeerHint
 	t.mu.RLock()
@@ -316,6 +316,8 @@ func (t *Transport) sendHello(session *PeerSession) {
 		Version:    modules.Version,
 		EventCount: evCount,
 		BlobCount:  int(bCount),
+		EventRoot:  evRoot,
+		BlobRoot:   bRoot,
 		ListenPort: t.listenPort,
 		Peers:      peers,
 	}

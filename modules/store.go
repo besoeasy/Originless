@@ -2,6 +2,7 @@ package modules
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,9 +30,24 @@ type Store struct {
 	blobSizeMu        sync.Mutex
 	blobSize          int64
 	blobSizeCheckedAt time.Time
+
+	// evState caches the unexpired events commutative XOR state root
+	evStateMu        sync.Mutex
+	evStateCount     int64
+	evStateRoot      string
+	evStateCheckedAt time.Time
+
+	// blobState caches the blobs commutative XOR state root
+	blobStateMu        sync.Mutex
+	blobStateCount     int64
+	blobStateRoot      string
+	blobStateCheckedAt time.Time
 }
 
-const blobSizeCacheTTL = 2 * time.Second
+const (
+	blobSizeCacheTTL  = 2 * time.Second
+	stateRootCacheTTL = 3 * time.Second
+)
 
 func NewStore(dbPath string) (*Store, error) {
 	sqlDB, err := sql.Open("sqlite", dbPath)
@@ -144,6 +160,10 @@ func (s *Store) InsertRecord(r *Record) (created bool, storedAt string, err erro
 		_ = tx.Commit()
 		return false, "", nil // duplicate — already stored
 	}
+
+	s.evStateMu.Lock()
+	s.evStateCheckedAt = time.Time{}
+	s.evStateMu.Unlock()
 
 	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO record_labels (record_id, label) VALUES (?, ?)`)
 	if err != nil {
@@ -408,6 +428,9 @@ func (s *Store) UpsertBlob(hash string, size int64) (bool, error) {
 	}
 	affected, _ := res.RowsAffected()
 	if affected == 1 {
+		s.blobStateMu.Lock()
+		s.blobStateCheckedAt = time.Time{}
+		s.blobStateMu.Unlock()
 		return true, nil
 	}
 	// Dedupe hit: refresh LRU clock, keep original size/created_at.
@@ -448,6 +471,11 @@ func (s *Store) TouchBlob(hash string) error {
 // DeleteBlob removes one accounting row.
 func (s *Store) DeleteBlob(hash string) error {
 	_, err := s.db.Exec(`DELETE FROM blobs WHERE hash = ?`, hash)
+	if err == nil {
+		s.blobStateMu.Lock()
+		s.blobStateCheckedAt = time.Time{}
+		s.blobStateMu.Unlock()
+	}
 	return err
 }
 
@@ -629,6 +657,104 @@ func (s *Store) ListRecordIDs(unexpiredOnly bool) ([]string, error) {
 	return out, rows.Err()
 }
 
+// EventsStateRoot returns the total count and commutative XOR-sum state root of all unexpired records.
+func (s *Store) EventsStateRoot() (int64, string, error) {
+	s.evStateMu.Lock()
+	if time.Since(s.evStateCheckedAt) < stateRootCacheTTL && !s.evStateCheckedAt.IsZero() {
+		cnt, rt := s.evStateCount, s.evStateRoot
+		s.evStateMu.Unlock()
+		return cnt, rt, nil
+	}
+	s.evStateMu.Unlock()
+
+	rows, err := s.db.Query(`SELECT id FROM records WHERE expires_at > ?`, time.Now().Unix())
+	if err != nil {
+		return 0, "", err
+	}
+	defer rows.Close()
+
+	var count int64
+	var xor [32]byte
+	var buf [32]byte
+
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return 0, "", err
+		}
+		if len(id) == 64 {
+			if n, err := hex.Decode(buf[:], []byte(id)); err == nil && n == 32 {
+				for i := 0; i < 32; i++ {
+					xor[i] ^= buf[i]
+				}
+				count++
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, "", err
+	}
+
+	root := hex.EncodeToString(xor[:])
+
+	s.evStateMu.Lock()
+	s.evStateCount = count
+	s.evStateRoot = root
+	s.evStateCheckedAt = time.Now()
+	s.evStateMu.Unlock()
+
+	return count, root, nil
+}
+
+// BlobsStateRoot returns the total count and commutative XOR-sum state root of all tracked blobs.
+func (s *Store) BlobsStateRoot() (int64, string, error) {
+	s.blobStateMu.Lock()
+	if time.Since(s.blobStateCheckedAt) < stateRootCacheTTL && !s.blobStateCheckedAt.IsZero() {
+		cnt, rt := s.blobStateCount, s.blobStateRoot
+		s.blobStateMu.Unlock()
+		return cnt, rt, nil
+	}
+	s.blobStateMu.Unlock()
+
+	rows, err := s.db.Query(`SELECT hash FROM blobs`)
+	if err != nil {
+		return 0, "", err
+	}
+	defer rows.Close()
+
+	var count int64
+	var xor [32]byte
+	var buf [32]byte
+
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			return 0, "", err
+		}
+		if len(hash) == 64 {
+			if n, err := hex.Decode(buf[:], []byte(hash)); err == nil && n == 32 {
+				for i := 0; i < 32; i++ {
+					xor[i] ^= buf[i]
+				}
+				count++
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, "", err
+	}
+
+	root := hex.EncodeToString(xor[:])
+
+	s.blobStateMu.Lock()
+	s.blobStateCount = count
+	s.blobStateRoot = root
+	s.blobStateCheckedAt = time.Now()
+	s.blobStateMu.Unlock()
+
+	return count, root, nil
+}
+
 // DeleteExpiredRecords removes records with expires_at <= nowUnix.
 // record_labels rows cascade via FK (PRAGMA foreign_keys=ON); a defensive
 // orphan cleanup runs first for DBs created before the pragma was set.
@@ -647,6 +773,9 @@ func (s *Store) DeleteExpiredRecords(nowUnix int64) (int64, error) {
 	if n > 0 {
 		// Reclaim freelist pages without a blocking full VACUUM.
 		_, _ = s.db.Exec(`PRAGMA incremental_vacuum`)
+		s.evStateMu.Lock()
+		s.evStateCheckedAt = time.Time{}
+		s.evStateMu.Unlock()
 	}
 	return n, nil
 }
@@ -763,6 +892,9 @@ func (s *Store) DeleteRecords(ids []string) (int64, error) {
 	n, _ := res.RowsAffected()
 	if n > 0 {
 		_, _ = s.db.Exec(`PRAGMA incremental_vacuum`)
+		s.evStateMu.Lock()
+		s.evStateCheckedAt = time.Time{}
+		s.evStateMu.Unlock()
 	}
 	return n, nil
 }
