@@ -446,11 +446,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
         <span>Teach agent (/agent.txt) &rarr;</span>
       </a>
-      <button class="btn" id="copyAgent" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        <span>Copy agent prompt</span>
-      </button>
-      <a class="btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">Get the node</a>
     </div>
     <div class="facts" id="telemetryBar">
       <span class="fact-item"><span class="pill pill-ok" id="teleStatusPill"><span class="dot-pulse" id="teleDot"></span> <span id="teleStatus">Connecting...</span></span></span>
@@ -840,7 +835,6 @@ function fallbackCp(t){
   document.body.removeChild(a);
 }
 
-$("copyAgent").onclick=function(){cp(agent(),this)};
 $("copyAgent2").onclick=function(){cp(agent(),this)};
 
 /* Retention — orphan-grace reference demo */
