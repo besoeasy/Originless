@@ -350,6 +350,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 .stat-list li{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--ink2);line-height:1.55}
 .stat-mark{font-family:var(--mono);color:var(--ok);font-weight:600;flex-shrink:0}
 .stat-list strong{color:var(--ink);font-weight:600}
+.stat-warn{color:var(--warn);font-weight:600}
 
 /* Minimal chatbox showcase */
 .chat-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px);max-width:720px}
@@ -432,6 +433,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <li><span class="stat-mark">[*]</span><div><strong>P2P mesh — <span class="g" id="statP2p">…</span></strong><br>Nodes gossip signed records over libp2p; signatures are re-verified on receipt.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Lean runtime — <span class="g" id="statRuntime">…</span></strong><br>A single Go binary serving plain HTTP on one port.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Open traffic — <span class="g" id="statTraffic">…</span></strong><br>Every endpoint is unauthenticated by design; Prometheus metrics live at <code>/metrics</code>.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>Disk headroom — <span class="g" id="statDisk">…</span></strong><br>Writes are admission-checked against a 90% ceiling; the janitor sweeps past 85%.</div></li>
   </ul>
 </section>
 
@@ -985,6 +987,12 @@ async function fetchStatus(){
       var gor = (d.vitals && d.vitals.goroutines !== undefined) ? d.vitals.goroutines : "–";
       if($("statRuntime")) $("statRuntime").textContent = ramStr + " RAM · " + gor + " goroutines · up " + uptime;
       if($("statTraffic") && d.traffic && d.traffic.total_requests !== undefined) $("statTraffic").textContent = d.traffic.total_requests + " requests served";
+      if($("statDisk") && d.disk && d.disk.free_str){
+        var pct = (typeof d.disk.used_pct === "number") ? d.disk.used_pct : 0;
+        var soft = (typeof d.disk.soft_pct === "number") ? d.disk.soft_pct : 85;
+        $("statDisk").textContent = d.disk.free_str + " free (" + pct.toFixed(1) + "% used)";
+        $("statDisk").className = pct >= soft ? "stat-warn" : "g";
+      }
 
       // Reseed hero art when stored bytes change
       var seed = ((d.storage && d.storage.db_size) || 0) + ((d.blobs && d.blobs.size) || 0);
@@ -1016,7 +1024,7 @@ async function fetchStatus(){
     if($("teleRam")) $("teleRam").textContent = "--";
     if($("svgStatRam")) $("svgStatRam").textContent = "--";
     if($("teleDbSize")) $("teleDbSize").textContent = "--";
-    ["statStore","statLive","statJanitor","statP2p","statRuntime","statTraffic"].forEach(function(id){ if($(id)) $(id).textContent = "unreachable"; });
+    ["statStore","statLive","statJanitor","statP2p","statRuntime","statTraffic","statDisk"].forEach(function(id){ if($(id)) $(id).textContent = "unreachable"; });
     if($("teleTrafficItem")) $("teleTrafficItem").style.display = "none";
     if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
   }

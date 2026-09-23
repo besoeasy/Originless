@@ -22,6 +22,9 @@ type Metrics struct {
 	uploads    atomic.Int64
 	uploadSize atomic.Int64
 
+	emergencyPasses atomic.Int64
+	emergencyFreed  atomic.Int64
+
 	storageUsed atomic.Int64
 }
 
@@ -103,6 +106,12 @@ func (m *Metrics) IncUpload(size int64) {
 	m.uploadSize.Add(size)
 }
 
+// IncEmergency records one emergency eviction pass and its freed bytes.
+func (m *Metrics) IncEmergency(freed int64) {
+	m.emergencyPasses.Add(1)
+	m.emergencyFreed.Add(freed)
+}
+
 func (m *Metrics) SetStorageUsed(size int64) { m.storageUsed.Store(size) }
 
 // Handler serves the /metrics endpoint in Prometheus text format. Gauges are
@@ -142,6 +151,14 @@ func (m *Metrics) Handler(janitor *Manager, broadcaster *RecordBroadcaster) http
 		sb.WriteString("# HELP originless_upload_bytes_total Total bytes uploaded.\n")
 		sb.WriteString("# TYPE originless_upload_bytes_total counter\n")
 		fmt.Fprintf(&sb, "originless_upload_bytes_total %d\n", m.uploadSize.Load())
+
+		sb.WriteString("# HELP originless_emergency_evictions_total Emergency disk-eviction passes.\n")
+		sb.WriteString("# TYPE originless_emergency_evictions_total counter\n")
+		fmt.Fprintf(&sb, "originless_emergency_evictions_total %d\n", m.emergencyPasses.Load())
+
+		sb.WriteString("# HELP originless_emergency_freed_bytes_total Bytes freed by emergency eviction.\n")
+		sb.WriteString("# TYPE originless_emergency_freed_bytes_total counter\n")
+		fmt.Fprintf(&sb, "originless_emergency_freed_bytes_total %d\n", m.emergencyFreed.Load())
 
 		sb.WriteString("# HELP originless_storage_used_bytes Storage used by tracked blobs.\n")
 		sb.WriteString("# TYPE originless_storage_used_bytes gauge\n")
@@ -193,6 +210,8 @@ func (m *Metrics) Snapshot() map[string]any {
 		"upload_bytes":     upBytes,
 		"upload_size_str":  FormatBytes(upBytes),
 		"requests_by_path": byPath,
+		"emergency_passes": m.emergencyPasses.Load(),
+		"emergency_freed":  m.emergencyFreed.Load(),
 	}
 }
 
