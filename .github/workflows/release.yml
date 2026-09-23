@@ -1,21 +1,16 @@
 name: Release
 
-# Version-based release: triggered by git tag push or manual dispatch.
+# Version-based release: triggered only by an administrator's manual dispatch.
 # Version numbers NEVER have a 'v' prefix (e.g. 1.0.5).
 # Publishes GitHub Release, builds & pushes multi-arch container to GHCR
 # (ghcr.io/besoeasy/originless:latest and :1.0.5).
 
 on:
-  push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+*'
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release version tag (e.g. 1.0.5, default: auto-detected from modules/handler.go)"
-        required: false
-        default: ""
+        description: "Release version tag (e.g. 1.0.5)"
+        required: true
 
 permissions:
   contents: write
@@ -51,41 +46,26 @@ jobs:
           go test ./...
           go build -v .
 
-      - name: Resolve release tag
+      - name: Validate release tag
         id: tag
         env:
           INPUT_TAG: ${{ inputs.tag }}
         run: |
-          set -e
-          if [ -n "$INPUT_TAG" ]; then
-            TAG="$INPUT_TAG"
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF_NAME}"
-          else
-            # Extract version from Go project source (modules/handler.go)
-            CODE_VER=$(grep -E '^\s*var Version\s*=\s*' modules/handler.go 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/' || true)
-            if [ -n "$CODE_VER" ] && [ "$CODE_VER" != "dev" ]; then
-              TAG="$CODE_VER"
-            else
-              LATEST=$(git tag -l | grep -E "^(v)?[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
-              if [ -z "$LATEST" ]; then
-                TAG="1.0.0"
-              else
-                BASE="${LATEST#v}"
-                MAJOR=$(echo "$BASE" | cut -d. -f1)
-                MINOR=$(echo "$BASE" | cut -d. -f2)
-                PATCH=$(echo "$BASE" | cut -d. -f3)
-                NEXT_PATCH=$((PATCH + 1))
-                TAG="${MAJOR}.${MINOR}.${NEXT_PATCH}"
-              fi
-            fi
+          set -euo pipefail
+          if [ -z "${INPUT_TAG:-}" ]; then
+            echo "::error::A release version is required in the workflow_dispatch input."
+            exit 1
           fi
 
-          # Strip any leading 'v' so version NEVER has a 'v' prefix
-          TAG="${TAG#v}"
+          TAG="${INPUT_TAG#v}"
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release version must look like 1.0.5 (received '$INPUT_TAG')."
+            exit 1
+          fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag: $TAG"
+          echo "Validated release tag: $TAG"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.5.0
