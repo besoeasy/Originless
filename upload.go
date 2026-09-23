@@ -36,12 +36,11 @@ type uploadFile struct {
 }
 
 type uploadResponse struct {
-	CID    string `json:"cid"`
-	Size   int64  `json:"size"`
-	Bytes  int64  `json:"bytes"`
-	Name   string `json:"name,omitempty"`
-	Files  int    `json:"files,omitempty"`
-	Pinned bool   `json:"pinned"`
+	CID   string `json:"cid"`
+	Size  int64  `json:"size"`
+	Bytes int64  `json:"bytes"`
+	Name  string `json:"name,omitempty"`
+	Files int    `json:"files,omitempty"`
 }
 
 type addEntry struct {
@@ -104,12 +103,11 @@ func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		size = totalBytes
 	}
 	writeJSON(w, http.StatusOK, uploadResponse{
-		CID:    result.CID,
-		Size:   size,
-		Bytes:  totalBytes,
-		Name:   result.Name,
-		Files:  countUploadFiles(files),
-		Pinned: false,
+		CID:   result.CID,
+		Size:  size,
+		Bytes: totalBytes,
+		Name:  result.Name,
+		Files: countUploadFiles(files),
 	})
 }
 

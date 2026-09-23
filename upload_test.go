@@ -132,7 +132,7 @@ func TestUpUploadsSingleFileWithoutPinning(t *testing.T) {
 	if len(names) != 1 || names[0] != "hello.txt" {
 		t.Errorf("upstream filenames = %v, want [hello.txt]", names)
 	}
-	if response.CID != "bafy-file" || response.Size != 5 || response.Bytes != 5 || response.Pinned {
+	if response.CID != "bafy-file" || response.Size != 5 || response.Bytes != 5 {
 		t.Errorf("response = %+v, want unpinned bafy-file with size 5", response)
 	}
 }
@@ -171,7 +171,7 @@ func TestUpAutomaticallyHandlesFolders(t *testing.T) {
 	if len(names) != 2 || names[0] != "folder/one.txt" || names[1] != "folder/two.txt" {
 		t.Errorf("upstream filenames = %v, want folder paths", names)
 	}
-	if response.CID != "bafy-root" || response.Size != 42 || response.Bytes != 6 || response.Files != 2 || response.Pinned {
+	if response.CID != "bafy-root" || response.Size != 42 || response.Bytes != 6 || response.Files != 2 {
 		t.Errorf("response = %+v, want folder root response", response)
 	}
 }
@@ -202,7 +202,7 @@ func TestUpfForcesFolderMode(t *testing.T) {
 	if wrap != "true" {
 		t.Errorf("wrap-with-directory = %q, want true", wrap)
 	}
-	if response.CID != "bafy-root" || response.Files != 1 || response.Pinned {
+	if response.CID != "bafy-root" || response.Files != 1 {
 		t.Errorf("response = %+v, want folder response", response)
 	}
 }

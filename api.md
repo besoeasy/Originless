@@ -71,14 +71,12 @@ Successful uploads return:
   "size": 2048,
   "bytes": 2048,
   "name": "hello.txt",
-  "files": 1,
-  "pinned": false
+  "files": 1
 }
 ```
 
 - `cid` is the IPFS CID of the uploaded file or folder root.
 - `size` is the size reported by IPFS for the returned root.
 - `bytes` is the total number of uploaded file bytes.
-- `pinned` is always `false` for uploads made through these endpoints.
 
 Uploads use `multipart/form-data` and are limited to 1 GiB of file data.
