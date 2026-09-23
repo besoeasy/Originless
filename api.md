@@ -15,6 +15,10 @@ embedded IPFS node with pinning disabled.
 | `POST` | `/up` | Upload one file, or automatically upload multiple files/a folder |
 | `POST` | `/upf` | Upload a folder and return the folder root CID |
 | `GET` | `/down/{cid}` | Download content available in the local IPFS repository |
+| `POST` | `/events` | Publish a signed event |
+| `GET` | `/events` | Query signed events |
+| `GET` | `/events/{id}` | Retrieve one signed event |
+| `GET` | `/events/stream` | Stream matching events over SSE |
 
 ## `GET /stats`
 
@@ -39,6 +43,60 @@ Returns the Kubo repository statistics:
   "status": "ok"
 }
 ```
+
+## Events
+
+Events are immutable JSON documents signed by the client with Ed25519. Events
+are limited to 8 KiB and a maximum TTL of one year.
+
+The signed message is:
+
+```text
+owner:collection:created_at:expires_at:canonical_data:blob:labels_csv
+```
+
+`canonical_data` is compact JSON with recursively sorted object keys. The event
+ID is the lowercase SHA-256 hex digest of that message, and `sig` is the
+Ed25519 signature of the 32-byte digest encoded as 128 hex characters.
+
+### `POST /events`
+
+Send an `application/json` event body:
+
+```json
+{
+  "owner": "ed25519:<64-hex-public-key>",
+  "collection": "chat",
+  "created_at": 1758420000,
+  "expires_at": 1789956000,
+  "data": {"user": "alice", "message": "Hello world!"},
+  "labels": ["room:lobby"],
+  "sig": "<128-hex-signature>"
+}
+```
+
+The optional `blob` field is a SHA-256 hex reference. A new event returns
+`201 Created`; replaying the same signed event returns `200 OK` with
+`duplicate: true`.
+
+### `GET /events`
+
+Query live events with `collection`, `label`, `owner`, `since`, `until`,
+`search`, `blob`, `limit`, and `cursor`. Results are newest first. The default
+limit is 50 and the maximum is 100. Pass the returned `next_cursor` unchanged
+to fetch the next page.
+
+### `GET /events/{id}`
+
+Returns the event JSON by its server-computed ID. Expired events are hidden
+unless `include_expired=true` is supplied.
+
+### `GET /events/stream`
+
+Streams newly published matching events as Server-Sent Events. Filters include
+`collection` and `label` (the other event query filters are also accepted).
+
+Events are currently held in memory and are lost when the app process stops.
 
 ## `POST /up`
 
