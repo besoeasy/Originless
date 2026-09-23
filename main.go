@@ -61,10 +61,8 @@ func newIPFSClient(rawURL string) (*ipfsClient, error) {
 	}
 
 	return &ipfsClient{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout: requestTimeout,
-		},
+		baseURL:    baseURL,
+		httpClient: &http.Client{},
 	}, nil
 }
 
