@@ -78,6 +78,13 @@
       background: var(--bg);
     }
 
+    .event-card { margin-top: 1rem; }
+    h3 { margin: 1.25rem 0 .5rem; font-size: .875rem; font-weight: 600; }
+    .collection-list { margin: 0; padding-left: 1.25rem; color: var(--muted); }
+    .collection-list li { padding: .5rem 0; border-top: 1px solid var(--border); }
+    .collection-list li:first-child { border-top: 0; }
+    .collection-list strong { color: var(--fg); font-weight: 600; }
+
     dl {
       display: grid;
       grid-template-columns: max-content 1fr;
@@ -158,8 +165,32 @@
       </dl>
     </section>
 
+    <section class="card event-card" aria-live="polite">
+      <h2>Event statistics</h2>
+      <p id="events-state" class="state">Waiting for statistics…</p>
+      <p id="events-error" class="error" hidden></p>
+      <dl id="event-stats" hidden>
+        <dt>Live events</dt>
+        <dd id="event-count">—</dd>
+        <dt>Unique owners</dt>
+        <dd id="event-owners">—</dd>
+        <dt>Stored event data</dt>
+        <dd id="event-bytes">—</dd>
+        <dt>Expired events</dt>
+        <dd id="event-expired">—</dd>
+        <dt>Stream subscribers</dt>
+        <dd id="event-subscribers">—</dd>
+      </dl>
+      <div id="event-collections" hidden>
+        <h3>Top collections</h3>
+        <ol id="top-collections" class="collection-list"></ol>
+      </div>
+    </section>
+
     <footer>
       <a href="/stats">Raw statistics JSON</a>
+      <a href="/events">Events JSON</a>
+      <a href="/events/stream">Event stream</a>
       <a href="/healthz">Health check</a>
     </footer>
   </main>
@@ -168,6 +199,10 @@
     const loading = document.getElementById("loading");
     const error = document.getElementById("error");
     const stats = document.getElementById("stats");
+    const eventStats = document.getElementById("event-stats");
+    const eventsState = document.getElementById("events-state");
+    const eventsError = document.getElementById("events-error");
+    const eventCollections = document.getElementById("event-collections");
     const refresh = document.getElementById("refresh");
 
     function formatBytes(bytes) {
@@ -186,11 +221,28 @@
       document.getElementById(id).textContent = value;
     }
 
+    function renderTopCollections(collections) {
+      const list = document.getElementById("top-collections");
+      list.replaceChildren();
+      for (const collection of collections.slice(0, 10)) {
+        const item = document.createElement("li");
+        const name = document.createElement("strong");
+        name.textContent = collection.collection;
+        item.append(name, document.createTextNode(` · ${Number(collection.count || 0).toLocaleString()}`));
+        list.append(item);
+      }
+      eventCollections.hidden = collections.length === 0;
+    }
+
     async function loadStats() {
       refresh.disabled = true;
       loading.hidden = false;
       error.hidden = true;
       stats.hidden = true;
+      eventStats.hidden = true;
+      eventsState.hidden = false;
+      eventsError.hidden = true;
+      eventCollections.hidden = true;
 
       try {
         const response = await fetch("/stats", {
@@ -200,16 +252,29 @@
         if (!response.ok) throw new Error(`Stats request failed (${response.status})`);
         const data = await response.json();
         const size = data.SizeStat || {};
+        const events = data.events || {};
 
         setText("repo-size", formatBytes(size.RepoSize));
         setText("storage-limit", size.StorageMax ? formatBytes(size.StorageMax) : "Unlimited");
         setText("objects", Number(data.NumObjects || 0).toLocaleString());
         setText("repo-path", data.RepoPath || "—");
         setText("repo-version", data.Version || "Unknown");
+        setText("event-count", Number(events.count || 0).toLocaleString());
+        setText("event-owners", Number(events.unique_owners || 0).toLocaleString());
+        setText("event-bytes", formatBytes(events.stored_bytes || 0));
+        setText("event-expired", Number(events.expired || 0).toLocaleString());
+        setText("event-subscribers", Number(events.subscribers || 0).toLocaleString());
+        renderTopCollections(events.top_collections || []);
+        eventStats.hidden = false;
+        eventsState.hidden = true;
         stats.hidden = false;
       } catch (err) {
-        error.textContent = `${err.message}. Check that the IPFS node is running.`;
+        const message = `${err.message}. Check that the IPFS node is running.`;
+        error.textContent = message;
         error.hidden = false;
+        eventsError.textContent = message;
+        eventsError.hidden = false;
+        eventsState.hidden = true;
       } finally {
         loading.hidden = true;
         refresh.disabled = false;
