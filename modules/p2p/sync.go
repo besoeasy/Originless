@@ -145,6 +145,7 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 	}
 	if g != nil {
 		if !g.Admit(want) {
+			se.seenCache.Remove(rec.ID)
 			return false, fmt.Errorf("disk ceiling would be exceeded")
 		}
 		defer g.Release(want)
@@ -152,6 +153,7 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 
 	created, _, err := se.store.InsertRecord(validRec)
 	if err != nil {
+		se.seenCache.Remove(rec.ID)
 		return false, fmt.Errorf("insert record: %w", err)
 	}
 
@@ -198,6 +200,7 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 	}
 	if g != nil {
 		if !g.Admit(int64(len(data))) {
+			se.seenCache.Remove(hash)
 			return false, fmt.Errorf("disk ceiling would be exceeded")
 		}
 		defer g.Release(int64(len(data)))
@@ -213,6 +216,7 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 
 	tmpFile, err := os.CreateTemp(se.blobDir, "sync-up-*")
 	if err != nil {
+		se.seenCache.Remove(hash)
 		return false, fmt.Errorf("create temp blob: %w", err)
 	}
 	tmpName := tmpFile.Name()
@@ -220,19 +224,23 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 
 	if _, err := tmpFile.Write(data); err != nil {
 		_ = tmpFile.Close()
+		se.seenCache.Remove(hash)
 		return false, err
 	}
 	if err := tmpFile.Close(); err != nil {
+		se.seenCache.Remove(hash)
 		return false, err
 	}
 
 	_ = os.Chmod(tmpName, 0o644)
 	if err := os.Rename(tmpName, dest); err != nil {
+		se.seenCache.Remove(hash)
 		return false, fmt.Errorf("rename temp blob: %w", err)
 	}
 
 	created, err := se.store.UpsertBlob(hash, int64(len(data)))
 	if err != nil {
+		se.seenCache.Remove(hash)
 		return false, fmt.Errorf("upsert blob in db: %w", err)
 	}
 

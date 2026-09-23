@@ -36,3 +36,25 @@ func TestSeenCacheDeduplicationAndEviction(t *testing.T) {
 		t.Fatalf("expected cache length 5, got %d", cache.Len())
 	}
 }
+
+func TestSeenCacheRemove(t *testing.T) {
+	cache := NewSeenCache(10)
+	cache.Add("event-1")
+	cache.Add("event-2")
+
+	if !cache.Has("event-1") {
+		t.Fatalf("expected event-1 to be in cache")
+	}
+
+	cache.Remove("event-1")
+
+	if cache.Has("event-1") {
+		t.Fatalf("expected event-1 to be removed from cache")
+	}
+
+	// Should be able to add again now that it is removed
+	if !cache.Add("event-1") {
+		t.Fatalf("expected re-adding removed event-1 to succeed")
+	}
+}
+

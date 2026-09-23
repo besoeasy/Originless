@@ -59,6 +59,23 @@ func (sc *SeenCache) Has(key string) bool {
 	return exists
 }
 
+// Remove deletes a key from the seen cache so that it can be retried later
+// if ingestion was refused due to temporary reasons like disk ceiling.
+func (sc *SeenCache) Remove(key string) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	if _, exists := sc.items[key]; !exists {
+		return
+	}
+	delete(sc.items, key)
+	for i, k := range sc.queue {
+		if k == key {
+			sc.queue = append(sc.queue[:i], sc.queue[i+1:]...)
+			break
+		}
+	}
+}
+
 // Len returns the current count of items in the seen cache.
 func (sc *SeenCache) Len() int {
 	sc.mu.Lock()
