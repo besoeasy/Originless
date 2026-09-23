@@ -41,6 +41,11 @@ type IPFSStats struct {
 	Version string `json:"Version"`
 }
 
+type statsResponse struct {
+	IPFSStats
+	Events EventStats `json:"events"`
+}
+
 type ipfsClient struct {
 	baseURL    *url.URL
 	httpClient *http.Client
@@ -112,6 +117,7 @@ func (c *ipfsClient) repoStats(ctx context.Context) (IPFSStats, error) {
 
 type statsHandler struct {
 	client *ipfsClient
+	events *eventStore
 }
 
 func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +142,14 @@ func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, stats)
+	eventStats := EventStats{}
+	if h.events != nil {
+		eventStats = h.events.stats(time.Now())
+	}
+	writeJSON(w, http.StatusOK, statsResponse{
+		IPFSStats: stats,
+		Events:    eventStats,
+	})
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
@@ -171,12 +184,12 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
+	events := newEventStore()
 	mux.HandleFunc("/", serveIndex)
-	mux.Handle("/stats", &statsHandler{client: client})
+	mux.Handle("/stats", &statsHandler{client: client, events: events})
 	mux.Handle("/up", &uploadHandler{client: client})
 	mux.Handle("/upf", &uploadHandler{client: client, folder: true})
 	mux.Handle("/down/", &downloadHandler{client: client})
-	events := newEventStore()
 	mux.Handle("/events", &eventHandler{store: events})
 	mux.Handle("/events/", &eventHandler{store: events})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

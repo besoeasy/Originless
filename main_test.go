@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRepoStats(t *testing.T) {
@@ -88,7 +89,8 @@ func TestStatsJSON(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/stats", nil)
-	newRouter(client).ServeHTTP(recorder, request)
+	router := newRouter(client)
+	router.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -96,12 +98,47 @@ func TestStatsJSON(t *testing.T) {
 	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
 		t.Errorf("content type = %q, want application/json", contentType)
 	}
-	var stats IPFSStats
-	if err := json.Unmarshal(recorder.Body.Bytes(), &stats); err != nil {
+	var response statsResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if stats.NumObjects != 7 || stats.SizeStat.RepoSize != 1024 || stats.RepoPath != "/repo" {
-		t.Errorf("stats = %+v, want expected statistics", stats)
+	if response.NumObjects != 7 || response.SizeStat.RepoSize != 1024 || response.RepoPath != "/repo" {
+		t.Errorf("stats = %+v, want expected statistics", response)
+	}
+	if response.Events.Total != 0 || response.Events.Count != 0 || response.Events.UniqueOwners != 0 {
+		t.Errorf("event stats = %+v, want empty event stats", response.Events)
+	}
+}
+
+func TestStatsIncludesEventStats(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"NumObjects":1,"RepoPath":"/repo","SizeStat":{"RepoSize":10,"StorageMax":100},"Version":"fs-repo@18"}`))
+	}))
+	defer server.Close()
+
+	client, err := newIPFSClient(server.URL)
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+	router := newRouter(client)
+	now := time.Now().Truncate(time.Second)
+	raw, _ := makeSignedEvent(t, now.Unix(), now.Unix()+3600, "chat", map[string]any{"message": "hello"}, []string{"room:lobby"}, "")
+	publishTestEvent(t, router, raw)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/stats", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	var response statsResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Events.Count != 1 || response.Events.Total != 1 || response.Events.UniqueOwners != 1 {
+		t.Errorf("event counts = %+v, want one active event and owner", response.Events)
+	}
+	if len(response.Events.TopCollections) != 1 || response.Events.TopCollections[0].Collection != "chat" || response.Events.TopCollections[0].Count != 1 {
+		t.Errorf("top collections = %+v, want chat:1", response.Events.TopCollections)
 	}
 }
 

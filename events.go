@@ -80,6 +80,30 @@ type eventSubscriber struct {
 	filter eventFilter
 }
 
+type eventCollectionStat struct {
+	Collection string `json:"collection"`
+	Count      int    `json:"count"`
+}
+
+type eventLabelStat struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+type EventStats struct {
+	Count           int                   `json:"count"`
+	Total           int                   `json:"total"`
+	Expired         int                   `json:"expired"`
+	UniqueOwners    int                   `json:"unique_owners"`
+	TopCollections  []eventCollectionStat `json:"top_collections"`
+	TopLabels       []eventLabelStat      `json:"top_labels"`
+	StoredBytes     int64                 `json:"stored_bytes"`
+	OldestCreatedAt int64                 `json:"oldest_created_at,omitempty"`
+	NewestCreatedAt int64                 `json:"newest_created_at,omitempty"`
+	Subscribers     int                   `json:"subscribers"`
+	MaxSubscribers  int                   `json:"max_subscribers"`
+}
+
 type eventStore struct {
 	mu          sync.Mutex
 	events      map[string]*Event
@@ -190,6 +214,70 @@ func (s *eventStore) unsubscribe(subscriber *eventSubscriber) {
 	s.mu.Lock()
 	delete(s.subscribers, subscriber)
 	s.mu.Unlock()
+}
+
+func (s *eventStore) stats(now time.Time) EventStats {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nowUnix := now.Unix()
+	stats := EventStats{
+		Total:          len(s.events),
+		TopCollections: make([]eventCollectionStat, 0),
+		TopLabels:      make([]eventLabelStat, 0),
+		Subscribers:    len(s.subscribers),
+		MaxSubscribers: maxEventSubscribers,
+	}
+	owners := make(map[string]struct{})
+	collections := make(map[string]int)
+	labels := make(map[string]int)
+	for _, event := range s.events {
+		if event.Size > 0 {
+			stats.StoredBytes += event.Size
+		}
+		if event.ExpiresAt <= nowUnix {
+			stats.Expired++
+			continue
+		}
+		stats.Count++
+		owners[event.Owner] = struct{}{}
+		collections[event.Collection]++
+		if stats.OldestCreatedAt == 0 || event.CreatedAt < stats.OldestCreatedAt {
+			stats.OldestCreatedAt = event.CreatedAt
+		}
+		if event.CreatedAt > stats.NewestCreatedAt {
+			stats.NewestCreatedAt = event.CreatedAt
+		}
+		for _, label := range event.Labels {
+			labels[label]++
+		}
+	}
+	stats.UniqueOwners = len(owners)
+	for collection, count := range collections {
+		stats.TopCollections = append(stats.TopCollections, eventCollectionStat{Collection: collection, Count: count})
+	}
+	for label, count := range labels {
+		stats.TopLabels = append(stats.TopLabels, eventLabelStat{Label: label, Count: count})
+	}
+	sort.Slice(stats.TopCollections, func(i, j int) bool {
+		if stats.TopCollections[i].Count != stats.TopCollections[j].Count {
+			return stats.TopCollections[i].Count > stats.TopCollections[j].Count
+		}
+		return stats.TopCollections[i].Collection < stats.TopCollections[j].Collection
+	})
+	sort.Slice(stats.TopLabels, func(i, j int) bool {
+		if stats.TopLabels[i].Count != stats.TopLabels[j].Count {
+			return stats.TopLabels[i].Count > stats.TopLabels[j].Count
+		}
+		return stats.TopLabels[i].Label < stats.TopLabels[j].Label
+	})
+	if len(stats.TopCollections) > 10 {
+		stats.TopCollections = stats.TopCollections[:10]
+	}
+	if len(stats.TopLabels) > 10 {
+		stats.TopLabels = stats.TopLabels[:10]
+	}
+	return stats
 }
 
 func (s *eventStore) purgeExpiredLocked(now int64) {
