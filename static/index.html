@@ -158,7 +158,7 @@ nav a:hover{background:var(--raise);color:var(--ink)}
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px}
 
 /* Hero Section */
-.hero{display:grid;grid-template-columns:1fr 1.05fr;gap:48px;padding:64px 0 54px;align-items:center}
+.hero{display:grid;grid-template-columns:1fr;gap:32px;padding:64px 0 54px;align-items:center;max-width:840px}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;background:var(--ok-bg);border:1px solid rgba(16,185,129,.2);color:var(--ok);font:600 12px var(--mono);margin-bottom:18px;letter-spacing:.02em}
 .hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
 h1{font-size:clamp(34px,4.8vw,52px);line-height:1.08;letter-spacing:-.035em;font-weight:700;max-width:15ch}
@@ -463,32 +463,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <span class="fact-item"><b id="teleSse">0</b> live SSE</span>
       <span class="fact-item" id="teleTrafficItem" style="display:none"><b id="teleReqs">0</b> reqs</span>
       <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span><span id="teleNatPill" class="pill pill-ok" style="display:none;margin-left:6px;font-size:11px">Public</span></span>
-    </div>
-  </div>
-
-  <div class="term" aria-label="API examples">
-    <div class="term-window-bar">
-      <div class="window-dots"><span class="dot-red"></span><span class="dot-yel"></span><span class="dot-grn"></span></div>
-      <div class="term-title">originless ~ curl-console</div>
-    </div>
-    <div class="term-top" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-k="event">Publish event</button>
-      <button class="tab" role="tab" aria-selected="false" data-k="blob">Upload blob</button>
-      <button class="tab" role="tab" aria-selected="false" data-k="stream">Watch stream</button>
-      <button class="tab" role="tab" aria-selected="false" data-k="status">Node status</button>
-    </div>
-    <label class="node">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <span>node</span>
-      <input id="origin" value="" spellcheck="false" aria-label="Your node URL">
-    </label>
-    <pre id="snip"></pre>
-    <div class="term-foot">
-      <span id="note"></span>
-      <div class="term-actions">
-        <button id="runQuery" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run query</button>
-        <button id="copySnip" type="button"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
-      </div>
     </div>
   </div>
 </div>
@@ -809,14 +783,15 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)},
-    O=$("origin"),S=$("snip"),N=$("note"),cur="event";
+    O=$("origin");
 
-// Initialize default node origin
+// The page always talks to the node that served it.
 var defaultOrigin = (window.location && window.location.origin && window.location.origin !== "null" && window.location.protocol.startsWith("http"))
   ? window.location.origin : "http://localhost:3232";
-O.value = defaultOrigin;
+if(O) O.value = defaultOrigin;
 
 function o(){
+  if(!O) return defaultOrigin;
   var val = (O.value || "").trim();
   if(!val || val.indexOf("your-node.example") !== -1) return defaultOrigin;
   return val.replace(/\/+$/,"");
@@ -833,69 +808,12 @@ if(themeBtn){
   };
 }
 
-/* Terminal snippet templates */
-var T={
-event:function(){return 'curl -X POST '+o()+'/events \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "owner": "ed25519:<public key hex>",\n    "collection": "notes",\n    "created_at": 1767225600,\n    "expires_at": 1769817600,\n    "data": { "text": "hello" },\n    "labels": ["demo"],\n    "sig": "<signature hex>"\n  }\''},
-  blob:function(){return '# publish raw bytes + the signed event in one request (event part first)\nHASH=$(sha256sum backup.tar.gz | cut -d" " -f1)\nEVENT=$(build_signed_event_json blob="$HASH")\ncurl -X POST '+o()+'/events \\\n  -F "event=$EVENT;type=application/json" \\\n  -F "blob=@backup.tar.gz;type=application/octet-stream"\n\n# fetch it back from any machine\ncurl -OJ '+o()+'/blob/<sha256>'},
-stream:function(){return '# follow new events live\ncurl -N '+o()+'/events/stream\n\n# or read what is already there\ncurl "'+o()+'/events?collection=notes&limit=50"'},
-status:function(){return 'curl '+o()+'/status'}};
-
-var NT={
-  event:"Signed with Ed25519 over the record fields.",
-  blob:"Opaque bytes only, deduplicated by content.",
-  stream:"Server-Sent Events, no polling.",
-  status:"Version, uptime, memory vitals, storage, and telemetry."
-};
-
-function draw(){
-  S.textContent=T[cur]();
-  N.textContent=NT[cur];
-  $("agentTxt").textContent=agent();
-}
-
 function agent(){
   return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519) with optional top-level "blob" attachment pointer; add raw bytes as the "blob" multipart part (after the event part) to store a content-addressed blob in the same request\n- GET  '+o()+'/events/stream  live Server-Sent Events\n- GET  '+o()+'/blob/<sha256>  fetch stored bytes by content hash\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
 }
 
-document.querySelectorAll(".tab").forEach(function(b){
-  b.addEventListener("click",function(){
-    cur=b.dataset.k;
-    document.querySelectorAll(".tab").forEach(function(x){x.setAttribute("aria-selected",x===b?"true":"false")});
-    draw();
-  });
-});
-O.addEventListener("input",function(){draw();refreshAll();});
-
-/* Run query right from terminal */
-$("runQuery").onclick=async function(){
-  var btn = this;
-  btn.textContent = "Running...";
-  btn.disabled = true;
-  try{
-    if(cur === "status"){
-      var r = await fetch(o()+"/status");
-      var d = await r.json();
-      S.textContent = JSON.stringify(d, null, 2);
-      showToast("Fetched node status", "ok");
-    } else if(cur === "event" || cur === "stream"){
-      var r = await fetch(o()+"/events?limit=5");
-      var d = await r.json();
-      S.textContent = JSON.stringify(d, null, 2);
-      showToast("Fetched latest events", "ok");
-    } else if(cur === "blob"){
-      var r = await fetch(o()+"/blobs?limit=5");
-      var d = await r.json();
-      S.textContent = JSON.stringify(d, null, 2);
-      showToast("Fetched stored blobs", "ok");
-    }
-  }catch(err){
-    S.textContent = "Error: " + err.message;
-    showToast("Query failed: " + err.message, "warn");
-  }finally{
-    btn.textContent = "Run query";
-    btn.disabled = false;
-  }
-};
+/* Agent prompt preview */
+$("agentTxt").textContent=agent();
 
 /* Clipboard helper */
 function cp(t,btn){
@@ -922,7 +840,6 @@ function fallbackCp(t){
   document.body.removeChild(a);
 }
 
-$("copySnip").onclick=function(){cp(S.textContent,this)};
 $("copyAgent").onclick=function(){cp(agent(),this)};
 $("copyAgent2").onclick=function(){cp(agent(),this)};
 
