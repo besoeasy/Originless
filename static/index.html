@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Originless | IPFS Node</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0d1017;
+      color: #f4f7fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top right, #1c2740 0, #0d1017 42rem);
+    }
+
+    main {
+      width: min(58rem, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 3rem 0;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .eyebrow {
+      margin: 0 0 .4rem;
+      color: #7fb4ff;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+    }
+
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -.04em; }
+    h2 { margin: 0 0 1.25rem; color: #aab6ca; font-size: 1rem; font-weight: 500; }
+
+    button, a { font: inherit; }
+
+    button {
+      border: 1px solid #3d557d;
+      border-radius: .6rem;
+      padding: .65rem 1rem;
+      background: #18243a;
+      color: #d9e8ff;
+      cursor: pointer;
+    }
+
+    button:hover { background: #223454; }
+    button:disabled { cursor: wait; opacity: .6; }
+
+    .card {
+      padding: clamp(1.25rem, 4vw, 2rem);
+      border: 1px solid #27334a;
+      border-radius: 1rem;
+      background: #151b27e8;
+      box-shadow: 0 1.5rem 4rem #0005;
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: minmax(9rem, 1fr) 2fr;
+      gap: 1rem 1.5rem;
+      margin: 0;
+    }
+
+    dt { color: #8f9db3; }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    code { color: #d5e5ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .state { color: #aab6ca; }
+    .error { padding: 1rem; border-radius: .6rem; background: #4a2028; color: #ffd9df; }
+    [hidden] { display: none !important; }
+
+    footer { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 1.25rem; color: #8290a6; font-size: .9rem; }
+    a { color: #9ecbff; }
+
+    @media (max-width: 30rem) {
+      header { align-items: start; flex-direction: column; }
+      dl { grid-template-columns: 1fr; gap: .35rem; }
+      dd { margin-bottom: .75rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">ORIGINLESS</p>
+        <h1>IPFS node</h1>
+      </div>
+      <button id="refresh" type="button">Refresh stats</button>
+    </header>
+
+    <section class="card" aria-live="polite">
+      <h2>Repository statistics</h2>
+      <p id="loading" class="state">Loading statistics…</p>
+      <p id="error" class="error" hidden></p>
+      <dl id="stats" hidden>
+        <dt>Repository size</dt>
+        <dd id="repo-size">—</dd>
+        <dt>Storage limit</dt>
+        <dd id="storage-limit">—</dd>
+        <dt>Objects</dt>
+        <dd id="objects">—</dd>
+        <dt>Repository path</dt>
+        <dd><code id="repo-path">—</code></dd>
+        <dt>Repository version</dt>
+        <dd id="repo-version">—</dd>
+      </dl>
+    </section>
+
+    <footer>
+      <a href="/stats">Raw statistics JSON</a>
+      <a href="/healthz">Health check</a>
+    </footer>
+  </main>
+
+  <script>
+    const loading = document.getElementById("loading");
+    const error = document.getElementById("error");
+    const stats = document.getElementById("stats");
+    const refresh = document.getElementById("refresh");
+
+    function formatBytes(bytes) {
+      if (!bytes) return "0 B";
+      const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+      let value = Number(bytes);
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit += 1;
+      }
+      return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+    }
+
+    function setText(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    async function loadStats() {
+      refresh.disabled = true;
+      loading.hidden = false;
+      error.hidden = true;
+      stats.hidden = true;
+
+      try {
+        const response = await fetch("/stats", {
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        if (!response.ok) throw new Error(`Stats request failed (${response.status})`);
+        const data = await response.json();
+        const size = data.SizeStat || {};
+
+        setText("repo-size", formatBytes(size.RepoSize));
+        setText("storage-limit", size.StorageMax ? formatBytes(size.StorageMax) : "Unlimited");
+        setText("objects", Number(data.NumObjects || 0).toLocaleString());
+        setText("repo-path", data.RepoPath || "—");
+        setText("repo-version", data.Version || "Unknown");
+        stats.hidden = false;
+      } catch (err) {
+        error.textContent = `${err.message}. Check that the IPFS node is running.`;
+        error.hidden = false;
+      } finally {
+        loading.hidden = true;
+        refresh.disabled = false;
+      }
+    }
+
+    refresh.addEventListener("click", loadStats);
+    loadStats();
+  </script>
+</body>
+</html>
