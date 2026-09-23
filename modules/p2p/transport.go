@@ -265,12 +265,19 @@ func (t *Transport) ConnectPeer(info peer.AddrInfo) {
 }
 
 func (t *Transport) DialPeerHint(hint PeerHint) {
+	if hint.ID == "" || hint.ID == t.nodeID {
+		return
+	}
 	pid, err := peer.Decode(hint.ID)
 	if err != nil {
 		return
 	}
 	info := peer.AddrInfo{ID: pid}
-	for _, a := range hint.Addrs {
+	addrs := hint.Addrs
+	if len(addrs) > 8 {
+		addrs = addrs[:8]
+	}
+	for _, a := range addrs {
 		m, err := ma.NewMultiaddr(a)
 		if err != nil {
 			continue

@@ -287,9 +287,13 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		}
 		session.SetRemoteHello(hello)
 
-		// Peer Exchange (PEX): dial shared peers
+		// Peer Exchange (PEX): dial shared peers (bounded to avoid dial storms)
 		if len(hello.Peers) > 0 && session.transport != nil {
-			for _, hint := range hello.Peers {
+			hints := hello.Peers
+			if len(hints) > 16 {
+				hints = hints[:16]
+			}
+			for _, hint := range hints {
 				go session.transport.DialPeerHint(hint)
 			}
 		}
