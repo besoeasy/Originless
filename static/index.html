@@ -6,10 +6,18 @@
   <title>Originless | IPFS Node</title>
   <style>
     :root {
-      color-scheme: dark;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0d1017;
-      color: #f4f7fb;
+      color-scheme: light;
+      --bg: #fff;
+      --fg: #000;
+      --muted: #666;
+      --border: #eaeaea;
+      --border-strong: #d4d4d4;
+      --hover: #fafafa;
+      --error-bg: #fff0f0;
+      --error-fg: #c50f1f;
+      font-family: "Geist", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
     }
 
     * { box-sizing: border-box; }
@@ -17,78 +25,108 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(circle at top right, #1c2740 0, #0d1017 42rem);
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      background: var(--bg);
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
     }
 
     main {
-      width: min(58rem, calc(100% - 2rem));
-      margin: 0 auto;
-      padding: 3rem 0;
+      width: 100%;
+      max-width: 30rem;
     }
 
     header {
       display: flex;
-      align-items: end;
+      align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
-    .eyebrow {
-      margin: 0 0 .4rem;
-      color: #7fb4ff;
-      font-size: .75rem;
-      font-weight: 700;
-      letter-spacing: .16em;
-    }
-
-    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -.04em; }
-    h2 { margin: 0 0 1.25rem; color: #aab6ca; font-size: 1rem; font-weight: 500; }
+    .brand { margin: 0 0 .25rem; color: var(--muted); font-size: .875rem; }
+    h1 { margin: 0; font-size: 1.75rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+    h2 { margin: 0 0 1rem; font-size: .875rem; font-weight: 500; color: var(--muted); }
 
     button, a { font: inherit; }
 
     button {
-      border: 1px solid #3d557d;
-      border-radius: .6rem;
-      padding: .65rem 1rem;
-      background: #18243a;
-      color: #d9e8ff;
+      height: 2.25rem;
+      padding: 0 .9rem;
+      border: 1px solid var(--fg);
+      border-radius: .375rem;
+      background: var(--fg);
+      color: var(--bg);
+      font-size: .875rem;
+      font-weight: 500;
       cursor: pointer;
+      transition: background .15s, border-color .15s;
     }
 
-    button:hover { background: #223454; }
-    button:disabled { cursor: wait; opacity: .6; }
+    button:hover { background: #333; border-color: #333; }
+    button:disabled { cursor: wait; opacity: .5; }
+
+    :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
     .card {
-      padding: clamp(1.25rem, 4vw, 2rem);
-      border: 1px solid #27334a;
-      border-radius: 1rem;
-      background: #151b27e8;
-      box-shadow: 0 1.5rem 4rem #0005;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: .5rem;
+      background: var(--bg);
     }
 
     dl {
       display: grid;
-      grid-template-columns: minmax(9rem, 1fr) 2fr;
-      gap: 1rem 1.5rem;
+      grid-template-columns: max-content 1fr;
       margin: 0;
     }
 
-    dt { color: #8f9db3; }
-    dd { margin: 0; overflow-wrap: anywhere; }
-    code { color: #d5e5ff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    dt, dd {
+      padding: .75rem 0;
+      border-top: 1px solid var(--border);
+      font-size: .875rem;
+    }
 
-    .state { color: #aab6ca; }
-    .error { padding: 1rem; border-radius: .6rem; background: #4a2028; color: #ffd9df; }
+    dt:first-of-type, dt:first-of-type + dd { border-top: 0; padding-top: 0; }
+    dt:last-of-type, dt:last-of-type + dd { padding-bottom: 0; }
+
+    dt { color: var(--muted); padding-right: 2rem; }
+    dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+    code {
+      padding: .1rem .35rem;
+      border: 1px solid var(--border);
+      border-radius: .25rem;
+      background: var(--hover);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .8125rem;
+    }
+
+    .state { margin: 0; color: var(--muted); font-size: .875rem; }
+    .error { margin: 0; padding: .75rem 1rem; border-radius: .375rem; background: var(--error-bg); color: var(--error-fg); font-size: .875rem; }
     [hidden] { display: none !important; }
 
-    footer { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 1.25rem; color: #8290a6; font-size: .9rem; }
-    a { color: #9ecbff; }
+    footer {
+      display: flex;
+      justify-content: center;
+      gap: 1.25rem;
+      margin-top: 1.25rem;
+      font-size: .875rem;
+    }
+
+    a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: .2em; }
 
     @media (max-width: 30rem) {
-      header { align-items: start; flex-direction: column; }
-      dl { grid-template-columns: 1fr; gap: .35rem; }
-      dd { margin-bottom: .75rem; }
+      dl { grid-template-columns: 1fr; }
+      dt { padding-bottom: 0; border-top: 1px solid var(--border); padding-top: .75rem; }
+      dd { border-top: 0; padding-top: .15rem; text-align: left; }
+      dt:first-of-type { border-top: 0; padding-top: 0; }
+      dt:first-of-type + dd { padding-top: .15rem; }
+      dt:last-of-type + dd { padding-bottom: 0; }
     }
   </style>
 </head>
@@ -96,7 +134,7 @@
   <main>
     <header>
       <div>
-        <p class="eyebrow">ORIGINLESS</p>
+        <p class="brand">Originless</p>
         <h1>IPFS node</h1>
       </div>
       <button id="refresh" type="button">Refresh stats</button>
