@@ -89,9 +89,7 @@ Send an `application/json` event body:
 }
 ```
 
-The optional `blob` field is a SHA-256 hex reference. A new event returns
-`201 Created`; replaying the same signed event returns `200 OK` with
-`duplicate: true`.
+The optional `blob` field is retained for compatibility with the original event schema; new binary content should use the IPFS CIDs returned by `/up` or `/upf`. A new event returns `201 Created`; replaying the same signed event returns `200 OK` with `duplicate: true`.
 
 ### `GET /events`
 
