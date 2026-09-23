@@ -215,18 +215,6 @@ pre{padding:16px;overflow-x:auto;font:13px/1.65 var(--mono);color:var(--codeink)
 section{padding:64px 0;border-top:1px solid var(--line)}
 h2{font-size:clamp(26px,3.2vw,36px);letter-spacing:-.03em;line-height:1.15;margin-bottom:12px;max-width:28ch}
 .sub{color:var(--ink2);max-width:62ch;margin-bottom:32px;font-size:16px;line-height:1.6}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;position:relative;backdrop-filter:blur(8px);transition:all .2s ease;box-shadow:0 2px 10px rgba(0,0,0,.02)}
-.panel:hover{border-color:var(--line-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.05)}
-.panel-icon-wrap{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
-.panel-icon-ok{background:var(--ok-bg);color:var(--ok)}
-.panel-icon-cy{background:var(--cy-bg);color:var(--cy)}
-.panel h3{font-size:20px;letter-spacing:-.02em;margin-bottom:8px}
-.panel p{color:var(--ink2);margin-bottom:16px;font-size:15px}
-.panel ul{list-style:none;padding:0;display:grid;gap:10px;font-size:14.5px;color:var(--ink2)}
-.panel li{padding-left:18px;position:relative}
-.panel li::before{content:"";position:absolute;left:0;top:.65em;width:8px;height:2px;background:var(--ok);border-radius:1px}
-.panel.b li::before{background:var(--cy)}
 code,.m{font-family:var(--mono);font-size:.88em}
 .g{color:var(--ok)}.c{color:var(--cy)}
 
@@ -381,7 +369,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 #chatText{flex:1;min-width:0}
 
 @media(max-width:860px){
-  .hero,.two,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
+  .hero,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
   .hero{padding:40px 0}
   section{padding:44px 0}
   .ws-bar{flex-direction:column;align-items:flex-start}
@@ -433,41 +421,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <div class="hero-node mono" id="heroNode" title="The node this page reads from and writes to">…</div>
   </div>
 </div>
-
-<section id="primitives">
-  <h2>Two primitives to store, and nothing else to learn</h2>
-  <p class="sub">Everything on a node is either an Ed25519-signed event or a content-addressed binary blob. An event can point at a blob by hash, combining structured data and storage seamlessly.</p>
-  <div class="two">
-    <div class="panel">
-      <div class="panel-icon-wrap panel-icon-ok">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      </div>
-      <h3>Signed events</h3>
-      <p>JSON records that prove who wrote them. The node verifies the Ed25519 signature before accepting or broadcasting.</p>
-      <ul>
-        <li>Group records by <code>collection</code> and tag them with <code>labels</code></li>
-        <li>Each event expires on its own <code>expires_at</code> timestamp</li>
-        <li>Filter with <code class="g">GET /events?collection=&amp;label=&amp;search=</code></li>
-        <li>Follow new events live at <code class="g">/events/stream</code></li>
-        <li>Link an attached file with the top-level <code>"blob": "&lt;sha256&gt;"</code> field</li>
-      </ul>
-    </div>
-    <div class="panel b">
-      <div class="panel-icon-wrap panel-icon-cy">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-      </div>
-      <h3>Binary blobs</h3>
-      <p>Any binary blob, stored under the SHA-256 of its contents. Deduplicated automatically by cryptographic hash.</p>
-      <ul>
-        <li>Upload bytes and the event in one atomic request (event part first); reference with top-level <code>"blob"</code></li>
-        <li>Fetch raw bytes back anytime with <code class="c">GET /blob/&lt;hash&gt;</code></li>
-        <li>No pool cap — storage is governed only by your available disk</li>
-        <li>Served with <code>immutable</code> caching headers for CDN acceleration</li>
-        <li>Verify downloads client-side by recalculating SHA-256</li>
-      </ul>
-    </div>
-  </div>
-</section>
 
 <section id="node">
   <h2>What is this node?</h2>
