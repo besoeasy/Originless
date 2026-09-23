@@ -109,6 +109,14 @@ func (c *ipfsClient) repoStats(ctx context.Context) (IPFSStats, error) {
 	return stats, nil
 }
 
+type homeHandler struct {
+	template *template.Template
+}
+
+type homeData struct {
+	AppVersion string
+}
+
 type statsHandler struct {
 	client   *ipfsClient
 	template *template.Template
@@ -120,6 +128,37 @@ type pageData struct {
 	FetchedAt  string
 	HasError   bool
 }
+
+var homePage = template.Must(template.New("home").Parse(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Originless</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #10131a; color: #f4f6fb; }
+    main { width: min(42rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #2d3545; border-radius: 1rem; background: #181d27; box-shadow: 0 1rem 3rem #0004; }
+    h1 { margin: 0; font-size: 2rem; }
+    p { color: #9da9bd; line-height: 1.6; }
+    ul { padding-left: 1.25rem; line-height: 2; }
+    a { color: #9ecbff; }
+    footer { margin-top: 1.75rem; color: #778399; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Originless</h1>
+    <p>Originless is running with an embedded IPFS node.</p>
+    <ul>
+      <li><a href="/stats">IPFS statistics (JSON)</a></li>
+      <li><a href="/stats?format=html">IPFS statistics (HTML)</a></li>
+      <li><a href="/healthz">Health check</a></li>
+    </ul>
+    <footer>Originless v{{.AppVersion}}</footer>
+  </main>
+</body>
+</html>`))
 
 var statsPage = template.Must(template.New("stats").Funcs(template.FuncMap{
 	"formatBytes": formatBytes,
@@ -171,8 +210,26 @@ var statsPage = template.Must(template.New("stats").Funcs(template.FuncMap{
 </body>
 </html>`))
 
-func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *homeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.template.Execute(w, homeData{AppVersion: version}); err != nil {
+		log.Printf("render home page: %v", err)
+	}
+}
+
+func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/stats" {
 		http.NotFound(w, r)
 		return
 	}
@@ -192,13 +249,27 @@ func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.client.repoStats(ctx)
 	if err != nil {
 		log.Printf("IPFS stats request failed: %v", err)
-		data.HasError = true
-		h.render(w, http.StatusServiceUnavailable, data)
+		if wantsHTML(r) {
+			data.HasError = true
+			h.render(w, http.StatusServiceUnavailable, data)
+			return
+		}
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "IPFS node unavailable",
+		})
 		return
 	}
 
-	data.Stats = stats
-	h.render(w, http.StatusOK, data)
+	if wantsHTML(r) {
+		data.Stats = stats
+		h.render(w, http.StatusOK, data)
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func wantsHTML(r *http.Request) bool {
+	return strings.EqualFold(r.URL.Query().Get("format"), "html")
 }
 
 func (h *statsHandler) render(w http.ResponseWriter, status int, data pageData) {
@@ -210,9 +281,19 @@ func (h *statsHandler) render(w http.ResponseWriter, status int, data pageData) 
 	}
 }
 
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("encode JSON response: %v", err)
+	}
+}
+
 func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", &statsHandler{client: client, template: statsPage})
+	mux.Handle("/", &homeHandler{template: homePage})
+	mux.Handle("/stats", &statsHandler{client: client, template: statsPage})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)

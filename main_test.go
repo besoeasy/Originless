@@ -51,7 +51,30 @@ func TestRepoStats(t *testing.T) {
 	}
 }
 
-func TestStatsPage(t *testing.T) {
+func TestHomePageDoesNotRequireIPFS(t *testing.T) {
+	client, err := newIPFSClient("http://127.0.0.1:1")
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	newRouter(client).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+		t.Errorf("content type = %q, want text/html", contentType)
+	}
+	for _, want := range []string{"Originless", "/stats", "IPFS statistics"} {
+		if !strings.Contains(recorder.Body.String(), want) {
+			t.Errorf("response body does not contain %q", want)
+		}
+	}
+}
+
+func TestStatsJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"NumObjects":7,"RepoPath":"/repo","SizeStat":{"RepoSize":1024,"StorageMax":0},"Version":"fs-repo@16"}`))
 	}))
@@ -63,7 +86,37 @@ func TestStatsPage(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	newRouter(client).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
+		t.Errorf("content type = %q, want application/json", contentType)
+	}
+	var stats IPFSStats
+	if err := json.Unmarshal(recorder.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if stats.NumObjects != 7 || stats.SizeStat.RepoSize != 1024 || stats.RepoPath != "/repo" {
+		t.Errorf("stats = %+v, want expected statistics", stats)
+	}
+}
+
+func TestStatsHTML(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"NumObjects":7,"RepoPath":"/repo","SizeStat":{"RepoSize":1024,"StorageMax":0},"Version":"fs-repo@16"}`))
+	}))
+	defer server.Close()
+
+	client, err := newIPFSClient(server.URL)
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/stats?format=html", nil)
 	newRouter(client).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
@@ -77,14 +130,35 @@ func TestStatsPage(t *testing.T) {
 	}
 }
 
-func TestStatsPageUnavailable(t *testing.T) {
+func TestStatsJSONUnavailable(t *testing.T) {
 	client, err := newIPFSClient("http://127.0.0.1:1")
 	if err != nil {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request := httptest.NewRequest(http.MethodGet, "/stats", nil)
+	newRouter(client).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "application/json") {
+		t.Errorf("content type = %q, want application/json", contentType)
+	}
+	if !strings.Contains(recorder.Body.String(), "IPFS node unavailable") {
+		t.Errorf("response body = %q, want unavailable message", recorder.Body.String())
+	}
+}
+
+func TestStatsHTMLUnavailable(t *testing.T) {
+	client, err := newIPFSClient("http://127.0.0.1:1")
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/stats?format=html", nil)
 	newRouter(client).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusServiceUnavailable {
