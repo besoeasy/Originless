@@ -2,7 +2,7 @@
 
 FROM golang:1.26-alpine AS builder
 
-ARG VERSION=1.0.0
+ARG VERSION=dev
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 \
 
 FROM alpine:latest
 
-ARG VERSION=1.0.0
+ARG VERSION=dev
 LABEL org.opencontainers.image.title="Originless" \
       org.opencontainers.image.version="${VERSION}"
 

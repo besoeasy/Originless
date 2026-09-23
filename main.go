@@ -26,7 +26,7 @@ const (
 	maxAPIResponse    = 1 << 20
 )
 
-var version = "1.0.0"
+var version = "dev"
 
 //go:embed static/index.html
 var indexHTML []byte
