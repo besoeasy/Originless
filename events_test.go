@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -236,6 +238,59 @@ func TestEventValidationRejectsBadSignatureAndTTL(t *testing.T) {
 	tooLongRecorder := publishTestEvent(t, router, tooLong)
 	if tooLongRecorder.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("oversized status = %d, want %d", tooLongRecorder.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestEventStreamEndpoint(t *testing.T) {
+	store := newEventStore()
+	handler := &eventHandler{store: store}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/events/stream?collection=chat", nil)
+	if err != nil {
+		t.Fatalf("create stream request: %v", err)
+	}
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("open event stream: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("stream status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	if contentType := response.Header.Get("Content-Type"); !strings.HasPrefix(contentType, "text/event-stream") {
+		t.Fatalf("stream content type = %q, want text/event-stream", contentType)
+	}
+
+	reader := bufio.NewReader(response.Body)
+	connected, err := reader.ReadString('\n')
+	if err != nil || connected != ": connected\n" {
+		t.Fatalf("connected frame = %q, error = %v", connected, err)
+	}
+	if _, err := reader.ReadString('\n'); err != nil {
+		t.Fatalf("read connected frame terminator: %v", err)
+	}
+
+	now := time.Now().Truncate(time.Second)
+	raw, _ := makeSignedEvent(t, now.Unix(), now.Unix()+3600, "chat", map[string]any{"message": "streamed"}, []string{}, "")
+	publishTestEvent(t, handler, raw)
+
+	var frame strings.Builder
+	for {
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			t.Fatalf("read event frame: %v", readErr)
+		}
+		frame.WriteString(line)
+		if line == "\n" {
+			break
+		}
+	}
+	if !strings.Contains(frame.String(), "event: event") || !strings.Contains(frame.String(), "data: {") {
+		t.Errorf("event frame = %q, want event and JSON data", frame.String())
 	}
 }
 
