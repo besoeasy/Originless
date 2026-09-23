@@ -323,26 +323,37 @@ func (t *Transport) BroadcastEvent(rec *modules.Record, excludePeerID string) {
 	}
 
 	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+	targets := make([]*PeerSession, 0, len(t.sessions))
 	for id, s := range t.sessions {
 		if id == excludePeerID {
 			continue
 		}
+		targets = append(targets, s)
+	}
+	t.mu.RUnlock()
+
+	for _, s := range targets {
 		_ = s.Send(MsgEventBroadcast, data)
 	}
 }
 
 func (t *Transport) BroadcastBlob(hash string, size int64, excludePeerID string) {
-	payload, _ := json.Marshal(BlobBroadcastPayload{Hash: hash, Size: size})
+	payload, err := json.Marshal(BlobBroadcastPayload{Hash: hash, Size: size})
+	if err != nil {
+		return
+	}
 
 	t.mu.RLock()
-	defer t.mu.RUnlock()
-
+	targets := make([]*PeerSession, 0, len(t.sessions))
 	for id, s := range t.sessions {
 		if id == excludePeerID {
 			continue
 		}
+		targets = append(targets, s)
+	}
+	t.mu.RUnlock()
+
+	for _, s := range targets {
 		_ = s.Send(MsgBlobBroadcast, payload)
 	}
 }
