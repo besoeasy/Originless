@@ -331,6 +331,11 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		for _, r := range recs {
 			_, _ = se.IngestRecord(r)
 		}
+		// Continuous burst: if sender hit batch limit (500 records), immediately
+		// request next chunk without waiting for the 60s periodic reconciliation tick.
+		if len(recs) >= 500 {
+			go se.sendEventsBloomFilter(session)
+		}
 
 	case MsgEventBroadcast:
 		var r modules.Record
@@ -381,6 +386,13 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 			req, _ := json.Marshal(BlobPullPayload{Hash: h})
 			_ = session.Send(MsgBlobPull, req)
 		}
+		// If batch limit was reached, schedule another check once blobs are fetched
+		if len(resp.MissingHashes) >= 100 {
+			go func() {
+				time.Sleep(5 * time.Second)
+				se.sendBlobsBloomFilter(session)
+			}()
+		}
 
 	case MsgBlobPull:
 		var req BlobPullPayload
@@ -427,15 +439,25 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 	}
 }
 
-// startReconciliation generates our Bloom filters and exchanges them with the peer.
-func (se *SyncEngine) startReconciliation(session *PeerSession) {
-	// 1. Send Event Bloom Filter
+// sendEventsBloomFilter builds and sends our Event Bloom filter to the peer.
+func (se *SyncEngine) sendEventsBloomFilter(session *PeerSession) {
 	if evFilter, err := se.BuildEventsBloomFilter(); err == nil {
 		_ = session.Send(MsgBloomEventsReq, evFilter.Bytes())
 	}
+}
 
-	// 2. Send Blob Bloom Filter
+// sendBlobsBloomFilter builds and sends our Blob Bloom filter to the peer.
+func (se *SyncEngine) sendBlobsBloomFilter(session *PeerSession) {
 	if blobFilter, err := se.BuildBlobsBloomFilter(); err == nil {
 		_ = session.Send(MsgBloomBlobsReq, blobFilter.Bytes())
 	}
+}
+
+// startReconciliation generates our Bloom filters and exchanges them with the peer.
+func (se *SyncEngine) startReconciliation(session *PeerSession) {
+	// 1. Send Event Bloom Filter
+	se.sendEventsBloomFilter(session)
+
+	// 2. Send Blob Bloom Filter
+	se.sendBlobsBloomFilter(session)
 }
