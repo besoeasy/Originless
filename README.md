@@ -64,6 +64,21 @@ Upload files through `/up` and `/upf`; Originless adds them to IPFS and returns 
 
 **Replaces:** AWS S3, Cloudflare R2, MinIO, 0x0.st
 
+For browser and JavaScript applications, use [Helia Verified Fetch](https://github.com/ipfs/helia-verified-fetch) to retrieve uploaded content through verified IPFS gateways and routers:
+
+```bash
+npm install @helia/verified-fetch
+```
+
+```js
+import { verifiedFetch } from "@helia/verified-fetch";
+
+const response = await verifiedFetch(`ipfs://${cid}`);
+const blob = await response.blob();
+```
+
+Because Originless uploads are unpinned, remote retrieval depends on the content remaining available through IPFS providers. Use `/down/{cid}` when you need content directly from the local Originless node.
+
 ### 🗄️ ACID WAL
 
 **Indexed SQLite Event Store**
