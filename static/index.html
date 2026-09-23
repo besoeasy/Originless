@@ -367,6 +367,23 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 #pxBoard{width:min(100%,560px);height:auto;aspect-ratio:1/1;image-rendering:pixelated;cursor:crosshair;border-radius:8px;background:#fff;touch-action:none}
 .px-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
 
+/* Minimal chatbox showcase */
+.chat-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px);max-width:720px}
+.chat-list{height:320px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.chat-empty{margin:auto;text-align:center;color:var(--ink3);font-size:13.5px}
+.chat-msg{display:flex;flex-direction:column;max-width:85%;animation:toastIn .18s ease}
+.chat-msg.mine{align-self:flex-end;align-items:flex-end}
+.chat-msg.theirs{align-self:flex-start;align-items:flex-start}
+.chat-meta{font-size:11px;color:var(--ink3);margin-bottom:3px;display:flex;gap:6px}
+.chat-bubble{padding:8px 13px;border-radius:12px;font-size:14px;line-height:1.45;word-break:break-word;background:var(--raise-alt);border:1px solid var(--line)}
+.chat-msg.mine .chat-bubble{background:var(--btn);color:var(--btnink);border-color:var(--btn);border-bottom-right-radius:3px}
+.chat-msg.theirs .chat-bubble{border-bottom-left-radius:3px}
+.chat-form{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:rgba(0,0,0,.015)}
+.chat-form input{height:38px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:14px var(--sans);outline:none}
+.chat-form input:focus{border-color:var(--ok)}
+#chatNick{width:110px;flex-shrink:0}
+#chatText{flex:1;min-width:0}
+
 @media(max-width:860px){
   .hero,.two,.agent,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
   .hero{padding:40px 0}
@@ -400,6 +417,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <a class="h" href="#primitives">What it stores</a>
     <a class="h" href="#explorer">Live data</a>
     <a class="h" href="#canvas">Canvas</a>
+    <a class="h" href="#chat">Chat</a>
     <a class="h" href="#api">API</a>
     <a class="h" href="#agents">Agents</a>
     <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle dark/light theme">
@@ -715,6 +733,25 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <span id="pxCoords">Hover to inspect (x, y)</span>
       <span>Grid: 64×64 &bull; <span id="pxCount">0</span> pixels loaded &bull; live via SSE</span>
     </div>
+  </div>
+</section>
+
+<section id="chat">
+  <h2>💬 Live chatbox</h2>
+  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: chat</code>) streamed live over SSE. <a class="g" href="https://github.com/besoeasy/Originless/blob/main/examples/comment-box.html" target="_blank" rel="noopener" style="font-weight:600">Open full version &rarr;</a></p>
+  <div class="chat-card">
+    <div class="px-bar">
+      <span class="pill pill-ok"><span class="dot-pulse" id="chatDot"></span> <span id="chatStatus">Connecting...</span></span>
+      <span class="mono" style="font-size:12px;color:var(--ink3)">#general &bull; last 50 + live</span>
+    </div>
+    <div class="chat-list" id="chatList">
+      <div class="chat-empty" id="chatEmpty">No messages yet.<br>Send the first signed message!</div>
+    </div>
+    <form class="chat-form" id="chatForm">
+      <input id="chatNick" type="text" placeholder="Nickname" value="Anon" maxlength="24" autocomplete="off">
+      <input id="chatText" type="text" placeholder="Write a message..." autocomplete="off" maxlength="500" required>
+      <button class="btn solid btn-sm" id="chatSend" type="submit" style="height:38px">Send</button>
+    </form>
   </div>
 </section>
 
@@ -1674,6 +1711,84 @@ window.__cpRecord = function(id){
   }
   if(O) O.addEventListener("input", function(){ loadPx(); });
   loadPx();
+})();
+
+/* Minimal chatbox (room #general, reuses o/createSignedRecord/SSE) */
+(function(){
+  var list = $("chatList");
+  if(!list) return;
+  var ROOM = "general", seen = {}, sse = null, myOwners = {};
+
+  function addMsg(rec, scroll){
+    if(!rec || seen[rec.id]) return;
+    seen[rec.id] = 1;
+    var d = rec.data || {};
+    var text = typeof d.text === "string" ? d.text : "";
+    if(!text) return;
+    var empty = $("chatEmpty");
+    if(empty) empty.style.display = "none";
+    var mine = !!myOwners[rec.owner];
+    var row = document.createElement("div");
+    row.className = "chat-msg " + (mine ? "mine" : "theirs");
+    var t = rec.created_at ? new Date(rec.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+    row.innerHTML = '<div class="chat-meta"><strong>' + safeEscape(d.author || "Anon") + '</strong><span>' + safeEscape(t) + '</span></div>'
+      + '<div class="chat-bubble"></div>';
+    row.querySelector(".chat-bubble").textContent = text;
+    list.appendChild(row);
+    while(list.children.length > 120) list.removeChild(list.firstChild);
+    if(scroll !== false) list.scrollTop = list.scrollHeight;
+  }
+  async function loadChat(){
+    list.innerHTML = '<div class="chat-empty" id="chatEmpty">Loading messages...</div>';
+    seen = {};
+    if($("chatStatus")) $("chatStatus").textContent = "Loading history...";
+    try{
+      var r = await fetch(o() + "/events?collection=chat&label=" + encodeURIComponent("room:" + ROOM) + "&limit=50");
+      var j = await r.json();
+      list.innerHTML = '<div class="chat-empty" id="chatEmpty">No messages yet.<br>Send the first signed message!</div>';
+      ((j.events || j.records || []).slice().reverse()).forEach(function(ev){ addMsg(ev, false); });
+      list.scrollTop = list.scrollHeight;
+    }catch(_){
+      list.innerHTML = '<div class="chat-empty" id="chatEmpty">Offline — could not reach node.</div>';
+    }
+    connectChat();
+  }
+  function connectChat(){
+    try{ if(sse) sse.close(); }catch(_){}
+    try{
+      var s = new EventSource(o() + "/events/stream?collection=chat&label=" + encodeURIComponent("room:" + ROOM));
+      sse = s;
+      s.onopen = function(){
+        if($("chatStatus")) $("chatStatus").textContent = "Live: #general";
+        if($("chatDot")) $("chatDot").className = "dot-pulse";
+      };
+      var onEv = function(e){ try{ addMsg(JSON.parse(e.data), true); }catch(_){} };
+      s.onmessage = onEv; s.addEventListener("event", onEv); s.addEventListener("record", onEv);
+      s.onerror = function(){ if($("chatDot")) $("chatDot").className = "dot-pulse dot-off"; };
+    }catch(_){}
+  }
+  $("chatForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var text = $("chatText").value.trim();
+    var author = ($("chatNick").value.trim() || "Anon").slice(0, 24);
+    if(!text) return;
+    var btn = $("chatSend");
+    btn.disabled = true;
+    try{
+      var ev = await createSignedRecord("chat", { text: text.slice(0, 500), author: author, room: ROOM }, ["room:" + ROOM]);
+      myOwners[ev.owner] = 1;
+      var res = await fetch(o() + "/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
+      if(!res.ok) throw new Error((await res.json().catch(function(){ return {}; })).error || ("HTTP " + res.status));
+      var d = await res.json().catch(function(){ return {}; });
+      if(d.id){ ev.id = d.id; addMsg(ev, true); }
+      $("chatText").value = "";
+    }catch(err){ showToast("Chat publish failed: " + err.message, "warn"); }
+    finally{ btn.disabled = false; $("chatText").focus(); }
+  });
+  if(O) O.addEventListener("input", function(){ loadChat(); });
+  try{ $("chatNick").value = localStorage.getItem("originless_nickname") || "Anon"; }catch(_){}
+  $("chatNick").addEventListener("change", function(){ try{ localStorage.setItem("originless_nickname", $("chatNick").value.trim() || "Anon"); }catch(_){} });
+  loadChat();
 })();
 
 /* Refresh all data */
