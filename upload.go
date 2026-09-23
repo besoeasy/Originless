@@ -36,11 +36,13 @@ type uploadFile struct {
 }
 
 type uploadResponse struct {
-	CID   string `json:"cid"`
-	Size  int64  `json:"size"`
-	Bytes int64  `json:"bytes"`
-	Name  string `json:"name,omitempty"`
-	Files int    `json:"files,omitempty"`
+	CID       string `json:"cid"`
+	Size      int64  `json:"size"`
+	Bytes     int64  `json:"bytes"`
+	Name      string `json:"name,omitempty"`
+	Extension string `json:"extension"`
+	MIME      string `json:"mime"`
+	Files     int    `json:"files,omitempty"`
 }
 
 type addEntry struct {
@@ -89,7 +91,8 @@ func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer removeUploadFiles(files)
 
-	result, err := h.client.add(r.Context(), files, h.folder || uploadIsFolder(files))
+	folder := h.folder || uploadIsFolder(files)
+	result, err := h.client.add(r.Context(), files, folder)
 	if err != nil {
 		log.Printf("IPFS add failed: %v", err)
 		writeJSON(w, http.StatusBadGateway, map[string]string{
@@ -98,16 +101,23 @@ func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	name := result.Name
+	if name == "" && len(files) > 0 {
+		name = files[0].name
+	}
+	extension, mimeType := uploadMetadata(name, folder)
 	size := result.Size
 	if size == 0 {
 		size = totalBytes
 	}
 	writeJSON(w, http.StatusOK, uploadResponse{
-		CID:   result.CID,
-		Size:  size,
-		Bytes: totalBytes,
-		Name:  result.Name,
-		Files: countUploadFiles(files),
+		CID:       result.CID,
+		Size:      size,
+		Bytes:     totalBytes,
+		Name:      name,
+		Extension: extension,
+		MIME:      mimeType,
+		Files:     countUploadFiles(files),
 	})
 }
 
@@ -268,6 +278,36 @@ func uploadIsFolder(files []uploadFile) bool {
 		}
 	}
 	return false
+}
+
+func uploadMetadata(name string, folder bool) (string, string) {
+	if folder {
+		return "", "inode/directory"
+	}
+	if strings.TrimSpace(name) == "" {
+		return "", "application/octet-stream"
+	}
+
+	baseName := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	extension := strings.ToLower(path.Ext(baseName))
+	if extension == "" {
+		return "", "application/octet-stream"
+	}
+
+	switch extension {
+	case ".jpg", ".jpeg":
+		return extension, "image/jpeg"
+	case ".opus":
+		return extension, "audio/opus"
+	case ".bin":
+		return extension, "application/octet-stream"
+	}
+
+	mimeType := mime.TypeByExtension(extension)
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	return extension, mimeType
 }
 
 func (c *ipfsClient) add(ctx context.Context, files []uploadFile, folder bool) (addResult, error) {

@@ -71,6 +71,8 @@ Successful uploads return:
   "size": 2048,
   "bytes": 2048,
   "name": "hello.txt",
+  "extension": ".txt",
+  "mime": "text/plain; charset=utf-8",
   "files": 1
 }
 ```
@@ -78,5 +80,7 @@ Successful uploads return:
 - `cid` is the IPFS CID of the uploaded file or folder root.
 - `size` is the size reported by IPFS for the returned root.
 - `bytes` is the total number of uploaded file bytes.
+- `extension` is the lowercase extension from the submitted filename.
+- `mime` is derived from that extension; unknown extensions use `application/octet-stream`.
 
 Uploads use `multipart/form-data` and are limited to 1 GiB of file data.

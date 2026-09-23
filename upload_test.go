@@ -133,7 +133,10 @@ func TestUpUploadsSingleFileWithoutPinning(t *testing.T) {
 		t.Errorf("upstream filenames = %v, want [hello.txt]", names)
 	}
 	if response.CID != "bafy-file" || response.Size != 5 || response.Bytes != 5 {
-		t.Errorf("response = %+v, want unpinned bafy-file with size 5", response)
+		t.Errorf("response = %+v, want bafy-file with size 5", response)
+	}
+	if response.Extension != ".txt" || response.MIME == "" {
+		t.Errorf("metadata = %q/%q, want .txt and a MIME type", response.Extension, response.MIME)
 	}
 }
 
@@ -174,6 +177,9 @@ func TestUpAutomaticallyHandlesFolders(t *testing.T) {
 	if response.CID != "bafy-root" || response.Size != 42 || response.Bytes != 6 || response.Files != 2 {
 		t.Errorf("response = %+v, want folder root response", response)
 	}
+	if response.Extension != "" || response.MIME != "inode/directory" {
+		t.Errorf("folder metadata = %q/%q, want empty extension and inode/directory", response.Extension, response.MIME)
+	}
 }
 
 func TestUpfForcesFolderMode(t *testing.T) {
@@ -204,6 +210,28 @@ func TestUpfForcesFolderMode(t *testing.T) {
 	}
 	if response.CID != "bafy-root" || response.Files != 1 {
 		t.Errorf("response = %+v, want folder response", response)
+	}
+}
+
+func TestUploadMetadata(t *testing.T) {
+	tests := []struct {
+		name      string
+		folder    bool
+		extension string
+		mimeType  string
+	}{
+		{name: "photo.JPG", extension: ".jpg", mimeType: "image/jpeg"},
+		{name: "track.opus", extension: ".opus", mimeType: "audio/opus"},
+		{name: "payload.BIN", extension: ".bin", mimeType: "application/octet-stream"},
+		{name: "README", extension: "", mimeType: "application/octet-stream"},
+		{name: "folder", folder: true, extension: "", mimeType: "inode/directory"},
+	}
+
+	for _, test := range tests {
+		extension, mimeType := uploadMetadata(test.name, test.folder)
+		if extension != test.extension || mimeType != test.mimeType {
+			t.Errorf("uploadMetadata(%q, folder=%t) = %q/%q, want %q/%q", test.name, test.folder, extension, mimeType, test.extension, test.mimeType)
+		}
 	}
 }
 
