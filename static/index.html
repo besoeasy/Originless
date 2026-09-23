@@ -672,15 +672,22 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <div class="meta-item"><span class="m-k">1 WEEK</span><b class="m-v" id="visit1w">…</b></div>
     </div>
   </div>
-  <div class="svg-telemetry-grid" style="margin-top:20px">
-    <div class="tbl"><table>
-      <thead><tr><th>Operating system</th><th>15m</th><th>1h</th><th>4h</th><th>24h</th><th>1w</th></tr></thead>
-      <tbody id="visitOsRows"><tr><td colspan="6">Loading visits...</td></tr></tbody>
-    </table></div>
-    <div class="tbl"><table>
-      <thead><tr><th>Browser</th><th>15m</th><th>1h</th><th>4h</th><th>24h</th><th>1w</th></tr></thead>
-      <tbody id="visitBrowserRows"><tr><td colspan="6">Loading visits...</td></tr></tbody>
-    </table></div>
+  <div class="ws-tabs" id="visitWindowTabs" role="tablist" aria-label="Visitor chart time window" style="margin-top:20px">
+    <button class="ws-tab" type="button" role="tab" data-visit-window="w15" aria-selected="false">15m</button>
+    <button class="ws-tab" type="button" role="tab" data-visit-window="h1" aria-selected="false">1h</button>
+    <button class="ws-tab" type="button" role="tab" data-visit-window="h4" aria-selected="false">4h</button>
+    <button class="ws-tab" type="button" role="tab" data-visit-window="d1" aria-selected="false">24h</button>
+    <button class="ws-tab" type="button" role="tab" data-visit-window="w1" aria-selected="true">1w</button>
+  </div>
+  <div class="svg-telemetry-grid" style="margin-top:12px">
+    <div class="svg-telemetry-card">
+      <div class="card-head"><strong>Operating system</strong><span class="mono" id="visitOsTotal" style="font-size:12px;color:var(--ink3)">…</span></div>
+      <svg id="visitOsChart" viewBox="0 0 640 84" style="width:100%;height:auto;display:block" role="img" aria-label="Operating system visits chart"><text x="320" y="46" text-anchor="middle" fill="var(--ink3)" font-size="13">Loading visits...</text></svg>
+    </div>
+    <div class="svg-telemetry-card">
+      <div class="card-head"><strong>Browser</strong><span class="mono" id="visitBrowserTotal" style="font-size:12px;color:var(--ink3)">…</span></div>
+      <svg id="visitBrowserChart" viewBox="0 0 640 84" style="width:100%;height:auto;display:block" role="img" aria-label="Browser visits chart"><text x="320" y="46" text-anchor="middle" fill="var(--ink3)" font-size="13">Loading visits...</text></svg>
+    </div>
   </div>
 </section>
 
@@ -1658,7 +1665,9 @@ window.__cpRecord = function(id){
     other: "Other"
   };
   var visits = [], visitSeen = {}, visitSSE = null;
-  var visitCapped = false, visitBeaconRecorded = false;
+  var visitCapped = false, visitBeaconRecorded = false, visitWindow = "w1";
+  var VIS_CHART_COLORS = ["var(--ok)", "var(--cy)", "var(--warn)", "#8b5cf6", "#ec4899", "#3b82f6", "#f97316", "#64748b"];
+  var VIS_CHART_MAX_ROWS = 8;
 
   function visitToken(value){
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24);
@@ -1707,6 +1716,88 @@ window.__cpRecord = function(id){
     if(VIS_PRETTY[token]) return VIS_PRETTY[token];
     return token.charAt(0).toUpperCase() + token.slice(1);
   }
+  function visitWindowDef(key){
+    for(var i = 0; i < VIS_WINDOWS.length; i++){
+      if(VIS_WINDOWS[i].key === key) return VIS_WINDOWS[i];
+    }
+    return VIS_WINDOWS[VIS_WINDOWS.length - 1];
+  }
+  function setVisitWindow(key, now){
+    visitWindow = visitWindowDef(key).key;
+    var tabs = $("visitWindowTabs");
+    if(tabs){
+      tabs.querySelectorAll("button[data-visit-window]").forEach(function(btn){
+        btn.setAttribute("aria-selected", btn.getAttribute("data-visit-window") === visitWindow ? "true" : "false");
+      });
+    }
+    renderVisits(now);
+  }
+  function bindVisitWindowTabs(){
+    var tabs = $("visitWindowTabs");
+    if(!tabs || tabs.getAttribute("data-bound")) return;
+    tabs.setAttribute("data-bound", "1");
+    tabs.querySelectorAll("button[data-visit-window]").forEach(function(btn){
+      btn.onclick = function(){ setVisitWindow(this.getAttribute("data-visit-window")); };
+    });
+  }
+  function countsForVisitWindow(field, now, seconds){
+    var counts = {}, total = 0;
+    visits.forEach(function(v){
+      var age = now - v.created;
+      if(age < 0) age = 0;
+      if(age <= seconds){
+        total++;
+        counts[v[field]] = (counts[v[field]] || 0) + 1;
+      }
+    });
+    return { counts: counts, total: total };
+  }
+  function topVisitRows(counts){
+    var rows = Object.keys(counts).sort(function(a, b){
+      var diff = counts[b] - counts[a];
+      return diff !== 0 ? diff : (a < b ? -1 : 1);
+    }).map(function(name){
+      return { name: name, label: prettyVisit(name), count: counts[name] };
+    });
+    if(rows.length <= VIS_CHART_MAX_ROWS) return rows;
+    var head = rows.slice(0, VIS_CHART_MAX_ROWS - 1);
+    var tail = rows.slice(VIS_CHART_MAX_ROWS - 1);
+    var tailCount = 0;
+    tail.forEach(function(row){ tailCount += row.count; });
+    head.push({ name: "more", label: "+" + tail.length + " more", count: tailCount });
+    return head;
+  }
+  function chartLabel(label){
+    return label.length > 20 ? label.slice(0, 19) + "…" : label;
+  }
+  function visitChartBody(title, windowLabel, rows, total){
+    var BAR_X = 176, BAR_MAX = 384, ROW_H = 32, TOP = 14, BOTTOM = 14;
+    if(!rows.length){
+      return { height: 84, body: '<title>' + safeEscape(title) + '</title><text x="320" y="46" text-anchor="middle" fill="var(--ink3)" font-size="13">No visits in the selected window.</text>' };
+    }
+    var max = rows[0].count;
+    var parts = ['<title>' + safeEscape(title + " · " + windowLabel + " · " + total + " visits") + '</title>'];
+    rows.forEach(function(row, i){
+      var y = TOP + i * ROW_H, mid = y + ROW_H / 2;
+      var width = max > 0 ? Math.max(3, Math.round(row.count / max * BAR_MAX)) : 0;
+      parts.push('<text x="160" y="' + (mid + 4) + '" text-anchor="end" fill="var(--ink2)" font-size="13">' + safeEscape(chartLabel(row.label)) + '</text>');
+      parts.push('<rect x="' + BAR_X + '" y="' + (y + 7) + '" width="' + BAR_MAX + '" height="16" rx="8" fill="var(--line)" opacity="0.45"/>');
+      parts.push('<rect x="' + BAR_X + '" y="' + (y + 7) + '" width="' + width + '" height="16" rx="8" fill="' + VIS_CHART_COLORS[i % VIS_CHART_COLORS.length] + '"><title>' + safeEscape(row.label + ": " + row.count) + '</title></rect>');
+      parts.push('<text x="' + (BAR_X + width + 10) + '" y="' + (mid + 4) + '" fill="var(--ink)" font-size="13" font-weight="600">' + row.count + '</text>');
+    });
+    return { height: TOP + rows.length * ROW_H + BOTTOM, body: parts.join("") };
+  }
+  function renderVisitChart(svgId, totalId, title, field, now, win){
+    var svg = $(svgId);
+    if(!svg) return;
+    var data = countsForVisitWindow(field, now, win.seconds);
+    var chart = visitChartBody(title, win.label.toLowerCase(), topVisitRows(data.counts), data.total);
+    svg.setAttribute("viewBox", "0 0 640 " + chart.height);
+    svg.setAttribute("height", chart.height);
+    svg.setAttribute("aria-label", title + " visits, " + win.label.toLowerCase());
+    svg.innerHTML = chart.body;
+    if($(totalId)) $(totalId).textContent = data.total + (visitCapped ? "+" : "") + " · " + win.label.toLowerCase();
+  }
   function normalizeVisit(rec){
     if(!rec || !rec.id || !rec.data) return null;
     if(typeof rec.created_at !== "number" || !(rec.created_at > 0)) return null;
@@ -1748,27 +1839,6 @@ window.__cpRecord = function(id){
     });
     return { totals: totals, osGroups: osGroups, browserGroups: browserGroups };
   }
-  function renderVisitRows(tbodyId, groups){
-    var tb = $(tbodyId);
-    if(!tb) return;
-    var names = Object.keys(groups).sort(function(a, b){
-      var weekDiff = (groups[b].w1 || 0) - (groups[a].w1 || 0);
-      return weekDiff !== 0 ? weekDiff : (a < b ? -1 : 1);
-    });
-    if(!names.length){
-      tb.innerHTML = '<tr><td colspan="6">No visits in the last 7 days.</td></tr>';
-      return;
-    }
-    tb.innerHTML = names.map(function(name){
-      var c = groups[name] || {};
-      return '<tr><td><strong>' + safeEscape(prettyVisit(name)) + '</strong></td>'
-        + '<td>' + (c.w15 || 0) + '</td>'
-        + '<td>' + (c.h1 || 0) + '</td>'
-        + '<td>' + (c.h4 || 0) + '</td>'
-        + '<td>' + (c.d1 || 0) + '</td>'
-        + '<td>' + (c.w1 || 0) + '</td></tr>';
-    }).join("");
-  }
   function renderVisits(now){
     now = now || Math.floor(Date.now() / 1000);
     pruneVisits(now);
@@ -1777,8 +1847,8 @@ window.__cpRecord = function(id){
     VIS_WINDOWS.forEach(function(win){
       if($(win.el)) $(win.el).textContent = agg.totals[win.key] + suffix;
     });
-    renderVisitRows("visitOsRows", agg.osGroups);
-    renderVisitRows("visitBrowserRows", agg.browserGroups);
+    renderVisitChart("visitOsChart", "visitOsTotal", "Operating system", "os", now, visitWindowDef(visitWindow));
+    renderVisitChart("visitBrowserChart", "visitBrowserTotal", "Browser", "browser", now, visitWindowDef(visitWindow));
     var status = "Live · " + agg.totals.w1 + suffix + " visits in 7 days";
     if(!visitBeaconRecorded) status += " · this visit was not recorded";
     setVisitStatus(status);
@@ -1839,6 +1909,7 @@ window.__cpRecord = function(id){
     }catch(_){}
   }
   async function bootVisits(){
+    bindVisitWindowTabs();
     visitBeaconRecorded = await recordVisit();
     await loadVisits();
     connectVisitStream();
