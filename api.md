@@ -14,6 +14,7 @@ embedded IPFS node with pinning disabled.
 | `GET` | `/healthz` | Container health status as JSON |
 | `POST` | `/up` | Upload one file, or automatically upload multiple files/a folder |
 | `POST` | `/upf` | Upload a folder and return the folder root CID |
+| `GET` | `/down/{cid}` | Download an allowlisted uploaded file |
 
 ## `GET /stats`
 
@@ -60,6 +61,24 @@ curl \
   -F "file=@folder/nested/two.txt;filename=folder/nested/two.txt" \
   http://localhost:3232/upf
 ```
+
+## `GET /down/{cid}`
+
+Only single-file uploads processed by the current Originless process with a
+`.bin`, `.blob`, or `.json` extension are downloadable. Folder uploads and
+other extensions return `404`. The CID must have been registered by this
+instance; arbitrary IPFS CIDs are not proxied.
+
+Downloads use the local IPFS node and return the original bytes as an
+attachment. The allowlist is currently in memory and resets when the app
+restarts.
+
+```bash
+curl -OJ http://localhost:3232/down/<cid>
+```
+
+This is an extension-based access policy, not copyright detection. A file can
+still be mislabeled as `.bin`, `.blob`, or `.json`.
 
 ## Upload response
 
