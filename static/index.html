@@ -420,11 +420,17 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
   <div>
     <div class="hero-badge"><span class="hero-badge-dot"></span> Sovereign Node &bull; Zero Accounts &bull; P2P Swarm</div>
     <h1>Publish signed data &amp; files. <span class="gradient-text">No accounts, no API keys.</span></h1>
-    <p class="lede">Originless is a small, sovereign node you run yourself. Send it Ed25519-signed JSON events or binary blobs over plain HTTP, and read them back from anywhere.</p>
+    <p class="lede">Originless is a small, sovereign node you run yourself. Send it Ed25519-signed JSON events or binary blobs over plain HTTP, and read them back from anywhere. Try it right below — every write lands live.</p>
     <div class="cta">
       <a class="btn solid" href="#explorer">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span>Explore live data</span>
+      </a>
+      <a class="btn" href="#canvas">
+        <span>🎨 Paint canvas</span>
+      </a>
+      <a class="btn" href="#chat">
+        <span>💬 Join chat</span>
       </a>
       <a class="btn" href="/agent.txt" target="_blank" title="Teach AI agents via agent.txt">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
@@ -433,6 +439,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     </div>
     <div class="facts" id="telemetryBar">
       <span class="fact-item"><span class="pill pill-ok" id="teleStatusPill"><span class="dot-pulse" id="teleDot"></span> <span id="teleStatus">Connecting...</span></span></span>
+      <span class="fact-item" title="The node this page reads from and writes to"><code class="m" id="teleNode">…</code></span>
       <span class="fact-item"><b id="teleVersion">v...</b></span>
       <span class="fact-item"><b id="teleEvents">0</b> events</span>
       <span class="fact-item"><b id="teleBlobs">0</b> blobs (<span id="teleBytes">0 B</span>)</span>
@@ -1595,6 +1602,7 @@ window.__cpRecord = function(id){
 
 /* Refresh all data */
 function refreshAll(){
+  if($("teleNode")) $("teleNode").textContent = o();
   fetchStatus();
   fetchEvents(1);
   connectSSE();
