@@ -128,9 +128,14 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 	}
 
 	// Zero-Trust verification: recompute ID, verify Ed25519 signature, check TTL
-	validRec, err := modules.ValidateRecordBody(rawJSON, time.Now().Unix())
+	nowUnix := time.Now().Unix()
+	validRec, err := modules.ValidateRecordBody(rawJSON, nowUnix)
 	if err != nil {
 		return false, fmt.Errorf("cryptographic validation failed: %w", err)
+	}
+
+	if validRec.ExpiresAt <= nowUnix {
+		return false, fmt.Errorf("record is already expired")
 	}
 
 	// Admission: the swarm is an unmetered writer unless gated. Refusals

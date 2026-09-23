@@ -193,6 +193,53 @@ func TestNetworkIDMismatchRefusesSync(t *testing.T) {
 	}
 }
 
+func TestExpiredRecordRefusedDuringSync(t *testing.T) {
+	networkID := "expired-test-mesh"
+	mgrA, storeA := startTestNode(t, networkID, Options{DisableDHT: true, DisableAutoRelay: true})
+	mgrB, storeB := startTestNode(t, networkID, Options{DisableDHT: true, DisableAutoRelay: true})
+
+	now := time.Now().Unix()
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := "ed25519:" + hex.EncodeToString(pub)
+	created := now - 3600
+	expires := now - 1800 // Already expired 30 minutes ago
+	labels := []string{"test:expired"}
+	data := map[string]any{"text": "expired event"}
+	dataJSON, _ := json.Marshal(data)
+
+	msg := owner + ":chat:" + strconv.FormatInt(created, 10) + ":" +
+		strconv.FormatInt(expires, 10) + ":" + string(dataJSON) + "::" + strings.Join(labels, ",")
+	h := sha256.Sum256([]byte(msg))
+	sig := ed25519.Sign(priv, h[:])
+
+	expiredRec := &modules.Record{
+		ID:         hex.EncodeToString(h[:]),
+		Owner:      owner,
+		Collection: "chat",
+		CreatedAt:  created,
+		ExpiresAt:  expires,
+		Data:       json.RawMessage(dataJSON),
+		Labels:     labels,
+		Sig:        hex.EncodeToString(sig),
+		Size:       int64(len(dataJSON)),
+	}
+
+	if _, _, err := storeA.InsertRecord(expiredRec); err != nil {
+		t.Fatalf("insert expired record in A: %v", err)
+	}
+
+	mgrB.Connect(context.Background(), mgrA.AddrInfo())
+	time.Sleep(1500 * time.Millisecond)
+
+	got, _ := storeB.GetRecord(expiredRec.ID)
+	if got != nil {
+		t.Fatalf("expected node B to refuse syncing expired record, but got %v", got)
+	}
+}
+
 func TestPersistentPeerIDAcrossRestart(t *testing.T) {
 	t.Setenv("NETWORK_ID", "persist-mesh")
 	dir := t.TempDir()
