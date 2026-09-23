@@ -15,4 +15,4 @@ EXPOSE 4001/tcp 4001/udp 5001/tcp 5001/udp
 
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["ipfs"]
-CMD ["daemon", "--init"]
+CMD ["daemon", "--init", "--init-profile=lowpower"]
