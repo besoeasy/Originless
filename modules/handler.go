@@ -10,7 +10,7 @@ import (
 
 // Version is the Originless server build version reported by /status.
 // Overridable at compile time via -ldflags="-X github.com/besoeasy/originless/modules.Version=...".
-var Version = "1.0.0"
+var Version = "1.0.1"
 
 var processStartTime = time.Now().UTC()
 
