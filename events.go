@@ -1,0 +1,695 @@
+package main
+
+import (
+	"bytes"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	MaxEventSize               = 8192
+	MaxEventTTL          int64 = 365 * 24 * 60 * 60
+	MaxEventLabels             = 10
+	MaxCreatedDrift      int64 = 15 * 60
+	defaultEventLimit          = 50
+	maxEventLimit              = 100
+	maxEventSubscribers        = 256
+	sseKeepaliveInterval       = 15 * time.Second
+)
+
+var (
+	eventCollectionPattern = regexp.MustCompile(`^[a-z0-9/_-]{1,32}$`)
+	eventLabelPattern      = regexp.MustCompile(`^[A-Za-z0-9:_\-/\.\+]{1,64}$`)
+)
+
+type Event struct {
+	ID         string          `json:"id"`
+	Owner      string          `json:"owner"`
+	Collection string          `json:"collection"`
+	CreatedAt  int64           `json:"created_at"`
+	ExpiresAt  int64           `json:"expires_at"`
+	Data       json.RawMessage `json:"data"`
+	Blob       string          `json:"blob,omitempty"`
+	Labels     []string        `json:"labels"`
+	Sig        string          `json:"sig"`
+	StoredAt   string          `json:"stored_at"`
+	Size       int64           `json:"size"`
+}
+
+type eventInput struct {
+	Owner      *string         `json:"owner"`
+	Collection *string         `json:"collection"`
+	CreatedAt  *int64          `json:"created_at"`
+	ExpiresAt  *int64          `json:"expires_at"`
+	Data       json.RawMessage `json:"data"`
+	Blob       *string         `json:"blob"`
+	Labels     *[]string       `json:"labels"`
+	Sig        *string         `json:"sig"`
+}
+
+type eventFilter struct {
+	Owner          string
+	Collection     string
+	Label          string
+	Blob           string
+	Search         string
+	Since          int64
+	Until          int64
+	AfterCreated   int64
+	AfterID        string
+	Limit          int
+	IncludeExpired bool
+}
+
+type eventSubscriber struct {
+	ch     chan *Event
+	filter eventFilter
+}
+
+type eventStore struct {
+	mu          sync.Mutex
+	events      map[string]*Event
+	subscribers map[*eventSubscriber]struct{}
+}
+
+func newEventStore() *eventStore {
+	return &eventStore{
+		events:      make(map[string]*Event),
+		subscribers: make(map[*eventSubscriber]struct{}),
+	}
+}
+
+func (s *eventStore) insert(event *Event, now time.Time) (bool, string) {
+	s.mu.Lock()
+	s.purgeExpiredLocked(now.Unix())
+	if existing, ok := s.events[event.ID]; ok {
+		storedAt := existing.StoredAt
+		s.mu.Unlock()
+		return false, storedAt
+	}
+
+	stored := cloneEvent(event)
+	stored.StoredAt = now.UTC().Format(time.RFC3339)
+	s.events[stored.ID] = stored
+	subscribers := make([]*eventSubscriber, 0, len(s.subscribers))
+	for subscriber := range s.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	s.mu.Unlock()
+
+	for _, subscriber := range subscribers {
+		if subscriber.filter.matches(stored) {
+			select {
+			case subscriber.ch <- cloneEvent(stored):
+			default:
+				log.Printf("events: dropping event for slow SSE subscriber")
+			}
+		}
+	}
+	return true, stored.StoredAt
+}
+
+func (s *eventStore) get(id string, now time.Time, includeExpired bool) (*Event, bool) {
+	s.mu.Lock()
+	s.purgeExpiredLocked(now.Unix())
+	event, ok := s.events[id]
+	if ok && !includeExpired && event.ExpiresAt <= now.Unix() {
+		ok = false
+	}
+	if ok {
+		event = cloneEvent(event)
+	} else {
+		event = nil
+	}
+	s.mu.Unlock()
+	return event, ok
+}
+
+func (s *eventStore) query(filter eventFilter, now time.Time) ([]*Event, string) {
+	s.mu.Lock()
+	s.purgeExpiredLocked(now.Unix())
+	events := make([]*Event, 0, len(s.events))
+	for _, event := range s.events {
+		if !filter.matches(event) {
+			continue
+		}
+		if !filter.IncludeExpired && event.ExpiresAt <= now.Unix() {
+			continue
+		}
+		events = append(events, cloneEvent(event))
+	}
+	s.mu.Unlock()
+
+	sort.Slice(events, func(i, j int) bool {
+		if events[i].CreatedAt != events[j].CreatedAt {
+			return events[i].CreatedAt > events[j].CreatedAt
+		}
+		return events[i].ID > events[j].ID
+	})
+
+	if filter.Limit > 0 && len(events) > filter.Limit {
+		events = events[:filter.Limit]
+	}
+	nextCursor := ""
+	if filter.Limit > 0 && len(events) == filter.Limit {
+		last := events[len(events)-1]
+		nextCursor = fmt.Sprintf("%d:%s", last.CreatedAt, last.ID)
+	}
+	return events, nextCursor
+}
+
+func (s *eventStore) subscribe(filter eventFilter) (*eventSubscriber, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if maxEventSubscribers > 0 && len(s.subscribers) >= maxEventSubscribers {
+		return nil, false
+	}
+	subscriber := &eventSubscriber{ch: make(chan *Event, 64), filter: filter}
+	s.subscribers[subscriber] = struct{}{}
+	return subscriber, true
+}
+
+func (s *eventStore) unsubscribe(subscriber *eventSubscriber) {
+	s.mu.Lock()
+	delete(s.subscribers, subscriber)
+	s.mu.Unlock()
+}
+
+func (s *eventStore) purgeExpiredLocked(now int64) {
+	for id, event := range s.events {
+		if event.ExpiresAt <= now {
+			delete(s.events, id)
+		}
+	}
+}
+
+func cloneEvent(event *Event) *Event {
+	if event == nil {
+		return nil
+	}
+	clone := *event
+	clone.Data = append(json.RawMessage(nil), event.Data...)
+	clone.Labels = make([]string, len(event.Labels))
+	copy(clone.Labels, event.Labels)
+	return &clone
+}
+
+func (f eventFilter) matches(event *Event) bool {
+	if event == nil {
+		return false
+	}
+	if f.Owner != "" && event.Owner != f.Owner {
+		return false
+	}
+	if f.Collection != "" && event.Collection != f.Collection {
+		return false
+	}
+	if f.Label != "" {
+		found := false
+		for _, label := range event.Labels {
+			if label == f.Label {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	if f.Blob != "" && event.Blob != f.Blob {
+		return false
+	}
+	if f.Search != "" && !strings.Contains(strings.ToLower(string(event.Data)), strings.ToLower(f.Search)) {
+		return false
+	}
+	if f.Since > 0 && event.CreatedAt < f.Since {
+		return false
+	}
+	if f.Until > 0 && event.CreatedAt > f.Until {
+		return false
+	}
+	if f.AfterCreated > 0 {
+		if event.CreatedAt > f.AfterCreated || (event.CreatedAt == f.AfterCreated && event.ID >= f.AfterID) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateEvent(raw []byte, now time.Time) (*Event, error) {
+	if len(raw) > MaxEventSize {
+		return nil, fmt.Errorf("event too large: %d > %d", len(raw), MaxEventSize)
+	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil, fmt.Errorf("empty event body")
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	if _, exists := fields["id"]; exists {
+		return nil, fmt.Errorf("id is server-computed, do not send it")
+	}
+
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var input eventInput
+	if err := decoder.Decode(&input); err != nil {
+		return nil, fmt.Errorf("invalid event: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("invalid trailing JSON")
+	}
+
+	if input.Owner == nil || strings.TrimSpace(*input.Owner) == "" {
+		return nil, fmt.Errorf("missing owner")
+	}
+	if input.Collection == nil || *input.Collection == "" {
+		return nil, fmt.Errorf("missing collection")
+	}
+	if input.CreatedAt == nil {
+		return nil, fmt.Errorf("missing created_at")
+	}
+	if input.ExpiresAt == nil {
+		return nil, fmt.Errorf("missing expires_at")
+	}
+	if input.Sig == nil || strings.TrimSpace(*input.Sig) == "" {
+		return nil, fmt.Errorf("missing sig")
+	}
+	if input.Labels == nil {
+		return nil, fmt.Errorf("missing labels (send [] for none)")
+	}
+	if len(input.Data) == 0 || bytes.Equal(bytes.TrimSpace(input.Data), []byte("null")) {
+		return nil, fmt.Errorf("missing data (must be a JSON object)")
+	}
+
+	owner := strings.TrimSpace(*input.Owner)
+	collection := *input.Collection
+	createdAt := *input.CreatedAt
+	expiresAt := *input.ExpiresAt
+	labels := *input.Labels
+	if !eventCollectionPattern.MatchString(collection) {
+		return nil, fmt.Errorf("invalid collection")
+	}
+	if len(labels) > MaxEventLabels {
+		return nil, fmt.Errorf("too many labels: maximum is %d", MaxEventLabels)
+	}
+	seenLabels := make(map[string]struct{}, len(labels))
+	for _, label := range labels {
+		if !eventLabelPattern.MatchString(label) {
+			return nil, fmt.Errorf("invalid label %q", label)
+		}
+		if _, exists := seenLabels[label]; exists {
+			return nil, fmt.Errorf("duplicate label %q", label)
+		}
+		seenLabels[label] = struct{}{}
+	}
+	if createdAt <= 0 {
+		return nil, fmt.Errorf("invalid created_at")
+	}
+	if expiresAt <= createdAt {
+		return nil, fmt.Errorf("expires_at must be greater than created_at")
+	}
+	if expiresAt-createdAt > MaxEventTTL {
+		return nil, fmt.Errorf("TTL exceeds one year")
+	}
+	if createdAt > now.Unix()+MaxCreatedDrift {
+		return nil, fmt.Errorf("created_at is too far in the future")
+	}
+
+	canonicalData, err := canonicalJSON(input.Data)
+	if err != nil {
+		return nil, fmt.Errorf("invalid data: %w", err)
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(canonicalData, &object); err != nil || object == nil {
+		return nil, fmt.Errorf("data must be a JSON object")
+	}
+
+	blob := ""
+	if input.Blob != nil {
+		blob, err = normalizeEventBlob(*input.Blob)
+		if err != nil {
+			return nil, fmt.Errorf("invalid blob: %w", err)
+		}
+	}
+	publicKey, err := parseEventPublicKey(owner)
+	if err != nil {
+		return nil, err
+	}
+	signature, err := hex.DecodeString(strings.ToLower(strings.TrimSpace(*input.Sig)))
+	if err != nil || len(signature) != ed25519.SignatureSize {
+		return nil, fmt.Errorf("invalid sig: must be 128 hex characters")
+	}
+
+	message := eventSigningMessage(owner, collection, createdAt, expiresAt, canonicalData, blob, labels)
+	digest := sha256.Sum256(message)
+	if !ed25519.Verify(publicKey, digest[:], signature) {
+		return nil, fmt.Errorf("bad sig")
+	}
+
+	return &Event{
+		ID:         hex.EncodeToString(digest[:]),
+		Owner:      owner,
+		Collection: collection,
+		CreatedAt:  createdAt,
+		ExpiresAt:  expiresAt,
+		Data:       canonicalData,
+		Blob:       blob,
+		Labels:     append([]string{}, labels...),
+		Sig:        strings.ToLower(strings.TrimSpace(*input.Sig)),
+		Size:       int64(len(raw)),
+	}, nil
+}
+
+func parseEventPublicKey(owner string) (ed25519.PublicKey, error) {
+	const prefix = "ed25519:"
+	if !strings.HasPrefix(owner, prefix) {
+		return nil, fmt.Errorf("owner must be ed25519:<64 hex characters>")
+	}
+	publicKey, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(owner, prefix)))
+	if err != nil || len(publicKey) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("owner must be ed25519:<64 hex characters>")
+	}
+	return ed25519.PublicKey(publicKey), nil
+}
+
+func normalizeEventBlob(blob string) (string, error) {
+	blob = strings.ToLower(strings.TrimSpace(blob))
+	decoded, err := hex.DecodeString(blob)
+	if err != nil || len(decoded) != sha256.Size {
+		return "", fmt.Errorf("must be a 64 character SHA-256 hex string")
+	}
+	return blob, nil
+}
+
+func eventSigningMessage(owner, collection string, createdAt, expiresAt int64, canonicalData []byte, blob string, labels []string) []byte {
+	var message strings.Builder
+	message.WriteString(owner)
+	message.WriteByte(':')
+	message.WriteString(collection)
+	message.WriteByte(':')
+	message.WriteString(strconv.FormatInt(createdAt, 10))
+	message.WriteByte(':')
+	message.WriteString(strconv.FormatInt(expiresAt, 10))
+	message.WriteByte(':')
+	message.Write(canonicalData)
+	message.WriteByte(':')
+	message.WriteString(blob)
+	message.WriteByte(':')
+	message.WriteString(strings.Join(labels, ","))
+	return []byte(message.String())
+}
+
+func canonicalJSON(raw []byte) ([]byte, error) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("multiple JSON values")
+	}
+	return marshalCanonicalJSON(value), nil
+}
+
+func marshalCanonicalJSON(value any) []byte {
+	switch typed := value.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		var output bytes.Buffer
+		output.WriteByte('{')
+		for index, key := range keys {
+			if index > 0 {
+				output.WriteByte(',')
+			}
+			encodedKey, _ := json.Marshal(key)
+			output.Write(encodedKey)
+			output.WriteByte(':')
+			output.Write(marshalCanonicalJSON(typed[key]))
+		}
+		output.WriteByte('}')
+		return output.Bytes()
+	case []any:
+		var output bytes.Buffer
+		output.WriteByte('[')
+		for index, element := range typed {
+			if index > 0 {
+				output.WriteByte(',')
+			}
+			output.Write(marshalCanonicalJSON(element))
+		}
+		output.WriteByte(']')
+		return output.Bytes()
+	default:
+		encoded, _ := json.Marshal(typed)
+		return encoded
+	}
+}
+
+func parseEventFilter(values url.Values) (eventFilter, error) {
+	filter := eventFilter{
+		Owner:          values.Get("owner"),
+		Collection:     values.Get("collection"),
+		Label:          values.Get("label"),
+		Search:         values.Get("search"),
+		Limit:          defaultEventLimit,
+		IncludeExpired: values.Get("include_expired") == "true",
+	}
+	if value := values.Get("limit"); value != "" {
+		limit, err := strconv.Atoi(value)
+		if err != nil || limit < 1 || limit > maxEventLimit {
+			return eventFilter{}, fmt.Errorf("limit must be between 1 and %d", maxEventLimit)
+		}
+		filter.Limit = limit
+	}
+	if value := values.Get("since"); value != "" {
+		since, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || since < 0 {
+			return eventFilter{}, fmt.Errorf("invalid since")
+		}
+		filter.Since = since
+	}
+	if value := values.Get("until"); value != "" {
+		until, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || until < 0 {
+			return eventFilter{}, fmt.Errorf("invalid until")
+		}
+		filter.Until = until
+	}
+	if filter.Since > 0 && filter.Until > 0 && filter.Since > filter.Until {
+		return eventFilter{}, fmt.Errorf("since must not be greater than until")
+	}
+	if value := values.Get("blob"); value != "" {
+		blob, err := normalizeEventBlob(value)
+		if err != nil {
+			return eventFilter{}, fmt.Errorf("invalid blob: %w", err)
+		}
+		filter.Blob = blob
+	}
+	if value := values.Get("cursor"); value != "" {
+		parts := strings.SplitN(value, ":", 2)
+		if len(parts) != 2 {
+			return eventFilter{}, fmt.Errorf("invalid cursor")
+		}
+		createdAt, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil || createdAt < 1 || parts[1] == "" {
+			return eventFilter{}, fmt.Errorf("invalid cursor")
+		}
+		filter.AfterCreated = createdAt
+		filter.AfterID = parts[1]
+	}
+	return filter, nil
+}
+
+type eventHandler struct {
+	store *eventStore
+}
+
+func (h *eventHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.URL.Path == "/events":
+		if r.Method == http.MethodPost {
+			h.publish(w, r)
+			return
+		}
+		h.list(w, r)
+	case r.URL.Path == "/events/stream":
+		h.stream(w, r)
+	default:
+		h.get(w, r)
+	}
+}
+
+func (h *eventHandler) publish(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	if contentType := r.Header.Get("Content-Type"); contentType != "" && !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		writeJSON(w, http.StatusUnsupportedMediaType, map[string]string{"error": "content type must be application/json"})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, MaxEventSize+1)
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		status := http.StatusBadRequest
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeJSON(w, status, map[string]string{"error": "cannot read event body"})
+		return
+	}
+	if len(raw) > MaxEventSize {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "event exceeds 8 KiB"})
+		return
+	}
+
+	event, err := validateEvent(raw, time.Now())
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "bad sig") {
+			status = http.StatusUnauthorized
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+
+	created, storedAt := h.store.insert(event, time.Now())
+	status := http.StatusCreated
+	response := map[string]any{"status": "success", "id": event.ID, "stored_at": storedAt}
+	if !created {
+		status = http.StatusOK
+		response["duplicate"] = true
+	}
+	writeJSON(w, status, response)
+}
+
+func (h *eventHandler) list(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	filter, err := parseEventFilter(r.URL.Query())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	events, nextCursor := h.store.query(filter, time.Now())
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":      "success",
+		"events":      events,
+		"records":     events,
+		"limit":       filter.Limit,
+		"cursor":      r.URL.Query().Get("cursor"),
+		"next_cursor": nextCursor,
+	})
+}
+
+func (h *eventHandler) get(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	id := strings.TrimPrefix(r.URL.Path, "/events/")
+	if id == "" || strings.Contains(id, "/") {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
+		return
+	}
+	includeExpired := r.URL.Query().Get("include_expired") == "true"
+	event, ok := h.store.get(id, time.Now(), includeExpired)
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "success", "event": event, "record": event})
+}
+
+func (h *eventHandler) stream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	filter, err := parseEventFilter(r.URL.Query())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	subscriber, ok := h.store.subscribe(filter)
+	if !ok {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "too many event stream subscribers"})
+		return
+	}
+	defer h.store.unsubscribe(subscriber)
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "streaming unsupported"})
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	writeFrame := func(frame []byte) bool {
+		if _, err := w.Write(frame); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+	if !writeFrame([]byte(": connected\n\n")) {
+		return
+	}
+
+	ticker := time.NewTicker(sseKeepaliveInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			if !writeFrame([]byte(": keepalive\n\n")) {
+				return
+			}
+		case event := <-subscriber.ch:
+			data, err := json.Marshal(event)
+			if err != nil {
+				continue
+			}
+			frame := []byte("event: event\nid: " + event.ID + "\ndata: " + string(data) + "\n\n")
+			if !writeFrame(frame) {
+				return
+			}
+		}
+	}
+}
