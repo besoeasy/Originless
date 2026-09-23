@@ -161,9 +161,9 @@ nav a:hover{background:var(--raise);color:var(--ink)}
 .hero{position:relative;display:flex;justify-content:center;text-align:center;padding:110px 0 100px;overflow:hidden}
 #heroArt{position:absolute;inset:0;width:100%;height:100%;opacity:.6}
 .hero-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 16px}
-.hero-logo{font-size:clamp(52px,11vw,148px);font-weight:700;letter-spacing:.02em;line-height:1;cursor:default;user-select:none;background:linear-gradient(120deg,var(--ink) 20%,var(--ok) 55%,var(--cy) 90%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;transition:letter-spacing .35s ease}
+.hero-logo{font-size:clamp(52px,11vw,148px);font-weight:700;letter-spacing:.02em;line-height:1;cursor:default;user-select:none;transition:letter-spacing .35s ease}
 .hero-logo:hover{letter-spacing:.1em}
-.hero-logo span{display:inline-block;transition:transform .25s ease}
+.hero-logo span{display:inline-block;background:linear-gradient(120deg,var(--ink) 20%,var(--ok) 55%,var(--cy) 90%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;transition:transform .25s ease}
 .hero-logo:hover span{animation:logoWave .9s ease-in-out infinite}
 @keyframes logoWave{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
 .hero-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
