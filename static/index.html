@@ -248,6 +248,11 @@ code,.m{font-family:var(--mono);font-size:.88em}
 
 /* Explorer Card */
 .explorer-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px)}
+#explorer .explorer-card{background:none;border:0;border-radius:0;overflow:visible;box-shadow:none;backdrop-filter:none}
+#explorer .explorer-card .ws-bar{background:none;border:0;padding:12px 0}
+#explorer .explorer-card .tbl{background:none}
+#explorer .explorer-card th{background:none}
+#explorer .explorer-card .tbl-foot{background:none;padding:12px 0}
 .ws-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap;background:rgba(0,0,0,.01)}
 .ws-tabs{display:flex;gap:6px;align-items:center}
 .ws-tab{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid transparent;background:none;color:var(--ink2);font:500 14px var(--sans);cursor:pointer;transition:all .15s}
@@ -540,7 +545,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
   <div class="explorer-card">
     <!-- Top Collections Quick-Filter Bar -->
-    <div id="topCollectionsBar" style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(0,0,0,0.015);border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px">
+    <div id="topCollectionsBar" style="display:flex;align-items:center;gap:8px;padding:0 0 12px;flex-wrap:wrap;font-size:12px">
       <span style="color:var(--ink3);font-weight:600;text-transform:uppercase;font-size:10px;letter-spacing:0.06em;display:flex;align-items:center;gap:6px">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span>Top Collections:</span>
