@@ -158,19 +158,18 @@ nav a:hover{background:var(--raise);color:var(--ink)}
 .btn-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:7px}
 
 /* Hero Section */
-.hero{display:grid;grid-template-columns:1fr;gap:32px;padding:64px 0 54px;align-items:center;max-width:840px}
-.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:20px;background:var(--ok-bg);border:1px solid rgba(16,185,129,.2);color:var(--ok);font:600 12px var(--mono);margin-bottom:18px;letter-spacing:.02em}
-.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
-h1{font-size:clamp(34px,4.8vw,52px);line-height:1.08;letter-spacing:-.035em;font-weight:700;max-width:15ch}
-.gradient-text{background:linear-gradient(135deg,var(--ink) 25%,var(--ok) 85%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:inline-block}
-.lede{margin:18px 0 26px;color:var(--ink2);font-size:17px;line-height:1.6;max-width:48ch}
-.cta{display:flex;gap:10px;flex-wrap:wrap}
-
-/* Telemetry Facts Bar */
-.facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px;align-items:center}
-.facts .fact-item{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);padding:5px 12px;border-radius:24px;font-size:12.5px;color:var(--ink2);transition:all .2s ease;backdrop-filter:blur(8px)}
-.facts .fact-item:hover{border-color:var(--line-hover);transform:translateY(-1px)}
-.facts b{color:var(--ink);font-weight:600;font-family:var(--mono)}
+.hero{position:relative;display:flex;justify-content:center;text-align:center;padding:110px 0 100px;overflow:hidden}
+#heroArt{position:absolute;inset:0;width:100%;height:100%;opacity:.6}
+.hero-inner{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 16px}
+.hero-logo{font-size:clamp(52px,11vw,148px);font-weight:700;letter-spacing:.02em;line-height:1;cursor:default;user-select:none;background:linear-gradient(120deg,var(--ink) 20%,var(--ok) 55%,var(--cy) 90%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;transition:letter-spacing .35s ease}
+.hero-logo:hover{letter-spacing:.1em}
+.hero-logo span{display:inline-block;transition:transform .25s ease}
+.hero-logo:hover span{animation:logoWave .9s ease-in-out infinite}
+@keyframes logoWave{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.hero-links{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.hero-link{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:20px;border:1px solid var(--line);background:var(--card);font:500 14px var(--sans);transition:all .15s;backdrop-filter:blur(8px)}
+.hero-link:hover{border-color:var(--ink3);transform:translateY(-1px)}
+.hero-node{font-size:12px;color:var(--ink3)}
 
 /* Status dot pulse */
 .dot-pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 0 rgba(16,185,129,.4);animation:pulse 2s infinite}
@@ -389,7 +388,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 }
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .btn-icon.spin svg{animation:spin .6s cubic-bezier(0.4, 0, 0.2, 1)}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.hero-logo:hover span{animation:none}}
 </style>
 <script>
 (function(){
@@ -423,39 +422,15 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <main id="top">
 <div class="hero">
-  <div>
-    <div class="hero-badge"><span class="hero-badge-dot"></span> Sovereign Node &bull; Zero Accounts &bull; P2P Swarm</div>
-    <h1>Publish signed data &amp; files. <span class="gradient-text">No accounts, no API keys.</span></h1>
-    <p class="lede">Originless is a small, sovereign node you run yourself. Send it Ed25519-signed JSON events or binary blobs over plain HTTP, and read them back from anywhere. Try it right below — every write lands live.</p>
-    <div class="cta">
-      <a class="btn solid" href="#explorer">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span>Explore live data</span>
-      </a>
-      <a class="btn" href="#canvas">
-        <span>🎨 Paint canvas</span>
-      </a>
-      <a class="btn" href="#chat">
-        <span>💬 Join chat</span>
-      </a>
-      <a class="btn" href="/agent.txt" target="_blank" title="Teach AI agents via agent.txt">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
-        <span>Teach agent (/agent.txt) &rarr;</span>
-      </a>
+  <canvas id="heroArt" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <div class="hero-logo" id="heroLogo" aria-label="Originless">ORIGINLESS</div>
+    <div class="hero-links">
+      <span class="pill pill-ok" id="heroVersion">v…</span>
+      <a class="hero-link" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">GitHub ↗</a>
+      <a class="hero-link" href="/agent.txt" target="_blank">Teach agent →</a>
     </div>
-    <div class="facts" id="telemetryBar">
-      <span class="fact-item"><span class="pill pill-ok" id="teleStatusPill"><span class="dot-pulse" id="teleDot"></span> <span id="teleStatus">Connecting...</span></span></span>
-      <span class="fact-item" title="The node this page reads from and writes to"><code class="m" id="teleNode">…</code></span>
-      <span class="fact-item"><b id="teleVersion">v...</b></span>
-      <span class="fact-item"><b id="teleEvents">0</b> events</span>
-      <span class="fact-item"><b id="teleBlobs">0</b> blobs (<span id="teleBytes">0 B</span>)</span>
-      <span class="fact-item">uptime <b id="teleUptime">--</b></span>
-      <span class="fact-item">RAM <b id="teleRam">--</b></span>
-      <span class="fact-item">DB <b id="teleDbSize">--</b></span>
-      <span class="fact-item"><b id="teleSse">0</b> live SSE</span>
-      <span class="fact-item" id="teleTrafficItem" style="display:none"><b id="teleReqs">0</b> reqs</span>
-      <span class="fact-item" id="teleP2pItem" style="display:none"><span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> <span id="teleP2pLabel">P2P Mesh</span> (<b id="teleP2pPeers">0</b> peers)</span><span id="teleNatPill" class="pill pill-ok" style="display:none;margin-left:6px;font-size:11px">Public</span></span>
-    </div>
+    <div class="hero-node mono" id="heroNode" title="The node this page reads from and writes to">…</div>
   </div>
 </div>
 
@@ -970,24 +945,25 @@ async function fetchStatus(){
     var d = await res.json();
     if(d.status === "success"){
       state.statusHealthy = true;
-      $("teleStatus").textContent = "Node online";
-      $("teleStatusPill").className = "pill pill-ok";
-      $("teleDot").className = "dot-pulse";
-      $("teleVersion").textContent = "v" + (d.version || "0.1.0");
+      if($("teleStatus")) $("teleStatus").textContent = "Node online";
+      if($("teleStatusPill")) $("teleStatusPill").className = "pill pill-ok";
+      if($("teleDot")) $("teleDot").className = "dot-pulse";
+      if($("teleVersion")) $("teleVersion").textContent = "v" + (d.version || "0.1.0");
+      if($("heroVersion")) $("heroVersion").textContent = "v" + (d.version || "0.1.0");
       
       var evCount = (d.events && d.events.count !== undefined) ? d.events.count : (d.records ? d.records.count : 0);
-      $("teleEvents").textContent = evCount;
+      if($("teleEvents")) $("teleEvents").textContent = evCount;
       $("tabEventsBadge").textContent = evCount;
       state.totalEvents = evCount;
 
       var bCount = (d.blobs && d.blobs.count !== undefined) ? d.blobs.count : 0;
       var bSize = (d.blobs && d.blobs.sizeStr) ? d.blobs.sizeStr : fmt(d.blobs ? d.blobs.size : 0);
-      $("teleBlobs").textContent = bCount;
-      $("teleBytes").textContent = bSize;
+      if($("teleBlobs")) $("teleBlobs").textContent = bCount;
+      if($("teleBytes")) $("teleBytes").textContent = bSize;
       state.totalBlobs = bCount;
 
       var sseCount = (d.sse && d.sse.clients !== undefined) ? d.sse.clients : 0;
-      $("teleSse").textContent = sseCount;
+      if($("teleSse")) $("teleSse").textContent = sseCount;
 
       // Uptime
       var uptime = d.uptime || "--";
@@ -1057,6 +1033,10 @@ async function fetchStatus(){
       if($("statRuntime")) $("statRuntime").textContent = ramStr + " RAM · " + gor + " goroutines · up " + uptime;
       if($("statTraffic") && d.traffic && d.traffic.total_requests !== undefined) $("statTraffic").textContent = d.traffic.total_requests + " requests served";
 
+      // Reseed hero art when stored bytes change
+      var seed = ((d.storage && d.storage.db_size) || 0) + ((d.blobs && d.blobs.size) || 0);
+      if(seed !== heroSeed) heroBuild(seed);
+
       // Top collections quick-filter bar
       if(d.storage && Array.isArray(d.storage.top_collections)){
         renderTopCollections(d.storage.top_collections);
@@ -1072,9 +1052,9 @@ async function fetchStatus(){
     }
   }catch(err){
     state.statusHealthy = false;
-    $("teleStatus").textContent = "Node offline";
-    $("teleStatusPill").className = "pill pill-mute";
-    $("teleDot").className = "dot-pulse dot-off";
+    if($("teleStatus")) $("teleStatus").textContent = "Node offline";
+    if($("teleStatusPill")) $("teleStatusPill").className = "pill pill-mute";
+    if($("teleDot")) $("teleDot").className = "dot-pulse dot-off";
     if($("svgNodeStatusText")) $("svgNodeStatusText").textContent = "Node Offline";
     if($("svgNodeStatusPill")) $("svgNodeStatusPill").className = "pill pill-mute";
     if($("svgNodeDot")) $("svgNodeDot").className = "dot-pulse dot-off";
@@ -1278,7 +1258,7 @@ function connectSSE(){
         rec.__isNew = true;
         totalEventsCount++;
         if(state.totalEvents !== undefined) state.totalEvents++;
-        $("teleEvents").textContent = totalEventsCount;
+        if($("teleEvents")) $("teleEvents").textContent = totalEventsCount;
         $("tabEventsBadge").textContent = totalEventsCount;
         if($("svgStatEvents")) $("svgStatEvents").textContent = totalEventsCount;
 
@@ -1634,9 +1614,97 @@ window.__cpRecord = function(id){
   loadChat();
 })();
 
+/* Generative hero art — constellation seeded by DB size (reseeded on change) */
+var heroCanvas = $("heroArt"), heroSeed = -1, heroDots = [], heroRAF = null;
+var heroReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function heroRand(seed){
+  var a = ((seed * 2654435761) % 4294967296) >>> 0 || 1;
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function heroSize(){
+  if(!heroCanvas || !heroCanvas.parentNode) return;
+  var r = heroCanvas.parentNode.getBoundingClientRect();
+  var dpr = Math.min(2, window.devicePixelRatio || 1);
+  heroCanvas.width = Math.max(1, Math.floor(r.width * dpr));
+  heroCanvas.height = Math.max(1, Math.floor(r.height * dpr));
+}
+function heroBuild(seed){
+  heroSeed = seed;
+  if(!heroCanvas) return;
+  var rnd = heroRand(seed);
+  heroDots = [];
+  var n = 44 + Math.floor(rnd() * 28), i;
+  for(i = 0; i < n; i++){
+    heroDots.push({ x: rnd(), y: rnd(), vx: (rnd() - .5) * .0011, vy: (rnd() - .5) * .0011, r: 1 + rnd() * 2.1, g: rnd() < .5 });
+  }
+  heroSize();
+  heroDraw();
+  if(!heroReduced && !heroRAF) heroRAF = requestAnimationFrame(heroTick);
+}
+function heroDraw(){
+  if(!heroCanvas || !heroDots.length) return;
+  var ctx = heroCanvas.getContext("2d");
+  var W = heroCanvas.width, H = heroCanvas.height, m = Math.min(W, H);
+  ctx.clearRect(0, 0, W, H);
+  var i, j, dx, dy, dist, max = m * .14;
+  ctx.lineWidth = Math.max(1, m / 900);
+  for(i = 0; i < heroDots.length; i++){
+    for(j = i + 1; j < heroDots.length; j++){
+      dx = (heroDots[i].x - heroDots[j].x) * W;
+      dy = (heroDots[i].y - heroDots[j].y) * H;
+      dist = Math.sqrt(dx * dx + dy * dy);
+      if(dist < max){
+        ctx.strokeStyle = "rgba(6,182,212," + (0.16 * (1 - dist / max)).toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.moveTo(heroDots[i].x * W, heroDots[i].y * H);
+        ctx.lineTo(heroDots[j].x * W, heroDots[j].y * H);
+        ctx.stroke();
+      }
+    }
+  }
+  for(i = 0; i < heroDots.length; i++){
+    var p = heroDots[i];
+    ctx.fillStyle = p.g ? "rgba(16,185,129,.55)" : "rgba(6,182,212,.55)";
+    ctx.beginPath();
+    ctx.arc(p.x * W, p.y * H, Math.max(1, p.r * m / 700), 0, 6.2832);
+    ctx.fill();
+  }
+}
+function heroTick(){
+  if(!document.hidden){
+    for(var i = 0; i < heroDots.length; i++){
+      var p = heroDots[i];
+      p.x += p.vx; p.y += p.vy;
+      if(p.x < 0) p.x += 1; if(p.x > 1) p.x -= 1;
+      if(p.y < 0) p.y += 1; if(p.y > 1) p.y -= 1;
+    }
+    heroDraw();
+  }
+  heroRAF = requestAnimationFrame(heroTick);
+}
+window.addEventListener("resize", function(){ heroSize(); heroDraw(); });
+(function(){
+  var l = $("heroLogo");
+  if(!l) return;
+  var t = l.textContent;
+  l.textContent = "";
+  for(var i = 0; i < t.length; i++){
+    var s = document.createElement("span");
+    s.textContent = t[i];
+    s.style.animationDelay = (i * 55) + "ms";
+    l.appendChild(s);
+  }
+})();
+heroBuild(1);
+
 /* Refresh all data */
 function refreshAll(){
-  if($("teleNode")) $("teleNode").textContent = o();
+  if($("heroNode")) $("heroNode").textContent = o();
   fetchStatus();
   fetchEvents(1);
   connectSSE();
