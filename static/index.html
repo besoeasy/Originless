@@ -353,8 +353,22 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 .toast{background:var(--code);color:var(--codeink);border:1px solid rgba(255,255,255,.15);padding:10px 16px;border-radius:8px;font:500 13px var(--sans);box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toastIn .2s ease;display:flex;align-items:center;gap:10px;pointer-events:auto}
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
+/* Pixel Canvas showcase (minimal, 64x64) */
+.px-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px)}
+.px-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.px-layout{display:grid;grid-template-columns:190px 1fr;gap:18px;padding:18px}
+.px-side{display:flex;flex-direction:column;gap:12px}
+.px-swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.px-swatch{aspect-ratio:1;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.px-swatch:hover{transform:scale(1.1)}
+.px-swatch.active{border-color:var(--ink);transform:scale(1.08)}
+.px-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.px-board-wrap{display:flex;justify-content:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+#pxBoard{width:min(100%,560px);height:auto;aspect-ratio:1/1;image-rendering:pixelated;cursor:crosshair;border-radius:8px;background:#fff;touch-action:none}
+.px-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
+
 @media(max-width:860px){
-  .hero,.two,.agent,.svg-telemetry-grid{grid-template-columns:1fr}
+  .hero,.two,.agent,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
   .hero{padding:40px 0}
   nav a.h{display:none}
   section{padding:44px 0}
@@ -385,6 +399,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
   <nav>
     <a class="h" href="#primitives">What it stores</a>
     <a class="h" href="#explorer">Live data</a>
+    <a class="h" href="#canvas">Canvas</a>
     <a class="h" href="#api">API</a>
     <a class="h" href="#agents">Agents</a>
     <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle dark/light theme">
@@ -668,6 +683,37 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
           <div class="pagination" id="eventsPageBtns"></div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="canvas">
+  <h2>🎨 Collaborative Pixel Canvas</h2>
+  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: canvas</code>) streamed live over SSE. <a class="g" href="https://github.com/besoeasy/Originless/blob/main/examples/pixel-canvas.html" target="_blank" rel="noopener" style="font-weight:600">Open full version &rarr;</a></p>
+  <div class="px-card">
+    <div class="px-bar">
+      <span class="pill pill-ok"><span class="dot-pulse" id="pxDot"></span> <span id="pxStatus">Loading canvas...</span></span>
+      <div class="px-row">
+        <button class="btn btn-sm" id="pxClear" type="button" title="Reset local view">Reset view</button>
+        <button class="btn btn-sm solid" id="pxExport" type="button">Export PNG</button>
+      </div>
+    </div>
+    <div class="px-layout">
+      <div class="px-side">
+        <div class="px-swatches" id="pxSwatches"></div>
+        <div class="px-row">
+          <input type="color" id="pxCustom" value="#10b981" title="Custom color" style="width:36px;height:30px;border:1px solid var(--line);border-radius:7px;background:var(--bg);cursor:pointer;padding:2px">
+          <span class="mono" id="pxColorHex" style="font-size:12px;color:var(--ink2)">#10b981</span>
+        </div>
+        <p style="font-size:12.5px;color:var(--ink3);line-height:1.5">Drag to paint. Pixels publish signed events with label <code>canvas:landing</code>.</p>
+      </div>
+      <div class="px-board-wrap">
+        <canvas id="pxBoard" width="512" height="512"></canvas>
+      </div>
+    </div>
+    <div class="px-meta">
+      <span id="pxCoords">Hover to inspect (x, y)</span>
+      <span>Grid: 64×64 &bull; <span id="pxCount">0</span> pixels loaded &bull; live via SSE</span>
     </div>
   </div>
 </section>
@@ -1521,6 +1567,114 @@ window.__cpRecord = function(id){
   var r = state.events.find(function(x){ return x.id === id; });
   if(r) cp(JSON.stringify(r, null, 2));
 };
+
+/* Minimal Collaborative Pixel Canvas (64x64, reuses o/createSignedRecord/SSE) */
+(function(){
+  var board = $("pxBoard");
+  if(!board) return;
+  var PX_N = 64, PX_SIZE = 512, CELL = PX_SIZE / PX_N;
+  var PALETTE = ["#0f172a","#ffffff","#ef4444","#f97316","#eab308","#10b981","#06b6d4","#3b82f6","#a855f7","#ec4899","#94a3b8","#78350f"];
+  var pxColor = "#10b981", pxSeen = {}, pxLoaded = 0, pxSSE = null, pxDown = false;
+  var ctx = board.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,PX_SIZE,PX_SIZE);
+
+  var sw = $("pxSwatches");
+  PALETTE.forEach(function(c, i){
+    var d = document.createElement("div");
+    d.className = "px-swatch" + (c === pxColor ? " active" : "");
+    d.style.background = c; d.title = c;
+    d.onclick = function(){
+      pxColor = c;
+      sw.querySelectorAll(".px-swatch").forEach(function(s){ s.classList.remove("active"); });
+      d.classList.add("active");
+      $("pxCustom").value = c; $("pxColorHex").textContent = c;
+    };
+    sw.appendChild(d);
+  });
+  $("pxCustom").addEventListener("input", function(e){
+    pxColor = e.target.value;
+    $("pxColorHex").textContent = pxColor;
+    sw.querySelectorAll(".px-swatch").forEach(function(s){ s.classList.remove("active"); });
+  });
+
+  function paint(x, y, color){
+    if(x < 0 || y < 0 || x >= PX_N || y >= PX_N) return;
+    ctx.fillStyle = color || "#ffffff";
+    ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+  }
+  function applyEv(rec){
+    if(!rec || pxSeen[rec.id]) return;
+    pxSeen[rec.id] = 1;
+    var d = rec.data || {};
+    if(typeof d.x === "number" && typeof d.y === "number" && typeof d.color === "string"){
+      paint(d.x, d.y, d.color);
+      pxLoaded++;
+      if($("pxCount")) $("pxCount").textContent = pxLoaded;
+    }
+  }
+  function coords(e){
+    var r = board.getBoundingClientRect();
+    var cx = ((e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - r.left) * (PX_SIZE / r.width);
+    var cy = ((e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY) - r.top) * (PX_SIZE / r.height);
+    return { x: Math.floor(cx / CELL), y: Math.floor(cy / CELL) };
+  }
+  async function publish(x, y){
+    paint(x, y, pxColor);
+    pxLoaded++; if($("pxCount")) $("pxCount").textContent = pxLoaded;
+    try{
+      var ev = await createSignedRecord("canvas", { canvasId: "landing", x: x, y: y, color: pxColor, ts: Date.now() }, ["canvas:landing"]);
+      var res = await fetch(o() + "/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
+      if(res.ok){ try{ var d = await res.json(); if(d.id) pxSeen[d.id] = 1; }catch(_){} }
+    }catch(err){ showToast("Pixel publish failed: " + err.message, "warn"); }
+  }
+  board.addEventListener("mousedown", function(e){ pxDown = true; var p = coords(e); publish(p.x, p.y); });
+  window.addEventListener("mouseup", function(){ pxDown = false; });
+  board.addEventListener("mousemove", function(e){
+    var p = coords(e);
+    if($("pxCoords")) $("pxCoords").textContent = (p.x >= 0 && p.x < PX_N && p.y >= 0 && p.y < PX_N) ? "Pixel (" + p.x + ", " + p.y + ")" : "Hover to inspect (x, y)";
+    if(pxDown) publish(p.x, p.y);
+  });
+  board.addEventListener("mouseleave", function(){ if($("pxCoords")) $("pxCoords").textContent = "Hover to inspect (x, y)"; });
+  board.addEventListener("touchstart", function(e){ e.preventDefault(); var p = coords(e); publish(p.x, p.y); }, { passive: false });
+  board.addEventListener("touchmove", function(e){ e.preventDefault(); var p = coords(e); publish(p.x, p.y); }, { passive: false });
+
+  $("pxExport").onclick = function(){
+    var a = document.createElement("a");
+    a.download = "originless-canvas.png"; a.href = board.toDataURL("image/png"); a.click();
+  };
+  $("pxClear").onclick = function(){ loadPx(); };
+
+  async function loadPx(){
+    pxSeen = {}; pxLoaded = 0;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,PX_SIZE,PX_SIZE);
+    if($("pxCount")) $("pxCount").textContent = "0";
+    if($("pxStatus")) $("pxStatus").textContent = "Loading last 500 pixels...";
+    /* Newest-first API (limit 100 max): fetch 5 pages oldest-first so replay order is correct */
+    for(var off = 400; off >= 0; off -= 100){
+      try{
+        var r = await fetch(o() + "/events?collection=canvas&label=" + encodeURIComponent("canvas:landing") + "&limit=100&cursor=" + off);
+        var j = await r.json();
+        var list = (j.events || j.records || []);
+        list.slice().reverse().forEach(applyEv);
+      }catch(_){ break; }
+    }
+    if($("pxStatus")) $("pxStatus").textContent = "Live: canvas:landing (64×64)";
+    connectPx();
+  }
+  function connectPx(){
+    try{ if(pxSSE) pxSSE.close(); }catch(_){}
+    try{
+      var s = new EventSource(o() + "/events/stream?collection=canvas&label=" + encodeURIComponent("canvas:landing"));
+      pxSSE = s;
+      s.onopen = function(){ if($("pxDot")) $("pxDot").className = "dot-pulse"; };
+      var onEv = function(e){ try{ applyEv(JSON.parse(e.data)); }catch(_){} };
+      s.onmessage = onEv; s.addEventListener("event", onEv); s.addEventListener("record", onEv);
+      s.onerror = function(){ if($("pxDot")) $("pxDot").className = "dot-pulse dot-off"; };
+    }catch(_){}
+  }
+  if(O) O.addEventListener("input", function(){ loadPx(); });
+  loadPx();
+})();
 
 /* Refresh all data */
 function refreshAll(){
