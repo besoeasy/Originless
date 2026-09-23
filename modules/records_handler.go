@@ -300,9 +300,6 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 	}
 	if blobHash != "" && blobSeen {
 		h.metrics.IncUpload(stagedSize)
-		if h.p2p != nil {
-			h.p2p.BroadcastBlob(blobHash, stagedSize)
-		}
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"status": "success", "id": rec.ID, "stored_at": storedAt,
@@ -419,9 +416,6 @@ func (h *Handler) insertAndBroadcast(w http.ResponseWriter, st *Store, rec *Reco
 	}
 	if h.broadcaster != nil {
 		h.broadcaster.Broadcast(rec)
-	}
-	if h.p2p != nil {
-		h.p2p.BroadcastRecord(rec)
 	}
 	return true, storedAt, nil
 }

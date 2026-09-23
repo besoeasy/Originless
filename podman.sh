@@ -23,7 +23,6 @@ Environment Variables:
   IMAGE_NAME      Name of the container image (default: originless:latest)
   CONTAINER_NAME  Name of the container instance (default: originless)
   DATA_VOLUME     Named volume or host directory to mount at /data (optional)
-  NETWORK_ID      P2P swarm network ID (optional, default: originless, set 'off' to disable)
   MAX_BLOB_BYTES  Maximum single blob upload cap (optional, default: 1GiB)
   NETWORK         Podman network to attach (default: podman)
   SKIP_BUILD      Set to 1 to skip image build and run immediately (default: 0)
@@ -107,10 +106,7 @@ for arg in "$@"; do
 done
 
 if [ "$HAS_PORT" -eq 0 ]; then
-  RUN_ARGS+=(
-    "-p" "${PORT}:3232"
-    "-p" "${PORT}:3232/udp"
-  )
+  RUN_ARGS+=("-p" "${PORT}:3232")
 fi
 
 # Attach network if not explicitly passed
@@ -141,17 +137,8 @@ if [ -n "${DATA_VOLUME:-}" ]; then
 fi
 
 # Optional environment overrides
-if [ -n "${NETWORK_ID:-}" ]; then
-  RUN_ARGS+=("-e" "NETWORK_ID=${NETWORK_ID}")
-fi
 if [ -n "${MAX_BLOB_BYTES:-}" ]; then
   RUN_ARGS+=("-e" "MAX_BLOB_BYTES=${MAX_BLOB_BYTES}")
-fi
-if [ -n "${BOOTSTRAP_PEERS:-}" ]; then
-  RUN_ARGS+=("-e" "BOOTSTRAP_PEERS=${BOOTSTRAP_PEERS}")
-fi
-if [ -n "${ANNOUNCE_ADDRS:-}" ]; then
-  RUN_ARGS+=("-e" "ANNOUNCE_ADDRS=${ANNOUNCE_ADDRS}")
 fi
 
 if [ "$IS_DETACHED" -eq 1 ]; then

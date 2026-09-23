@@ -10,7 +10,7 @@ import (
 
 // Version is the Originless server build version reported by /status.
 // Overridable at compile time via -ldflags="-X github.com/besoeasy/originless/modules.Version=...".
-var Version = "1.0.3"
+var Version = "1.0.0"
 
 var processStartTime = time.Now().UTC()
 
@@ -37,20 +37,12 @@ func FormatUptime(d time.Duration) string {
 	return fmt.Sprintf("%ds", secs)
 }
 
-// P2PBroadcaster defines the interface for gossip broadcasting to P2P swarms.
-type P2PBroadcaster interface {
-	BroadcastRecord(rec *Record)
-	BroadcastBlob(hash string, size int64)
-	Status() map[string]any
-}
-
 type Handler struct {
 	janitor     *Manager
 	metrics     *Metrics
 	semaphore   chan struct{}
 	store       *Store
 	broadcaster *RecordBroadcaster
-	p2p         P2PBroadcaster
 	startTime   time.Time
 }
 
@@ -66,11 +58,6 @@ func NewHandler(janitorManager *Manager, metrics *Metrics) *Handler {
 		h.store = janitorManager.Store()
 	}
 	return h
-}
-
-// SetP2P registers a P2P broadcaster for gossip and status reporting.
-func (h *Handler) SetP2P(p P2PBroadcaster) {
-	h.p2p = p
 }
 
 // SetStore allows tests / embedding to provide a DB without changing signatures.
@@ -198,24 +185,16 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		payload["janitor"] = h.janitor.Status()
 	}
 
-	if h.p2p != nil {
-		payload["p2p"] = h.p2p.Status()
-	} else {
-		payload["p2p"] = map[string]any{
-			"enabled": false,
-		}
-	}
-
 	if h.janitor != nil {
 		if g := h.janitor.Guard(); g != nil {
 			if ds, err := g.Stats(); err == nil {
 				payload["disk"] = map[string]any{
-					"path":        ds.Path,
-					"total_bytes": ds.TotalBytes,
-					"free_bytes":  ds.FreeBytes,
-					"free_str":    FormatBytes(ds.FreeBytes),
-					"used_pct":    ds.UsedPct,
-					"inodes_free": ds.InodesFree,
+					"path":           ds.Path,
+					"total_bytes":    ds.TotalBytes,
+					"free_bytes":     ds.FreeBytes,
+					"free_str":       FormatBytes(ds.FreeBytes),
+					"used_pct":       ds.UsedPct,
+					"inodes_free":    ds.InodesFree,
 					"ceiling_pct":    DiskCeilingPct,
 					"soft_pct":       DiskSoftPct,
 					"max_blob_bytes": MaxBlobBytes,

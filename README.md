@@ -3,7 +3,7 @@
 # Originless
 
 **The Universal Zero-Auth Backend for Modern Apps & Autonomous Agents.**  
-Signed events. Content-addressed binary blobs. Native real-time streams. Autonomous P2P mesh.  
+Signed events. Content-addressed binary blobs. Native real-time streams.
 No accounts. No API keys. No database migrations. One single binary.
 
 <br>
@@ -22,9 +22,8 @@ Building modern connected applications today is unnecessarily painful. A simple 
 * **A Database** (PostgreSQL, MongoDB, Supabase) with schema migrations, connection pooling, and ORMs.
 * **Object Storage** (AWS S3, Cloudflare R2) with bucket policies, signed upload URLs, and orphan file cleanup.
 * **A Pub/Sub & WebSocket Broker** (Redis, Pusher, Socket.io) to push real-time updates and keep state synchronized.
-* **A P2P or Federation Protocol** (Nostr, Matrix, libp2p) when attempting decentralized multi-node replication.
 
-You end up managing 5 separate cloud services, juggling API keys and secrets, paying escalating per-MAU SaaS bills, and wrestling with complex vendor lock-in.
+You end up managing 4 separate cloud services, juggling API keys and secrets, paying escalating per-MAU SaaS bills, and wrestling with complex vendor lock-in.
 
 ### The Originless Solution
 Originless collapses your entire backend stack into **two universal primitives** delivered by a **single zero-dependency binary**:
@@ -32,7 +31,7 @@ Originless collapses your entire backend stack into **two universal primitives**
 1. **Signed JSON Events**: Ephemeral or durable structured data signed client-side with **Ed25519**. The client holds its own private key; the node verifies the signature mathematically. There are no accounts to create, no passwords to reset, and no API keys to leak.
 2. **Content-Addressed Blobs**: Opaque binary files identified and deduplicated by **SHA-256**. Uploaded atomically with events, protected against abuse, and automatically garbage-collected when referencing events expire.
 
-Every node exposes standard HTTP REST endpoints and native Server-Sent Events (`GET /events/stream`), backed by high-throughput SQLite WAL storage and an autonomous libp2p P2P swarm.
+Every node exposes standard HTTP REST endpoints and native Server-Sent Events (`GET /events/stream`), backed by high-throughput SQLite WAL storage.
 
 ### Protocols & Cloud Services Replaced
 
@@ -42,16 +41,15 @@ Every node exposes standard HTTP REST endpoints and native Server-Sent Events (`
 | **Real-Time Pub/Sub** | Redis Pub/Sub, Pusher, Ably, Socket.io | Native HTTP **Server-Sent Events (`GET /events/stream`)** with collection and label filtering. | Works natively in every browser with `new EventSource()` and in terminal with `curl -N`. Zero client SDKs needed. |
 | **Binary & File Storage** | AWS S3, Cloudflare R2, MinIO, 0x0.st | Content-addressed storage (**`/blob/{sha256}`**) with streaming byte transfers and ETag verification. | Atomic multipart upload with event; automatic orphan GC; built-in opaque content shield against XSS and hotlinking. |
 | **Database & Persistence** | PostgreSQL, Firestore, PocketBase | Indexed **SQLite WAL Event Store** with full-text search, label indexes, and keyset pagination. | Microsecond queries, zero config, automatic TTL expiration, and crash-safe single-file persistence. |
-| **P2P Swarm & Relays** | Nostr Relays, Matrix, BitTorrent | Embedded **libp2p mesh** with Kademlia DHT discovery, AutoNAT hole-punching, and $O(1)$ state vector root sync. | Run 1 node or 1,000 nodes worldwide. They discover each other and replicate state automatically on a single shared port. |
 
 ### Possibility Is What You Can Imagine
 
-With Originless handling identity, persistence, binary storage, real-time push, and P2P distribution, you can build full-featured applications in a single static HTML file or a small script:
+With Originless handling identity, persistence, binary storage, and real-time push, you can build full-featured applications in a single static HTML file or a small script:
 
 * 🎨 **Collaborative Real-Time Canvases & Whiteboards**: Infinite shared canvas or r/place style boards (see live demo on any node dashboard) where every brush stroke or pixel is an Ed25519-signed event pushed instantly over SSE.
 * 💬 **Encrypted Chat & Social Networks**: End-to-end encrypted messaging, public community rooms, topic forums, or decentralized Twitter-like feeds without a central server operator.
 * 🤖 **Autonomous AI Agent Swarms**: Blackboard coordination architectures where LLMs and agents post tasks, tail live event streams, claim jobs, and exchange binary model weights or artifacts without needing API keys.
-* 📱 **Local-First & Multi-Device Sync**: Note-taking apps (Obsidian-style sync), personal wikis, todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers.
+* 📱 **Local-First Applications**: Note-taking apps, personal wikis, todo managers, and password vaults that keep application data in a self-hosted node under the owner's control.
 * 🎮 **Turn-Based Multiplayer Games**: Chess, checkers, card games, and turn-based strategy where each move is a cryptographically signed event, guaranteeing cheat-proof move history and player provenance.
 * 📡 **IoT & Edge Sensor Fleets**: Environmental sensors, home automation hubs, and edge cameras that log time-series telemetry events and image blobs with automatic 7-day or 30-day TTL expiry.
 * 📦 **Decentralized Package & Firmware Mirrors**: Immutable distribution of binaries, WASM modules, container layers, and datasets verified purely by SHA-256 hash.
@@ -64,7 +62,7 @@ Run a full node with Docker (or Podman) in 10 seconds:
 
 ```bash
 docker run -d --name originless --restart unless-stopped \
-  -p 3232:3232/tcp -p 3232:3232/udp -v originless-data:/data \
+  -p 3232:3232/tcp -v originless-data:/data \
   ghcr.io/besoeasy/originless:latest
 ```
 
@@ -78,7 +76,6 @@ services:
     restart: unless-stopped
     ports:
       - "3232:3232/tcp"
-      - "3232:3232/udp"
     volumes:
       - originless-data:/data
 
@@ -94,7 +91,6 @@ Configuration is deliberately minimal. Everything works out of the box with zero
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `NETWORK_ID` | `originless` | P2P swarm identity. Nodes with matching IDs automatically discover each other over DHT. Set to `off` (or `none`) to run offline, or set to a custom string (e.g. `my-project`) for a private swarm. |
 | `MAX_BLOB_BYTES` | `1GiB` (`1073741824`) | Maximum single blob upload cap. Accepts raw bytes or human units (e.g. `500MB`, `2GB`). Set `0` for unlimited. |
 | `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent live stream subscribers (`GET /events/stream`). Set `0` for unlimited. |
 
@@ -131,7 +127,7 @@ Upload raw binary bytes up to `MAX_BLOB_BYTES` (default 1 GiB). Originless re-ha
 
 | Endpoint | Method | Purpose |
 | :--- | :--- | :--- |
-| `GET /status` | `GET` | Node health, connected peers, storage vitals, and sync telemetry |
+| `GET /status` | `GET` | Node health, runtime vitals, storage telemetry, and janitor status |
 | `POST /events` | `POST` | Publish a signed event, or event + blob atomically via multipart |
 | `GET /events` | `GET` | Query records (`?collection=&label=&owner=&since=&until=&search=&blob=&cursor=`) |
 | `GET /events/{id}` | `GET` | Retrieve single event (`?resolve=blob` inlines linked blob metadata) |
@@ -143,19 +139,7 @@ Upload raw binary bytes up to `MAX_BLOB_BYTES` (default 1 GiB). Originless re-ha
 
 ---
 
-## 4. Automatic P2P Mesh
-
-Originless includes an autonomous, zero-configuration P2P mesh powered by **libp2p**:
-
-* **Single-Port Multiplexing**: Both the HTTP REST API and libp2p WebSocket transport share port `3232/tcp`.
-* **Zero-Config Discovery**: Local nodes discover each other instantly via **mDNS**. Internet nodes rendezvous over the **Kademlia DHT** under `originless/<NETWORK_ID>`.
-* **NAT Traversal & Relays**: Employs **AutoNAT**, **DCUtR hole punching**, and built-in **Circuit Relay v2** to connect nodes behind strict or symmetric firewalls.
-* **$O(1)$ State Root Sync**: Nodes exchange a commutative multiset XOR state root. If roots match, sync is a 120-byte no-op. If roots differ, the engine triggers continuous salted Bloom filter reconciliation.
-* **Zero-Trust Swarm Ingestion**: Every event and blob received over the swarm is fully cryptographically re-verified. P2P writes are bounded by admission control without triggering local eviction.
-
----
-
-## 5. Documentation & Integration Guides
+## 4. Documentation & Integration Guides
 
 Complete copy-pasteable guides and reference implementations are available in the [`docs/`](docs/) directory:
 

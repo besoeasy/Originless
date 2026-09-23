@@ -6,7 +6,7 @@ Originless is designed to be operated entirely with standard Linux CLI utilities
 
 ## 1. Node Health & Telemetry
 
-Check node availability, memory vitals, storage stats, and P2P mesh status:
+Check node availability, memory vitals, storage stats, and janitor status:
 
 ```bash
 BASE="http://localhost:3232"

@@ -233,7 +233,7 @@ code,.m{font-family:var(--mono);font-size:.88em}
 @keyframes nodeSpinCcw{from{transform:rotate(360deg)}to{transform:rotate(-360deg)}}
 @keyframes nodePulse{0%,100%{opacity:.35;transform:scale(.96)}50%{opacity:.75;transform:scale(1.04)}}
 
-.stream-mesh-svg{display:block;max-width:100%}
+.stream-flow-svg{display:block;max-width:100%}
 .stream-flow-line{stroke-dasharray:8 6;animation:streamDash 10s linear infinite}
 @keyframes streamDash{to{stroke-dashoffset:-140}}
 .stream-particle{animation:streamPing 2.4s ease-in-out infinite}
@@ -463,13 +463,12 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
   <div class="hero-inner">
     <div class="hero-logo" id="heroLogo" aria-label="Originless">ORIGINLESS</div>
     <p class="hero-tagline">The Universal Zero-Auth Backend for Modern Apps</p>
-    <p class="hero-subtext">No accounts. No API keys. No database migrations. Signed events, content-addressed binary blobs, native real-time streams, and autonomous P2P replication in a single binary.</p>
+    <p class="hero-subtext">No accounts. No API keys. No database migrations. Signed events, content-addressed binary blobs, and native real-time streams in a single binary.</p>
     <div class="hero-replaces">
       <span class="pill pill-mute">Replaces Auth0 &amp; Clerk</span>
       <span class="pill pill-mute">Replaces Redis Pub/Sub</span>
       <span class="pill pill-mute">Replaces AWS S3</span>
       <span class="pill pill-mute">Replaces Firebase</span>
-      <span class="pill pill-mute">Replaces Nostr Relays</span>
     </div>
     <div class="hero-links">
       <span class="pill pill-ok" id="heroVersion">v…</span>
@@ -507,7 +506,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
         <li><span class="compare-good-mark">&#10003;</span><span><strong>One Single Binary</strong>: Zero-dependency Go container running on a $4/mo VPS, Raspberry Pi, Umbrel, Docker, or laptop.</span></li>
         <li><span class="compare-good-mark">&#10003;</span><span><strong>Client-Side Cryptography</strong>: Ed25519 keypairs generated on-device in 2 lines of code. The key is the identity; zero server auth state.</span></li>
         <li><span class="compare-good-mark">&#10003;</span><span><strong>Native Real-Time (SSE)</strong>: Instant Server-Sent Events (<code>/events/stream</code>) supported natively in every browser without socket libraries.</span></li>
-        <li><span class="compare-good-mark">&#10003;</span><span><strong>Autonomous Self-Cleaning &amp; P2P</strong>: Automatic TTL record pruning, orphan blob garbage collection, and $O(1)$ Kademlia DHT swarm sync.</span></li>
+        <li><span class="compare-good-mark">&#10003;</span><span><strong>Autonomous Self-Cleaning</strong>: Automatic TTL record pruning and reference-driven orphan blob garbage collection keep storage bounded without application-side cleanup jobs.</span></li>
       </ul>
     </div>
   </div>
@@ -559,15 +558,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <div class="proto-replaces"><strong>Replaces:</strong> Firebase Firestore, Supabase, PocketBase</div>
     </div>
 
-    <div class="proto-card">
-      <div class="proto-card-top">
-        <span class="proto-icon">🌐</span>
-        <span class="pill pill-ok">libp2p Mesh</span>
-      </div>
-      <div class="proto-title">Autonomous P2P Swarm</div>
-      <div class="proto-desc">Single-port HTTP/WS multiplexing, AutoNAT hole punching, Kademlia DHT discovery, and $O(1)$ commutative XOR state root fast-path sync across nodes worldwide.</div>
-      <div class="proto-replaces"><strong>Replaces:</strong> Nostr Relays, Matrix Homeservers, BitTorrent</div>
-    </div>
   </div>
 
   <!-- Possibilities Grid -->
@@ -604,9 +594,9 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <div class="possibility-card">
       <div class="possibility-head">
         <span class="possibility-icon">📱</span>
-        <div class="possibility-title">Local-First &amp; Multi-Device Sync</div>
+        <div class="possibility-title">Private Local Storage</div>
       </div>
-      <div class="possibility-text">Personal notes (Obsidian-style sync), todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers when online.</div>
+      <div class="possibility-text">Personal notes, todo managers, and password vaults that keep application data in a self-hosted node under the owner's control.</div>
     </div>
 
     <div class="possibility-card">
@@ -634,7 +624,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <li><span class="stat-mark">[*]</span><div><strong>Signed storage — <span class="g" id="statStore">…</span></strong><br>Every record is an Ed25519-signed event, every file a SHA-256 blob. No accounts, no API keys.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Live subscribers — <span class="g" id="statLive">…</span></strong><br>Writes broadcast over Server-Sent Events the moment they land. The explorer, canvas and chat above all listen.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Self-cleaning — <span class="g" id="statJanitor">…</span></strong><br>A janitor purges expired records and orphan blobs. Nothing outlives its <code>expires_at</code>.</div></li>
-    <li><span class="stat-mark">[*]</span><div><strong>P2P mesh — <span class="g" id="statP2p">…</span></strong><br>Nodes gossip signed records over libp2p; signatures are re-verified on receipt.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Lean runtime — <span class="g" id="statRuntime">…</span></strong><br>A single Go binary serving plain HTTP on one port.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Open traffic — <span class="g" id="statTraffic">…</span></strong><br>Every endpoint is unauthenticated by design; Prometheus metrics live at <code>/metrics</code>.</div></li>
     <li><span class="stat-mark">[*]</span><div><strong>Disk headroom — <span class="g" id="statDisk">…</span></strong><br>Writes are admission-checked against a 90% ceiling; the janitor sweeps past 85%.</div></li>
@@ -706,14 +695,14 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       </div>
     </div>
 
-    <!-- Card 2: Live SSE Stream Flow Mesh Graphic -->
+    <!-- Card 2: Live SSE Stream Flow Graphic -->
     <div class="svg-telemetry-card">
       <div class="card-head">
         <span class="pill pill-cy"><span class="dot-pulse" style="background:var(--cy)"></span> Live SSE Stream</span>
         <span class="mono" id="svgSseStatusText" style="font-size:12px;color:var(--cy)">Active Feed</span>
       </div>
       <div class="svg-stream-wrap">
-        <svg viewBox="0 0 280 100" width="100%" height="90" class="stream-mesh-svg">
+        <svg viewBox="0 0 280 100" width="100%" height="90" class="stream-flow-svg">
           <defs>
             <linearGradient id="streamNetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="var(--ok)" stop-opacity="0.9"/>
@@ -906,7 +895,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <tr><td><span class="method-badge method-get">GET</span> <code class="g">/events/stream</code></td><td>Receive new events live as they arrive in real-time over Server-Sent Events.</td></tr>
       <tr><td><span class="method-badge method-post">POST</span> <code class="c">/events</code></td><td>Publish a signed event and attach binary bytes in a single atomic multipart request (named <code>blob</code>).</td></tr>
       <tr><td><span class="method-badge method-get">GET</span> <code class="c">/blob/&lt;hash&gt;</code></td><td>Download content-addressed binary bytes by SHA-256 hash with immutable caching headers.</td></tr>
-      <tr><td><span class="method-badge method-get">GET</span> <code>/status</code></td><td>Node telemetry: uptime, memory vitals, storage usage, P2P swarm status, and janitor stats.</td></tr>
+      <tr><td><span class="method-badge method-get">GET</span> <code>/status</code></td><td>Node telemetry: uptime, memory vitals, storage usage, and janitor stats.</td></tr>
     </tbody></table></div>
 </section>
 
@@ -1184,27 +1173,6 @@ async function fetchStatus(){
         if($("svgStatReqs")) $("svgStatReqs").textContent = d.traffic.total_requests + " reqs";
       }
 
-      // Update P2P Swarm Readout
-      if(d.p2p && d.p2p.enabled){
-        if($("teleP2pItem")) $("teleP2pItem").style.display = "inline-flex";
-        if($("teleP2pPeers")) $("teleP2pPeers").textContent = d.p2p.peers_connected || 0;
-        if($("teleP2pLabel")) $("teleP2pLabel").textContent = "P2P (" + (d.p2p.network_id || "mesh") + ")";
-        if($("teleNatPill")){
-          var nat = d.p2p.nat || "unknown";
-          if(nat === "public"){
-            $("teleNatPill").textContent = d.p2p.relay_hop ? "Public · Relay" : "Public";
-            $("teleNatPill").style.display = "inline-flex";
-          } else if(nat === "private"){
-            $("teleNatPill").textContent = "Private NAT";
-            $("teleNatPill").style.display = "inline-flex";
-          } else {
-            $("teleNatPill").style.display = "none";
-          }
-        }
-      } else {
-        if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
-      }
-
       // Update Live SVG Telemetry Graphics
       if($("svgNodeStatusText")) $("svgNodeStatusText").textContent = "Node Online";
       if($("svgNodeVersionText")) $("svgNodeVersionText").textContent = "v" + (d.version || "0.1.0");
@@ -1222,11 +1190,6 @@ async function fetchStatus(){
       if($("statLive")) $("statLive").textContent = sseCount + " connected";
       var purged = (d.janitor && d.janitor.purged_records !== undefined) ? d.janitor.purged_records : 0;
       if($("statJanitor")) $("statJanitor").textContent = purged + " expired purged";
-      if($("statP2p")){
-        $("statP2p").textContent = (d.p2p && d.p2p.enabled)
-          ? ((d.p2p.peers_connected || 0) + " peers" + (d.p2p.network_id ? " on " + d.p2p.network_id : ""))
-          : "solo (mesh off)";
-      }
       var gor = (d.vitals && d.vitals.goroutines !== undefined) ? d.vitals.goroutines : "–";
       if($("statRuntime")) $("statRuntime").textContent = ramStr + " RAM · " + gor + " goroutines · up " + uptime;
       if($("statTraffic") && d.traffic && d.traffic.total_requests !== undefined) $("statTraffic").textContent = d.traffic.total_requests + " requests served";
@@ -1267,9 +1230,8 @@ async function fetchStatus(){
     if($("teleRam")) $("teleRam").textContent = "--";
     if($("svgStatRam")) $("svgStatRam").textContent = "--";
     if($("teleDbSize")) $("teleDbSize").textContent = "--";
-    ["statStore","statLive","statJanitor","statP2p","statRuntime","statTraffic","statDisk"].forEach(function(id){ if($(id)) $(id).textContent = "unreachable"; });
+    ["statStore","statLive","statJanitor","statRuntime","statTraffic","statDisk"].forEach(function(id){ if($(id)) $(id).textContent = "unreachable"; });
     if($("teleTrafficItem")) $("teleTrafficItem").style.display = "none";
-    if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
   }
 }
 

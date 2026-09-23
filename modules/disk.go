@@ -157,8 +157,8 @@ func (c *ceilingWriter) Write(p []byte) (int, error) {
 }
 
 // DiskGuard is the admission ledger: in-memory reservations that close the
-// check-then-act race between concurrent writers. All own-writes (HTTP and
-// P2P sync) admit here before touching disk.
+// check-then-act race between concurrent writers. All writes admit here before
+// touching disk.
 type DiskGuard struct {
 	mu       sync.Mutex
 	reserved int64
