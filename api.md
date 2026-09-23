@@ -32,7 +32,21 @@ Returns the Kubo repository statistics:
     "RepoSize": 2048,
     "StorageMax": 10000000000
   },
-  "Version": "fs-repo@18"
+  "Version": "fs-repo@18",
+  "events": {
+    "count": 4,
+    "total": 5,
+    "expired": 1,
+    "unique_owners": 2,
+    "top_collections": [
+      {"collection": "chat", "count": 3},
+      {"collection": "notes", "count": 1}
+    ],
+    "top_labels": [{"label": "room:lobby", "count": 2}],
+    "stored_bytes": 2048,
+    "subscribers": 1,
+    "max_subscribers": 256
+  }
 }
 ```
 
