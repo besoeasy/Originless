@@ -104,3 +104,82 @@ func TestBloomFilterCorruptedData(t *testing.T) {
 		t.Fatalf("expected error on bad magic")
 	}
 }
+
+func TestBloomFilterSaltDifferentiation(t *testing.T) {
+	bf1 := NewBloomFilterWithSalt(100, 0.01, 1111)
+	bf2 := NewBloomFilterWithSalt(100, 0.01, 2222)
+
+	for i := 0; i < 50; i++ {
+		item := fmt.Sprintf("event-%d", i)
+		bf1.AddString(item)
+		bf2.AddString(item)
+	}
+
+	// Verify both contain their items
+	for i := 0; i < 50; i++ {
+		item := fmt.Sprintf("event-%d", i)
+		if !bf1.ContainsString(item) || !bf2.ContainsString(item) {
+			t.Fatalf("expected both filters to contain added item")
+		}
+	}
+
+	// Bits should differ because salts are different
+	same := true
+	for i := range bf1.Bits {
+		if bf1.Bits[i] != bf2.Bits[i] {
+			same = false
+			break
+		}
+	}
+	if same {
+		t.Fatalf("expected bit patterns to differ between different salts")
+	}
+}
+
+func TestBloomFilterLegacy24ByteDeserialization(t *testing.T) {
+	bf := NewBloomFilterWithSalt(100, 0.01, 0)
+	for i := 0; i < 50; i++ {
+		bf.AddString(fmt.Sprintf("item-%d", i))
+	}
+
+	// Craft legacy 24-byte header:
+	// [4 magic][8 M][4 K][8 Count][bitset]
+	legacy := make([]byte, 24+len(bf.Bits))
+	copy(legacy[0:4], []byte{0x42, 0x4C, 0x4F, 0x4D}) // BLOM
+	// M
+	legacy[4] = byte(bf.M >> 56)
+	legacy[5] = byte(bf.M >> 48)
+	legacy[6] = byte(bf.M >> 40)
+	legacy[7] = byte(bf.M >> 32)
+	legacy[8] = byte(bf.M >> 24)
+	legacy[9] = byte(bf.M >> 16)
+	legacy[10] = byte(bf.M >> 8)
+	legacy[11] = byte(bf.M)
+	// K
+	legacy[12] = byte(bf.K >> 24)
+	legacy[13] = byte(bf.K >> 16)
+	legacy[14] = byte(bf.K >> 8)
+	legacy[15] = byte(bf.K)
+	// Count
+	legacy[16] = byte(bf.Count >> 56)
+	legacy[17] = byte(bf.Count >> 48)
+	legacy[18] = byte(bf.Count >> 40)
+	legacy[19] = byte(bf.Count >> 32)
+	legacy[20] = byte(bf.Count >> 24)
+	legacy[21] = byte(bf.Count >> 16)
+	legacy[22] = byte(bf.Count >> 8)
+	legacy[23] = byte(bf.Count)
+	copy(legacy[24:], bf.Bits)
+
+	decoded, err := DeserializeBloomFilter(legacy)
+	if err != nil {
+		t.Fatalf("failed to deserialize legacy 24-byte bloom: %v", err)
+	}
+	if decoded.Salt != 0 {
+		t.Fatalf("expected legacy salt=0, got %d", decoded.Salt)
+	}
+	if !decoded.ContainsString("item-10") {
+		t.Fatalf("legacy decoded filter missing item")
+	}
+}
+
