@@ -635,7 +635,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="chat">
   <h2>💬 Live chatbox</h2>
-  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: chat</code>) streamed live over SSE.</p>
+  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: originless/chat</code>) streamed live over SSE.</p>
   <div class="chat-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="chatDot"></span> <span id="chatStatus">Connecting...</span></span>
@@ -1569,6 +1569,7 @@ window.__cpRecord = function(id){
   var list = $("chatList");
   if(!list) return;
   var ROOM = "general", seen = {}, sse = null, myOwners = {};
+  var CHAT_COLLECTION = "originless/chat";
 
   function addMsg(rec, scroll){
     if(!rec || seen[rec.id]) return;
@@ -1594,7 +1595,7 @@ window.__cpRecord = function(id){
     seen = {};
     if($("chatStatus")) $("chatStatus").textContent = "Loading history...";
     try{
-      var r = await fetch(o() + "/events?collection=chat&label=" + encodeURIComponent("room:" + ROOM) + "&limit=50");
+      var r = await fetch(o() + "/events?collection=" + encodeURIComponent(CHAT_COLLECTION) + "&label=" + encodeURIComponent("room:" + ROOM) + "&limit=50");
       var j = await r.json();
       list.innerHTML = '<div class="chat-empty" id="chatEmpty">No messages yet.<br>Send the first signed message!</div>';
       ((j.events || j.records || []).slice().reverse()).forEach(function(ev){ addMsg(ev, false); });
@@ -1607,7 +1608,7 @@ window.__cpRecord = function(id){
   function connectChat(){
     try{ if(sse) sse.close(); }catch(_){}
     try{
-      var s = new EventSource(o() + "/events/stream?collection=chat&label=" + encodeURIComponent("room:" + ROOM));
+      var s = new EventSource(o() + "/events/stream?collection=" + encodeURIComponent(CHAT_COLLECTION) + "&label=" + encodeURIComponent("room:" + ROOM));
       sse = s;
       s.onopen = function(){
         if($("chatStatus")) $("chatStatus").textContent = "Live: #general";
@@ -1626,7 +1627,7 @@ window.__cpRecord = function(id){
     var btn = $("chatSend");
     btn.disabled = true;
     try{
-      var ev = await createSignedRecord("chat", { text: text.slice(0, 500), author: author, room: ROOM }, ["room:" + ROOM]);
+      var ev = await createSignedRecord(CHAT_COLLECTION, { text: text.slice(0, 500), author: author, room: ROOM }, ["room:" + ROOM]);
       myOwners[ev.owner] = 1;
       var res = await fetch(o() + "/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
       if(!res.ok) throw new Error((await res.json().catch(function(){ return {}; })).error || ("HTTP " + res.status));
