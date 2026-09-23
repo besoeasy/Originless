@@ -138,6 +138,36 @@ func TestSignedEventLifecycle(t *testing.T) {
 	}
 }
 
+func TestExpiredEventRequiresIncludeExpired(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	raw, _ := makeSignedEvent(t, now.Unix()-100, now.Unix()-1, "chat", map[string]any{"message": "expired"}, []string{}, "")
+	store := newEventStore()
+	handler := &eventHandler{store: store}
+	published := publishTestEvent(t, handler, raw)
+	publishedID := eventIDFromResponse(t, published)
+
+	queryRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(queryRecorder, httptest.NewRequest(http.MethodGet, "/events?include_expired=true", nil))
+	if queryRecorder.Code != http.StatusOK || !strings.Contains(queryRecorder.Body.String(), "expired") {
+		t.Errorf("include_expired response = %d/%s, want expired event", queryRecorder.Code, queryRecorder.Body.String())
+	}
+
+	getRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(getRecorder, httptest.NewRequest(http.MethodGet, "/events/"+publishedID, nil))
+	if getRecorder.Code != http.StatusNotFound {
+		t.Errorf("expired get status = %d, want %d", getRecorder.Code, http.StatusNotFound)
+	}
+}
+
+func eventIDFromResponse(t *testing.T, recorder *httptest.ResponseRecorder) string {
+	t.Helper()
+	var response eventPublishResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode publish response: %v", err)
+	}
+	return response.ID
+}
+
 func TestEventQueryCursorAndFilters(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	store := newEventStore()

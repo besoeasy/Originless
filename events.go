@@ -95,7 +95,6 @@ func newEventStore() *eventStore {
 
 func (s *eventStore) insert(event *Event, now time.Time) (bool, string) {
 	s.mu.Lock()
-	s.purgeExpiredLocked(now.Unix())
 	if existing, ok := s.events[event.ID]; ok {
 		storedAt := existing.StoredAt
 		s.mu.Unlock()
@@ -125,7 +124,9 @@ func (s *eventStore) insert(event *Event, now time.Time) (bool, string) {
 
 func (s *eventStore) get(id string, now time.Time, includeExpired bool) (*Event, bool) {
 	s.mu.Lock()
-	s.purgeExpiredLocked(now.Unix())
+	if !includeExpired {
+		s.purgeExpiredLocked(now.Unix())
+	}
 	event, ok := s.events[id]
 	if ok && !includeExpired && event.ExpiresAt <= now.Unix() {
 		ok = false
@@ -141,7 +142,9 @@ func (s *eventStore) get(id string, now time.Time, includeExpired bool) (*Event,
 
 func (s *eventStore) query(filter eventFilter, now time.Time) ([]*Event, string) {
 	s.mu.Lock()
-	s.purgeExpiredLocked(now.Unix())
+	if !filter.IncludeExpired {
+		s.purgeExpiredLocked(now.Unix())
+	}
 	events := make([]*Event, 0, len(s.events))
 	for _, event := range s.events {
 		if !filter.matches(event) {
