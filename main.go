@@ -173,6 +173,8 @@ func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", serveIndex)
 	mux.Handle("/stats", &statsHandler{client: client})
+	mux.Handle("/up", &uploadHandler{client: client})
+	mux.Handle("/upf", &uploadHandler{client: client, folder: true})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
