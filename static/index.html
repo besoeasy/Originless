@@ -604,7 +604,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="canvas">
   <h2>🎨 Collaborative Pixel Canvas</h2>
-  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: canvas</code>) streamed live over SSE.</p>
+  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: originless/canvas</code>) streamed live over SSE.</p>
   <div class="px-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="pxDot"></span> <span id="pxStatus">Loading canvas...</span></span>
@@ -649,6 +649,38 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       <input id="chatText" type="text" placeholder="Write a message..." autocomplete="off" maxlength="500" required>
       <button class="btn solid btn-sm" id="chatSend" type="submit" style="height:38px">Send</button>
     </form>
+  </div>
+</section>
+
+<section id="visitors">
+  <h2>👥 Live visitors</h2>
+  <p class="sub">Page-load visits only: opening this dashboard publishes one anonymous beacon to <code>collection: originless/visits</code> with coarse browser/OS labels and a 7-day expiry. Windows count beacons, not authenticated sessions; beacons are public and forgeable.</p>
+  <div class="svg-telemetry-card">
+    <div class="card-head">
+      <span class="pill pill-ok"><span class="dot-pulse" id="visitDot"></span> <span id="visitStatus">Recording this visit...</span></span>
+      <span class="mono" style="font-size:12px;color:var(--ink3)">page loads &bull; live via SSE</span>
+    </div>
+    <div class="card-meta">
+      <div class="meta-item"><span class="m-k">15 MIN</span><b class="m-v" id="visit15m">…</b></div>
+      <div class="meta-sep"></div>
+      <div class="meta-item"><span class="m-k">1 HOUR</span><b class="m-v" id="visit1h">…</b></div>
+      <div class="meta-sep"></div>
+      <div class="meta-item"><span class="m-k">4 HOURS</span><b class="m-v" id="visit4h">…</b></div>
+      <div class="meta-sep"></div>
+      <div class="meta-item"><span class="m-k">24 HOURS</span><b class="m-v" id="visit24h">…</b></div>
+      <div class="meta-sep"></div>
+      <div class="meta-item"><span class="m-k">1 WEEK</span><b class="m-v" id="visit1w">…</b></div>
+    </div>
+  </div>
+  <div class="svg-telemetry-grid" style="margin-top:20px">
+    <div class="tbl"><table>
+      <thead><tr><th>Operating system</th><th>15m</th><th>1h</th><th>4h</th><th>24h</th><th>1w</th></tr></thead>
+      <tbody id="visitOsRows"><tr><td colspan="6">Loading visits...</td></tr></tbody>
+    </table></div>
+    <div class="tbl"><table>
+      <thead><tr><th>Browser</th><th>15m</th><th>1h</th><th>4h</th><th>24h</th><th>1w</th></tr></thead>
+      <tbody id="visitBrowserRows"><tr><td colspan="6">Loading visits...</td></tr></tbody>
+    </table></div>
   </div>
 </section>
 
@@ -1395,7 +1427,9 @@ window.__cpRecord = function(id){
   if(!board) return;
   var PX_N = 64, PX_SIZE = 512, CELL = PX_SIZE / PX_N;
   var PALETTE = ["#0f172a","#ffffff","#ef4444","#f97316","#eab308","#10b981","#06b6d4","#3b82f6","#a855f7","#ec4899","#94a3b8","#78350f"];
-  var pxColor = "#10b981", pxSeen = {}, pxLoaded = 0, pxSSE = null, pxDown = false;
+  var pxColor = "#10b981", pxSeen = {}, pxCells = {}, pxLoaded = 0, pxSSE = null, pxDown = false;
+  var PX_COLLECTION = "originless/canvas", PX_LABEL = "canvas:landing";
+  var PX_HISTORY_SECONDS = 30 * 24 * 60 * 60, PX_PAGE_LIMIT = 100, PX_MAX_PAGES = 500;
   var ctx = board.getContext("2d");
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,PX_SIZE,PX_SIZE);
 
@@ -1423,15 +1457,24 @@ window.__cpRecord = function(id){
     ctx.fillStyle = color || "#ffffff";
     ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
   }
+  function setPixelCount(){ if($("pxCount")) $("pxCount").textContent = pxLoaded; }
+  function paintCell(x, y, color){
+    if(typeof x !== "number" || typeof y !== "number" || typeof color !== "string") return;
+    if(x < 0 || y < 0 || x >= PX_N || y >= PX_N) return;
+    paint(x, y, color);
+    /* A cell keeps only its newest value; repainting replaces the older pixel. */
+    var key = x + ":" + y;
+    if(!pxCells[key]){
+      pxCells[key] = 1;
+      pxLoaded++;
+      setPixelCount();
+    }
+  }
   function applyEv(rec){
     if(!rec || pxSeen[rec.id]) return;
     pxSeen[rec.id] = 1;
     var d = rec.data || {};
-    if(typeof d.x === "number" && typeof d.y === "number" && typeof d.color === "string"){
-      paint(d.x, d.y, d.color);
-      pxLoaded++;
-      if($("pxCount")) $("pxCount").textContent = pxLoaded;
-    }
+    paintCell(d.x, d.y, d.color);
   }
   function coords(e){
     var r = board.getBoundingClientRect();
@@ -1440,10 +1483,9 @@ window.__cpRecord = function(id){
     return { x: Math.floor(cx / CELL), y: Math.floor(cy / CELL) };
   }
   async function publish(x, y){
-    paint(x, y, pxColor);
-    pxLoaded++; if($("pxCount")) $("pxCount").textContent = pxLoaded;
+    paintCell(x, y, pxColor);
     try{
-      var ev = await createSignedRecord("canvas", { canvasId: "landing", x: x, y: y, color: pxColor, ts: Date.now() }, ["canvas:landing"]);
+      var ev = await createSignedRecord(PX_COLLECTION, { canvasId: "landing", x: x, y: y, color: pxColor, ts: Date.now() }, [PX_LABEL]);
       var res = await fetch(o() + "/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
       if(res.ok){ try{ var d = await res.json(); if(d.id) pxSeen[d.id] = 1; }catch(_){} }
     }catch(err){ showToast("Pixel publish failed: " + err.message, "warn"); }
@@ -1466,26 +1508,44 @@ window.__cpRecord = function(id){
   $("pxClear").onclick = function(){ loadPx(); };
 
   async function loadPx(){
-    pxSeen = {}; pxLoaded = 0;
+    pxSeen = {}; pxCells = {}; pxLoaded = 0;
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,PX_SIZE,PX_SIZE);
-    if($("pxCount")) $("pxCount").textContent = "0";
-    if($("pxStatus")) $("pxStatus").textContent = "Loading last 500 pixels...";
-    /* Newest-first API (limit 100 max): fetch 5 pages oldest-first so replay order is correct */
-    for(var off = 400; off >= 0; off -= 100){
-      try{
-        var r = await fetch(o() + "/events?collection=canvas&label=" + encodeURIComponent("canvas:landing") + "&limit=100&cursor=" + off);
+    setPixelCount();
+    if($("pxStatus")) $("pxStatus").textContent = "Loading last 30 days...";
+    /* Newest-first API (limit 100 max): collect every 30-day page, then replay oldest-first. */
+    var since = Math.floor(Date.now() / 1000) - PX_HISTORY_SECONDS;
+    var cursor = "", pages = [];
+    try{
+      for(var page = 0; page < PX_MAX_PAGES; page++){
+        var url = o() + "/events?collection=" + encodeURIComponent(PX_COLLECTION)
+          + "&label=" + encodeURIComponent(PX_LABEL)
+          + "&since=" + since
+          + "&limit=" + PX_PAGE_LIMIT;
+        if(cursor) url += "&cursor=" + encodeURIComponent(cursor);
+        var r = await fetch(url);
+        if(!r.ok) throw new Error("HTTP " + r.status);
         var j = await r.json();
         var list = (j.events || j.records || []);
-        list.slice().reverse().forEach(applyEv);
-      }catch(_){ break; }
+        if(!list.length) break;
+        pages.push(list);
+        cursor = j.next_cursor || "";
+        if(!cursor || list.length < PX_PAGE_LIMIT) break;
+      }
+    }catch(err){
+      if($("pxStatus")) $("pxStatus").textContent = "Could not load canvas history";
+      connectPx();
+      return;
     }
-    if($("pxStatus")) $("pxStatus").textContent = "Live: canvas:landing (64×64)";
+    for(var p = pages.length - 1; p >= 0; p--){
+      pages[p].slice().reverse().forEach(applyEv);
+    }
+    if($("pxStatus")) $("pxStatus").textContent = "Live: originless/canvas · canvas:landing (64×64)";
     connectPx();
   }
   function connectPx(){
     try{ if(pxSSE) pxSSE.close(); }catch(_){}
     try{
-      var s = new EventSource(o() + "/events/stream?collection=canvas&label=" + encodeURIComponent("canvas:landing"));
+      var s = new EventSource(o() + "/events/stream?collection=" + encodeURIComponent(PX_COLLECTION) + "&label=" + encodeURIComponent(PX_LABEL));
       pxSSE = s;
       s.onopen = function(){ if($("pxDot")) $("pxDot").className = "dot-pulse"; };
       var onEv = function(e){ try{ applyEv(JSON.parse(e.data)); }catch(_){} };
@@ -1573,6 +1633,224 @@ window.__cpRecord = function(id){
   try{ $("chatNick").value = localStorage.getItem("originless_nickname") || "Anon"; }catch(_){}
   $("chatNick").addEventListener("change", function(){ try{ localStorage.setItem("originless_nickname", $("chatNick").value.trim() || "Anon"); }catch(_){} });
   loadChat();
+})();
+
+/* Page-load visitor analytics (recent visits by window, browser, and OS) */
+(function(){
+  var section = $("visitors");
+  if(!section) return;
+  var VIS_COLLECTION = "originless/visits";
+  var VIS_TTL_SECONDS = 7 * 24 * 60 * 60;
+  var VIS_WEEK_SECONDS = VIS_TTL_SECONDS;
+  var VIS_PAGE_LIMIT = 100;
+  var VIS_MAX_PAGES = 200;
+  var VIS_WINDOWS = [
+    { key: "w15", label: "15 MIN", seconds: 15 * 60, el: "visit15m" },
+    { key: "h1", label: "1 HOUR", seconds: 60 * 60, el: "visit1h" },
+    { key: "h4", label: "4 HOURS", seconds: 4 * 60 * 60, el: "visit4h" },
+    { key: "d1", label: "24 HOURS", seconds: 24 * 60 * 60, el: "visit24h" },
+    { key: "w1", label: "1 WEEK", seconds: VIS_WEEK_SECONDS, el: "visit1w" }
+  ];
+  var VIS_PRETTY = {
+    windows: "Windows", macos: "macOS", linux: "Linux", android: "Android",
+    ios: "iOS", chromeos: "ChromeOS", chrome: "Chrome", edge: "Edge",
+    firefox: "Firefox", safari: "Safari", opera: "Opera", samsung: "Samsung Internet",
+    other: "Other"
+  };
+  var visits = [], visitSeen = {}, visitSSE = null;
+  var visitCapped = false, visitBeaconRecorded = false;
+
+  function visitToken(value){
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24);
+  }
+  function detectVisitOS(){
+    try{
+      var nav = window.navigator || {};
+      if(nav.userAgentData && nav.userAgentData.platform) return visitToken(nav.userAgentData.platform) || "other";
+      var ua = String(nav.userAgent || "");
+      if(/\bwindows\b/i.test(ua)) return "windows";
+      if(/\bmacintosh\b|\bmac os x\b/i.test(ua)) return "macos";
+      if(/\bandroid\b/i.test(ua)) return "android";
+      if(/\biphone\b|\bipad\b|\bios\b/i.test(ua)) return "ios";
+      if(/\bcros\b/i.test(ua)) return "chromeos";
+      if(/\blinux\b/i.test(ua)) return "linux";
+    }catch(_){}
+    return "other";
+  }
+  function detectVisitBrowser(){
+    try{
+      var nav = window.navigator || {};
+      var ud = nav.userAgentData;
+      if(ud && Object.prototype.toString.call(ud.brands) === "[object Array]"){
+        var chromeLike = "";
+        for(var i = 0; i < ud.brands.length; i++){
+          var name = visitToken(ud.brands[i] && ud.brands[i].brand);
+          if(name === "microsoftedge") return "edge";
+          if(name === "opera") return "opera";
+          if(name === "firefox") return "firefox";
+          if(name === "safari") return "safari";
+          if(name === "chromium" || name === "googlechrome" || name === "chrome") chromeLike = "chrome";
+        }
+        if(chromeLike) return chromeLike;
+      }
+      var ua = String(nav.userAgent || "");
+      if(/\bedge?\b|\bedg(a|ios)?\b/i.test(ua)) return "edge";
+      if(/\bopr\b|\bopera\b/i.test(ua)) return "opera";
+      if(/\bfirefox\b|\bfxios\b/i.test(ua)) return "firefox";
+      if(/\bsamsungbrowser\b/i.test(ua)) return "samsung";
+      if(/\bcrios\b|\bchrome\b|\bchromium\b/i.test(ua)) return "chrome";
+      if(/\bsafari\b/i.test(ua)) return "safari";
+    }catch(_){}
+    return "other";
+  }
+  function prettyVisit(token){
+    if(VIS_PRETTY[token]) return VIS_PRETTY[token];
+    return token.charAt(0).toUpperCase() + token.slice(1);
+  }
+  function normalizeVisit(rec){
+    if(!rec || !rec.id || !rec.data) return null;
+    if(typeof rec.created_at !== "number" || !(rec.created_at > 0)) return null;
+    var browser = visitToken(rec.data.browser);
+    var os = visitToken(rec.data.os);
+    if(!browser || !os) return null;
+    return { id: String(rec.id), created: rec.created_at, browser: browser, os: os };
+  }
+  function trackVisit(rec){
+    var v = normalizeVisit(rec);
+    if(!v || visitSeen[v.id]) return false;
+    visitSeen[v.id] = v.created;
+    visits.push(v);
+    return true;
+  }
+  function pruneVisits(now){
+    var cutoff = now - VIS_WEEK_SECONDS;
+    visits = visits.filter(function(v){ return v.created >= cutoff; });
+    for(var id in visitSeen){
+      if(visitSeen[id] < cutoff) delete visitSeen[id];
+    }
+  }
+  function setVisitStatus(text){ if($("visitStatus")) $("visitStatus").textContent = text; }
+  function aggregateVisits(now){
+    var totals = {}, osGroups = {}, browserGroups = {};
+    VIS_WINDOWS.forEach(function(win){ totals[win.key] = 0; });
+    visits.forEach(function(v){
+      var age = now - v.created;
+      if(age < 0) age = 0;
+      VIS_WINDOWS.forEach(function(win){
+        if(age <= win.seconds){
+          totals[win.key]++;
+          osGroups[v.os] = osGroups[v.os] || {};
+          browserGroups[v.browser] = browserGroups[v.browser] || {};
+          osGroups[v.os][win.key] = (osGroups[v.os][win.key] || 0) + 1;
+          browserGroups[v.browser][win.key] = (browserGroups[v.browser][win.key] || 0) + 1;
+        }
+      });
+    });
+    return { totals: totals, osGroups: osGroups, browserGroups: browserGroups };
+  }
+  function renderVisitRows(tbodyId, groups){
+    var tb = $(tbodyId);
+    if(!tb) return;
+    var names = Object.keys(groups).sort(function(a, b){
+      var weekDiff = (groups[b].w1 || 0) - (groups[a].w1 || 0);
+      return weekDiff !== 0 ? weekDiff : (a < b ? -1 : 1);
+    });
+    if(!names.length){
+      tb.innerHTML = '<tr><td colspan="6">No visits in the last 7 days.</td></tr>';
+      return;
+    }
+    tb.innerHTML = names.map(function(name){
+      var c = groups[name] || {};
+      return '<tr><td><strong>' + safeEscape(prettyVisit(name)) + '</strong></td>'
+        + '<td>' + (c.w15 || 0) + '</td>'
+        + '<td>' + (c.h1 || 0) + '</td>'
+        + '<td>' + (c.h4 || 0) + '</td>'
+        + '<td>' + (c.d1 || 0) + '</td>'
+        + '<td>' + (c.w1 || 0) + '</td></tr>';
+    }).join("");
+  }
+  function renderVisits(now){
+    now = now || Math.floor(Date.now() / 1000);
+    pruneVisits(now);
+    var agg = aggregateVisits(now);
+    var suffix = visitCapped ? "+" : "";
+    VIS_WINDOWS.forEach(function(win){
+      if($(win.el)) $(win.el).textContent = agg.totals[win.key] + suffix;
+    });
+    renderVisitRows("visitOsRows", agg.osGroups);
+    renderVisitRows("visitBrowserRows", agg.browserGroups);
+    var status = "Live · " + agg.totals.w1 + suffix + " visits in 7 days";
+    if(!visitBeaconRecorded) status += " · this visit was not recorded";
+    setVisitStatus(status);
+  }
+  async function loadVisits(){
+    var now = Math.floor(Date.now() / 1000);
+    var since = now - VIS_WEEK_SECONDS;
+    var cursor = "", fetchedPages = 0;
+    setVisitStatus("Loading visits...");
+    try{
+      for(var page = 0; page < VIS_MAX_PAGES; page++){
+        var url = o() + "/events?collection=" + encodeURIComponent(VIS_COLLECTION)
+          + "&since=" + since
+          + "&limit=" + VIS_PAGE_LIMIT;
+        if(cursor) url += "&cursor=" + encodeURIComponent(cursor);
+        var r = await fetch(url);
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        var j = await r.json();
+        var list = (j.events || j.records || []);
+        if(!list.length) break;
+        fetchedPages++;
+        list.forEach(trackVisit);
+        cursor = j.next_cursor || "";
+        if(!cursor || list.length < VIS_PAGE_LIMIT) break;
+      }
+      visitCapped = fetchedPages >= VIS_MAX_PAGES && !!cursor;
+    }catch(err){
+      setVisitStatus("Visitors unavailable");
+      return;
+    }
+    renderVisits(now);
+  }
+  async function recordVisit(){
+    var browser = detectVisitBrowser();
+    var os = detectVisitOS();
+    try{
+      var ev = await createSignedRecord(VIS_COLLECTION, { kind: "visit", browser: browser, os: os, ts: Date.now() }, ["browser:" + browser, "os:" + os], VIS_TTL_SECONDS);
+      var res = await fetch(o() + "/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(ev) });
+      if(!res.ok) return false;
+      var d = await res.json().catch(function(){ return {}; });
+      if(d && d.id) trackVisit({ id: d.id, created_at: ev.created_at, data: { browser: browser, os: os } });
+      return !!(d && d.id);
+    }catch(_){
+      return false;
+    }
+  }
+  function connectVisitStream(){
+    try{ if(visitSSE) visitSSE.close(); }catch(_){}
+    try{
+      var s = new EventSource(o() + "/events/stream?collection=" + encodeURIComponent(VIS_COLLECTION));
+      visitSSE = s;
+      var onEv = function(e){
+        try{ if(trackVisit(JSON.parse(e.data))) renderVisits(); }catch(_){}
+      };
+      s.onmessage = onEv; s.addEventListener("event", onEv); s.addEventListener("record", onEv);
+      s.onerror = function(){ if($("visitDot")) $("visitDot").className = "dot-pulse dot-off"; };
+      s.onopen = function(){ if($("visitDot")) $("visitDot").className = "dot-pulse"; };
+    }catch(_){}
+  }
+  async function bootVisits(){
+    visitBeaconRecorded = await recordVisit();
+    await loadVisits();
+    connectVisitStream();
+    setInterval(function(){ renderVisits(); }, 60000);
+    setInterval(loadVisits, 300000);
+  }
+  if(O) O.addEventListener("input", function(){
+    visits = []; visitSeen = {}; visitCapped = false; visitBeaconRecorded = false;
+    loadVisits();
+    connectVisitStream();
+  });
+  bootVisits();
 })();
 
 /* Generative hero art — constellation seeded by DB size (reseeded on change) */
