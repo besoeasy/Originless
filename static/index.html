@@ -374,11 +374,49 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 #chatNick{width:110px;flex-shrink:0}
 #chatText{flex:1;min-width:0}
 
+/* Hero Tagline & Subtext */
+.hero-tagline{font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.02em;color:var(--ink);max-width:32ch;line-height:1.25;margin-top:4px}
+.hero-subtext{font-size:clamp(14px,1.5vw,16px);color:var(--ink2);max-width:54ch;line-height:1.55}
+.hero-replaces{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+
+/* Architecture Comparison Cards */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
+.compare-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,.03)}
+.compare-card.bad{border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.02)}
+.compare-card.good{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.03)}
+.compare-head{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:15px}
+.compare-list{list-style:none;padding:0;display:flex;flex-direction:column;gap:10px;font-size:13.5px;color:var(--ink2)}
+.compare-list li{display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.compare-bad-mark{color:#ef4444;font-weight:700;flex-shrink:0}
+.compare-good-mark{color:var(--ok);font-weight:700;flex-shrink:0}
+
+/* Universal Protocol Replacement Grid */
+.proto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:36px}
+.proto-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(8px);transition:all .2s ease;box-shadow:0 4px 16px rgba(0,0,0,.02)}
+.proto-card:hover{border-color:var(--line-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.06)}
+.proto-card-top{display:flex;justify-content:space-between;align-items:center}
+.proto-icon{font-size:22px;line-height:1}
+.proto-title{font-size:15.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.proto-desc{font-size:13.5px;color:var(--ink2);line-height:1.55}
+.proto-replaces{font-size:12px;color:var(--ink3);display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px solid var(--line)}
+
+/* Possibilities Showcase Grid */
+.possibility-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.possibility-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(8px);transition:all .2s ease;box-shadow:0 4px 16px rgba(0,0,0,.02)}
+.possibility-card:hover{border-color:var(--line-hover);transform:translateY(-2px)}
+.possibility-head{display:flex;align-items:center;gap:10px}
+.possibility-icon{font-size:22px;line-height:1}
+.possibility-title{font-size:15px;font-weight:600;color:var(--ink)}
+.possibility-text{font-size:13px;color:var(--ink2);line-height:1.55}
+
 @media(max-width:860px){
-  .hero,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
+  .hero,.svg-telemetry-grid,.px-layout,.compare-grid{grid-template-columns:1fr}
   .hero{padding:40px 0}
   section{padding:44px 0}
   .ws-bar{flex-direction:column;align-items:flex-start}
+}
+@media(max-width:720px){
+  nav a:not(.btn){display:none}
 }
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .btn-icon.spin svg{animation:spin .6s cubic-bezier(0.4, 0, 0.2, 1)}
@@ -403,6 +441,11 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 <header>
   <a class="brand" href="#top"><i></i>Originless</a>
   <nav>
+    <a href="#universal-backend">Backend</a>
+    <a href="#explorer">Explorer</a>
+    <a href="#canvas">Canvas</a>
+    <a href="#chat">Chat</a>
+    <a href="#api">API</a>
     <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle dark/light theme">
       <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -419,6 +462,15 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
   <canvas id="heroArt" aria-hidden="true"></canvas>
   <div class="hero-inner">
     <div class="hero-logo" id="heroLogo" aria-label="Originless">ORIGINLESS</div>
+    <p class="hero-tagline">The Universal Zero-Auth Backend for Modern Apps</p>
+    <p class="hero-subtext">No accounts. No API keys. No database migrations. Signed events, content-addressed binary blobs, native real-time streams, and autonomous P2P replication in a single binary.</p>
+    <div class="hero-replaces">
+      <span class="pill pill-mute">Replaces Auth0 &amp; Clerk</span>
+      <span class="pill pill-mute">Replaces Redis Pub/Sub</span>
+      <span class="pill pill-mute">Replaces AWS S3</span>
+      <span class="pill pill-mute">Replaces Firebase</span>
+      <span class="pill pill-mute">Replaces Nostr Relays</span>
+    </div>
     <div class="hero-links">
       <span class="pill pill-ok" id="heroVersion">v…</span>
       <a class="hero-link" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">GitHub ↗</a>
@@ -427,6 +479,153 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     <div class="hero-node mono" id="heroNode" title="The node this page reads from and writes to">…</div>
   </div>
 </div>
+
+<section id="universal-backend">
+  <h2>The Universal Backend for Building Apps</h2>
+  <p class="sub">Collapse sprawling cloud microservices into two universal primitives — <strong>Signed Events</strong> and <strong>Content-Addressed Blobs</strong>. Build full-featured real-time apps in pure vanilla HTML and JavaScript with zero backend boilerplate.</p>
+
+  <!-- Problem vs Solution Comparison -->
+  <div class="compare-grid">
+    <div class="compare-card bad">
+      <div class="compare-head">
+        <span style="color:#ef4444">The Traditional SaaS Stack</span>
+        <span class="pill pill-warn">Fragile &amp; Expensive</span>
+      </div>
+      <ul class="compare-list">
+        <li><span class="compare-bad-mark">&#10005;</span><span><strong>5+ Fragmented Services</strong>: Juggling Auth0, PostgreSQL, AWS S3, Redis, and Pusher just to build a simple collaborative tool.</span></li>
+        <li><span class="compare-bad-mark">&#10005;</span><span><strong>Credential &amp; Secret Leaks</strong>: Rotating API keys, JWT expiration races, and central user database breach liabilities.</span></li>
+        <li><span class="compare-bad-mark">&#10005;</span><span><strong>Database Migrations</strong>: Schema alterations, ORM overhead, connection pool limits, and downtime risk.</span></li>
+        <li><span class="compare-bad-mark">&#10005;</span><span><strong>Escalating Cloud Bills</strong>: Per-MAU authentication fees, egress penalties, and monthly SaaS subscriptions that punish growth.</span></li>
+      </ul>
+    </div>
+    <div class="compare-card good">
+      <div class="compare-head">
+        <span style="color:var(--ok)">The Originless Way</span>
+        <span class="pill pill-ok">The Best Option</span>
+      </div>
+      <ul class="compare-list">
+        <li><span class="compare-good-mark">&#10003;</span><span><strong>One Single Binary</strong>: Zero-dependency Go container running on a $4/mo VPS, Raspberry Pi, Umbrel, Docker, or laptop.</span></li>
+        <li><span class="compare-good-mark">&#10003;</span><span><strong>Client-Side Cryptography</strong>: Ed25519 keypairs generated on-device in 2 lines of code. The key is the identity; zero server auth state.</span></li>
+        <li><span class="compare-good-mark">&#10003;</span><span><strong>Native Real-Time (SSE)</strong>: Instant Server-Sent Events (<code>/events/stream</code>) supported natively in every browser without socket libraries.</span></li>
+        <li><span class="compare-good-mark">&#10003;</span><span><strong>Autonomous Self-Cleaning &amp; P2P</strong>: Automatic TTL record pruning, orphan blob garbage collection, and $O(1)$ Kademlia DHT swarm sync.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Replaced Protocols Grid -->
+  <div style="margin-bottom:20px">
+    <h3 style="font-size:20px;font-weight:700;margin-bottom:6px">Protocols &amp; Cloud Services Replaced</h3>
+    <p style="font-size:14px;color:var(--ink3)">Standard open protocols replace proprietary cloud APIs with zero vendor lock-in.</p>
+  </div>
+
+  <div class="proto-grid">
+    <div class="proto-card">
+      <div class="proto-card-top">
+        <span class="proto-icon">🔐</span>
+        <span class="pill pill-ok">Zero Auth</span>
+      </div>
+      <div class="proto-title">Ed25519 Cryptographic Signatures</div>
+      <div class="proto-desc">Identity lives strictly on client devices. Every event is mathematically signed. Zero passwords to store, zero user databases to breach, and zero token expiration bugs.</div>
+      <div class="proto-replaces"><strong>Replaces:</strong> Auth0, Clerk, Firebase Auth, AWS Cognito</div>
+    </div>
+
+    <div class="proto-card">
+      <div class="proto-card-top">
+        <span class="proto-icon">⚡</span>
+        <span class="pill pill-cy">Native HTTP</span>
+      </div>
+      <div class="proto-title">Native Server-Sent Events (SSE)</div>
+      <div class="proto-desc">Stream live events to browsers with native <code>EventSource</code> and terminals with <code>curl -N</code>. Filterable by collection and label with automatic client reconnection.</div>
+      <div class="proto-replaces"><strong>Replaces:</strong> Redis Pub/Sub, Pusher, Ably, Socket.io</div>
+    </div>
+
+    <div class="proto-card">
+      <div class="proto-card-top">
+        <span class="proto-icon">📦</span>
+        <span class="pill pill-ok">Content-Addressed</span>
+      </div>
+      <div class="proto-title">SHA-256 Binary Blob Storage</div>
+      <div class="proto-desc">Upload files up to 1 GiB atomically with signed events. Deduplicated by hash, protected with an opaque binary shield, and automatically cleaned up when events expire.</div>
+      <div class="proto-replaces"><strong>Replaces:</strong> AWS S3, Cloudflare R2, MinIO, 0x0.st</div>
+    </div>
+
+    <div class="proto-card">
+      <div class="proto-card-top">
+        <span class="proto-icon">🗄️</span>
+        <span class="pill pill-cy">ACID WAL</span>
+      </div>
+      <div class="proto-title">Indexed SQLite Event Store</div>
+      <div class="proto-desc">Microsecond queries, full-text search, label indexing, keyset cursor pagination, and built-in TTL eviction. Zero database migrations or ORM schemas required.</div>
+      <div class="proto-replaces"><strong>Replaces:</strong> Firebase Firestore, Supabase, PocketBase</div>
+    </div>
+
+    <div class="proto-card">
+      <div class="proto-card-top">
+        <span class="proto-icon">🌐</span>
+        <span class="pill pill-ok">libp2p Mesh</span>
+      </div>
+      <div class="proto-title">Autonomous P2P Swarm</div>
+      <div class="proto-desc">Single-port HTTP/WS multiplexing, AutoNAT hole punching, Kademlia DHT discovery, and $O(1)$ commutative XOR state root fast-path sync across nodes worldwide.</div>
+      <div class="proto-replaces"><strong>Replaces:</strong> Nostr Relays, Matrix Homeservers, BitTorrent</div>
+    </div>
+  </div>
+
+  <!-- Possibilities Grid -->
+  <div style="margin-bottom:20px;margin-top:40px">
+    <h3 style="font-size:20px;font-weight:700;margin-bottom:6px">Possibility Is What You Can Imagine</h3>
+    <p style="font-size:14px;color:var(--ink3)">What can you build with Originless? Everything you can imagine, in a fraction of the time.</p>
+  </div>
+
+  <div class="possibility-grid">
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">🎨</span>
+        <div class="possibility-title">Real-Time Collaborative Apps</div>
+      </div>
+      <div class="possibility-text">Shared whiteboards, code pads, live voting, and infinite collaborative canvases. Every pixel or stroke is a signed event pushed instantly to all peers over SSE. <em>(Try the live pixel canvas below!)</em></div>
+    </div>
+
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">💬</span>
+        <div class="possibility-title">Encrypted Chat &amp; Social Feeds</div>
+      </div>
+      <div class="possibility-text">Public room messaging, decentralized comments for static blogs, and end-to-end encrypted private chats without a central database operator. <em>(Try the live chatbox below!)</em></div>
+    </div>
+
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">🤖</span>
+        <div class="possibility-title">Autonomous AI Agent Swarms</div>
+      </div>
+      <div class="possibility-text">Multi-agent blackboard architectures where LLMs coordinate workflows, claim task events, tail live SSE streams, and exchange binary model weights or artifacts without API tokens.</div>
+    </div>
+
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">📱</span>
+        <div class="possibility-title">Local-First &amp; Multi-Device Sync</div>
+      </div>
+      <div class="possibility-text">Personal notes (Obsidian-style sync), todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers when online.</div>
+    </div>
+
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">🎮</span>
+        <div class="possibility-title">Turn-Based Multiplayer Games</div>
+      </div>
+      <div class="possibility-text">Chess, checkers, card games, and turn-based strategy where each move is a cryptographically signed event, guaranteeing cheat-proof move history and player provenance.</div>
+    </div>
+
+    <div class="possibility-card">
+      <div class="possibility-head">
+        <span class="possibility-icon">📡</span>
+        <div class="possibility-title">IoT &amp; Edge Sensor Fleets</div>
+      </div>
+      <div class="possibility-text">Environmental monitors, home automation hubs, and edge cameras logging time-series events and snapshot blobs with automatic 7-day or 30-day lifecycle retention.</div>
+    </div>
+  </div>
+</section>
 
 <section id="node">
   <h2>What is this node?</h2>
@@ -609,7 +808,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="canvas">
   <h2>🎨 Collaborative Pixel Canvas</h2>
-  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: originless/canvas</code>) streamed live over SSE.</p>
+  <p class="sub">A minimal r/place running entirely on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: originless/canvas</code>) streamed live over SSE — demonstrating how anyone can build real-time collaborative apps on Originless with zero server code.</p>
   <div class="px-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="pxDot"></span> <span id="pxStatus">Loading canvas...</span></span>
@@ -640,7 +839,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="chat">
   <h2>💬 Live chatbox</h2>
-  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: originless/chat</code>) streamed live over SSE.</p>
+  <p class="sub">A signed, real-time chat running with zero custom backend — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: originless/chat</code>) broadcast live to all connected clients over Server-Sent Events.</p>
   <div class="chat-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="chatDot"></span> <span id="chatStatus">Connecting...</span></span>

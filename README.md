@@ -2,8 +2,9 @@
 
 # Originless
 
-**Zero-auth backend for the open web — signed events, binary blobs, live P2P sync.**  
-No accounts. No API keys. Zero complex setup. One single binary.
+**The Universal Zero-Auth Backend for Modern Apps & Autonomous Agents.**  
+Signed events. Content-addressed binary blobs. Native real-time streams. Autonomous P2P mesh.  
+No accounts. No API keys. No database migrations. One single binary.
 
 <br>
 
@@ -13,20 +14,47 @@ No accounts. No API keys. Zero complex setup. One single binary.
 
 ---
 
-## 1. Overview
+## 1. The Universal Backend: Why Originless?
 
-Originless replaces sprawling backend microservices with **two simple primitives** running inside a single zero-dependency container:
+### The Problem We Solve
+Building modern connected applications today is unnecessarily painful. A simple collaborative app, mobile client, or AI agent tool typically requires:
+* **An Auth Provider** (Auth0, Clerk, Cognito) to issue JWTs and manage user databases.
+* **A Database** (PostgreSQL, MongoDB, Supabase) with schema migrations, connection pooling, and ORMs.
+* **Object Storage** (AWS S3, Cloudflare R2) with bucket policies, signed upload URLs, and orphan file cleanup.
+* **A Pub/Sub & WebSocket Broker** (Redis, Pusher, Socket.io) to push real-time updates and keep state synchronized.
+* **A P2P or Federation Protocol** (Nostr, Matrix, libp2p) when attempting decentralized multi-node replication.
 
-1. **Signed JSON Events**: Ephemeral or durable structured data signed client-side with **Ed25519**.
-2. **Content-Addressed Blobs**: Opaque binary files identified and deduplicated by **SHA-256**.
+You end up managing 5 separate cloud services, juggling API keys and secrets, paying escalating per-MAU SaaS bills, and wrestling with complex vendor lock-in.
 
-| Service Replaced | What Originless Does Instead | Key Advantage |
-| :--- | :--- | :--- |
-| **ntfy / Pusher** | Real-time pub/sub streams over Server-Sent Events (`GET /events/stream`). | Native browser `EventSource` and `curl -N`. No daemon required. |
-| **Sentry / Logs** | Signed telemetry and error ingestion (`POST /events`) with automatic TTL expiry. | Zero auth tokens to manage or rotate. Filter by label or tail live. |
-| **Nostr Relays** | Cryptographically verified Ed25519 events with libp2p swarm replication. | Standard HTTP REST + SSE; no custom relay protocols. |
-| **0x0.st / S3** | Content-addressed binary blob storage (`/blob/{sha256}`) with streaming downloads. | Blobs are tied to signed events; automatic orphan garbage collection. |
-| **Redis Pub/Sub** | Real-time streaming backed by high-performance SQLite WAL storage. | Microsecond queries, crash-safe persistence, zero memory bloat. |
+### The Originless Solution
+Originless collapses your entire backend stack into **two universal primitives** delivered by a **single zero-dependency binary**:
+
+1. **Signed JSON Events**: Ephemeral or durable structured data signed client-side with **Ed25519**. The client holds its own private key; the node verifies the signature mathematically. There are no accounts to create, no passwords to reset, and no API keys to leak.
+2. **Content-Addressed Blobs**: Opaque binary files identified and deduplicated by **SHA-256**. Uploaded atomically with events, protected against abuse, and automatically garbage-collected when referencing events expire.
+
+Every node exposes standard HTTP REST endpoints and native Server-Sent Events (`GET /events/stream`), backed by high-throughput SQLite WAL storage and an autonomous libp2p P2P swarm.
+
+### Protocols & Cloud Services Replaced
+
+| Layer | Traditional Stack | What Originless Does Instead | Why It Is Better |
+| :--- | :--- | :--- | :--- |
+| **Authentication & Identity** | Auth0, Clerk, Firebase Auth, Cognito | Client-side **Ed25519 asymmetric cryptography**. Identity is a cryptographic keypair generated in 2 lines of code. | Zero auth state on server. No passwords to leak, no JWT expiration races, no user tables to maintain or breach. |
+| **Real-Time Pub/Sub** | Redis Pub/Sub, Pusher, Ably, Socket.io | Native HTTP **Server-Sent Events (`GET /events/stream`)** with collection and label filtering. | Works natively in every browser with `new EventSource()` and in terminal with `curl -N`. Zero client SDKs needed. |
+| **Binary & File Storage** | AWS S3, Cloudflare R2, MinIO, 0x0.st | Content-addressed storage (**`/blob/{sha256}`**) with streaming byte transfers and ETag verification. | Atomic multipart upload with event; automatic orphan GC; built-in opaque content shield against XSS and hotlinking. |
+| **Database & Persistence** | PostgreSQL, Firestore, PocketBase | Indexed **SQLite WAL Event Store** with full-text search, label indexes, and keyset pagination. | Microsecond queries, zero config, automatic TTL expiration, and crash-safe single-file persistence. |
+| **P2P Swarm & Relays** | Nostr Relays, Matrix, BitTorrent | Embedded **libp2p mesh** with Kademlia DHT discovery, AutoNAT hole-punching, and $O(1)$ state vector root sync. | Run 1 node or 1,000 nodes worldwide. They discover each other and replicate state automatically on a single shared port. |
+
+### Possibility Is What You Can Imagine
+
+With Originless handling identity, persistence, binary storage, real-time push, and P2P distribution, you can build full-featured applications in a single static HTML file or a small script:
+
+* 🎨 **Collaborative Real-Time Canvases & Whiteboards**: Infinite shared canvas or r/place style boards (see live demo on any node dashboard) where every brush stroke or pixel is an Ed25519-signed event pushed instantly over SSE.
+* 💬 **Encrypted Chat & Social Networks**: End-to-end encrypted messaging, public community rooms, topic forums, or decentralized Twitter-like feeds without a central server operator.
+* 🤖 **Autonomous AI Agent Swarms**: Blackboard coordination architectures where LLMs and agents post tasks, tail live event streams, claim jobs, and exchange binary model weights or artifacts without needing API keys.
+* 📱 **Local-First & Multi-Device Sync**: Note-taking apps (Obsidian-style sync), personal wikis, todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers.
+* 🎮 **Turn-Based Multiplayer Games**: Chess, checkers, card games, and turn-based strategy where each move is a cryptographically signed event, guaranteeing cheat-proof move history and player provenance.
+* 📡 **IoT & Edge Sensor Fleets**: Environmental sensors, home automation hubs, and edge cameras that log time-series telemetry events and image blobs with automatic 7-day or 30-day TTL expiry.
+* 📦 **Decentralized Package & Firmware Mirrors**: Immutable distribution of binaries, WASM modules, container layers, and datasets verified purely by SHA-256 hash.
 
 ---
 
