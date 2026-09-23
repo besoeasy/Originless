@@ -1,7 +1,12 @@
 #!/bin/sh
 set -u
 
-ipfs daemon --init --init-profile=lowpower &
+if [ ! -f "${IPFS_PATH:-/data/ipfs}/config" ]; then
+	ipfs init --profile=lowpower
+fi
+ipfs config --json Routing.Type '"dhtclient"'
+
+ipfs daemon &
 ipfs_pid=$!
 
 stop_ipfs() {
