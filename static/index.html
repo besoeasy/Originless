@@ -79,7 +79,40 @@
     }
 
     .event-card { margin-top: 1rem; }
+    .stream-card { margin-top: 1rem; }
     .canvas-card { margin-top: 1rem; }
+    .stream-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+    .stream-toolbar .state { margin: 0; }
+    .secondary-button { height: 2rem; padding: 0 .65rem; background: var(--bg); color: var(--fg); font-size: .8rem; }
+    .secondary-button:hover { background: var(--hover); color: var(--fg); }
+    .event-list { list-style: none; margin: 0; padding: 0; }
+    .event-item { padding: .85rem 0; border-top: 1px solid var(--border); }
+    .event-item:first-child { border-top: 0; padding-top: 0; }
+    .event-item:last-child { padding-bottom: 0; }
+    .event-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+    .event-collection { font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+    .event-time { flex: 0 0 auto; color: var(--muted); font-size: .75rem; white-space: nowrap; }
+    .event-meta { margin: .25rem 0 0; color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
+    .event-data { display: block; margin-top: .5rem; max-height: 4.5rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .event-link { display: inline-block; margin-top: .5rem; font-size: .75rem; }
+    .event-pagination { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1rem; }
+    .event-pagination button:disabled { cursor: not-allowed; }
+    .event-page { color: var(--muted); font-size: .8rem; }
+    .chat-card { margin-top: 1rem; }
+    .chat-list { list-style: none; margin: 0 0 1rem; padding: 0; }
+    .chat-item { padding: .75rem 0; border-top: 1px solid var(--border); }
+    .chat-item:first-child { border-top: 0; padding-top: 0; }
+    .chat-item:last-child { padding-bottom: 0; }
+    .chat-meta { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .75rem; }
+    .chat-author { color: var(--fg); font-weight: 600; overflow-wrap: anywhere; }
+    .chat-time { flex: 0 0 auto; white-space: nowrap; }
+    .chat-text { margin: .4rem 0 0; font-size: .875rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .chat-form { margin-top: 1rem; }
+    .chat-label { display: block; margin-bottom: .4rem; color: var(--muted); font-size: .8rem; }
+    .chat-compose { display: flex; gap: .5rem; }
+    .chat-input { min-width: 0; flex: 1; height: 2.25rem; padding: 0 .7rem; border: 1px solid var(--border-strong); border-radius: .375rem; background: var(--bg); color: var(--fg); font: inherit; font-size: .875rem; }
+    .chat-input:focus { border-color: var(--fg); }
+    .chat-hint { margin: .5rem 0 0; color: var(--muted); font-size: .75rem; }
     .canvas-copy { margin: -.25rem 0 1rem; color: var(--muted); font-size: .875rem; line-height: 1.5; }
     .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
     .color-control { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .875rem; }
@@ -193,6 +226,40 @@
       </div>
     </section>
 
+    <section class="card stream-card" aria-live="polite">
+      <h2>Event stream</h2>
+      <p class="canvas-copy">The latest signed events, newest first. Browse 10 events per page.</p>
+      <div class="stream-toolbar">
+        <p id="stream-state" class="state">Loading events…</p>
+        <button id="stream-refresh" class="secondary-button" type="button">Refresh</button>
+      </div>
+      <p id="stream-error" class="error" hidden></p>
+      <ol id="event-list" class="event-list" hidden></ol>
+      <p id="stream-empty" class="state" hidden>No events have been published yet.</p>
+      <nav id="event-pagination" class="event-pagination" aria-label="Event pages" hidden>
+        <button id="events-prev" class="secondary-button" type="button">Previous</button>
+        <span id="events-page" class="event-page">Page 1</span>
+        <button id="events-next" class="secondary-button" type="button">Next</button>
+      </nav>
+    </section>
+
+    <section class="card chat-card" aria-live="polite">
+      <h2>Chat</h2>
+      <p class="canvas-copy">Write to <code>originless/chat</code>. Messages are signed in your browser, and the latest three appear for everyone.</p>
+      <p id="chat-state" class="state">Loading messages…</p>
+      <p id="chat-error" class="error" hidden></p>
+      <ol id="chat-messages" class="chat-list" hidden></ol>
+      <p id="chat-empty" class="state" hidden>No messages yet. Start the conversation.</p>
+      <form id="chat-form" class="chat-form">
+        <label class="chat-label" for="chat-message">Message</label>
+        <div class="chat-compose">
+          <input id="chat-message" class="chat-input" type="text" maxlength="1000" autocomplete="off" placeholder="Write a message…" required>
+          <button id="chat-submit" type="submit">Send</button>
+        </div>
+        <p class="chat-hint">Messages expire after 30 days.</p>
+      </form>
+    </section>
+
     <section class="card canvas-card">
       <h2>Shared canvas</h2>
       <p class="canvas-copy">A collaborative 64 × 64 pixel board. Pick a color, then click or drag to paint. Every painted pixel becomes an Ed25519-signed event and is broadcast live to everyone.</p>
@@ -225,6 +292,34 @@
     const eventsError = document.getElementById("events-error");
     const eventCollections = document.getElementById("event-collections");
     const refresh = document.getElementById("refresh");
+    const streamState = document.getElementById("stream-state");
+    const streamError = document.getElementById("stream-error");
+    const streamRefresh = document.getElementById("stream-refresh");
+    const eventList = document.getElementById("event-list");
+    const streamEmpty = document.getElementById("stream-empty");
+    const eventPagination = document.getElementById("event-pagination");
+    const eventsPrev = document.getElementById("events-prev");
+    const eventsNext = document.getElementById("events-next");
+    const eventsPage = document.getElementById("events-page");
+    const chatState = document.getElementById("chat-state");
+    const chatError = document.getElementById("chat-error");
+    const chatMessages = document.getElementById("chat-messages");
+    const chatEmpty = document.getElementById("chat-empty");
+    const chatForm = document.getElementById("chat-form");
+    const chatMessage = document.getElementById("chat-message");
+    const chatSubmit = document.getElementById("chat-submit");
+
+    const EVENT_PAGE_SIZE = 10;
+    const CHAT_MESSAGE_LIMIT = 1000;
+    const CHAT_COLLECTION = "originless/chat";
+    const CHAT_LABEL = "chat:lobby";
+    const eventPageCursors = [""];
+    let eventPage = 0;
+    let eventNextCursor = "";
+    let eventRequest = 0;
+    let chatEvents = [];
+    let chatHistoryReady = false;
+    const queuedChatEvents = [];
 
     function formatBytes(bytes) {
       if (!bytes) return "0 B";
@@ -240,6 +335,27 @@
 
     function setText(id, value) {
       document.getElementById(id).textContent = value;
+    }
+
+    function formatEventTime(timestamp) {
+      const seconds = Number(timestamp);
+      if (!Number.isFinite(seconds) || seconds <= 0) return "Unknown time";
+      const date = new Date(seconds * 1000);
+      return Number.isNaN(date.getTime()) ? "Unknown time" : date.toLocaleString();
+    }
+
+    function formatEventData(data) {
+      if (typeof data === "string") return data;
+      try {
+        return JSON.stringify(data) || "{}";
+      } catch (_) {
+        return "{}";
+      }
+    }
+
+    function shortOwner(owner) {
+      const match = /^ed25519:([0-9a-f]{64})$/i.exec(owner || "");
+      return match ? `ed25519:${match[1].slice(0, 8)}…` : "unknown owner";
     }
 
     function renderTopCollections(collections) {
@@ -300,6 +416,259 @@
       }
     }
 
+    function setEventPageBusy(busy) {
+      streamRefresh.disabled = busy;
+      eventsPrev.disabled = busy || eventPage === 0;
+      eventsNext.disabled = busy || !eventNextCursor;
+    }
+
+    function renderEventPage(events) {
+      eventList.replaceChildren();
+      for (const event of events) {
+        const item = document.createElement("li");
+        item.className = "event-item";
+
+        const heading = document.createElement("div");
+        heading.className = "event-heading";
+        const collection = document.createElement("strong");
+        collection.className = "event-collection";
+        collection.textContent = event.collection || "unknown collection";
+        const time = document.createElement("time");
+        time.className = "event-time";
+        const createdAt = Number(event.created_at);
+        if (Number.isFinite(createdAt) && createdAt > 0) time.dateTime = new Date(createdAt * 1000).toISOString();
+        time.textContent = formatEventTime(event.created_at);
+        heading.append(collection, time);
+
+        const meta = document.createElement("p");
+        meta.className = "event-meta";
+        const labels = Array.isArray(event.labels) && event.labels.length ? ` · ${event.labels.join(", ")}` : "";
+        meta.textContent = `${formatBytes(event.size)} · ${shortOwner(event.owner)}${labels}`;
+
+        const data = document.createElement("code");
+        data.className = "event-data";
+        data.textContent = formatEventData(event.data);
+
+        item.append(heading, meta, data);
+        if (event.id) {
+          const link = document.createElement("a");
+          link.className = "event-link";
+          link.href = `/events/${encodeURIComponent(event.id)}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open event JSON";
+          item.append(link);
+        }
+        eventList.append(item);
+      }
+
+      eventList.hidden = events.length === 0;
+      streamEmpty.hidden = events.length !== 0;
+      streamEmpty.textContent = eventPage === 0 ? "No events have been published yet." : "No more events.";
+      eventPagination.hidden = eventPage === 0 && events.length === 0;
+      eventsPage.textContent = `Page ${eventPage + 1}`;
+      eventsPrev.disabled = eventPage === 0;
+      eventsNext.disabled = !eventNextCursor;
+    }
+
+    async function loadEventPage(page = eventPage) {
+      const targetPage = Math.max(0, page);
+      const requestID = ++eventRequest;
+      eventPage = targetPage;
+      if (!eventPageCursors[targetPage]) eventPageCursors[targetPage] = "";
+      const cursor = eventPageCursors[targetPage];
+      eventNextCursor = "";
+      streamState.textContent = "Loading events…";
+      streamError.hidden = true;
+      eventList.hidden = true;
+      streamEmpty.hidden = true;
+      eventPagination.hidden = targetPage === 0;
+      setEventPageBusy(true);
+
+      try {
+        const params = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
+        if (cursor) params.set("cursor", cursor);
+        const response = await fetch(`/events?${params}`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `Event request failed (${response.status})`);
+        if (requestID !== eventRequest) return;
+        const events = Array.isArray(payload.events) ? payload.events : [];
+        eventNextCursor = typeof payload.next_cursor === "string" ? payload.next_cursor : "";
+        if (eventNextCursor) eventPageCursors[targetPage + 1] = eventNextCursor;
+        else eventPageCursors.length = targetPage + 1;
+        streamState.textContent = `${events.length} event${events.length === 1 ? "" : "s"} on this page`;
+        renderEventPage(events);
+      } catch (error) {
+        if (requestID !== eventRequest) return;
+        streamState.textContent = "Unable to load events";
+        streamError.textContent = error.message;
+        streamError.hidden = false;
+        eventList.hidden = true;
+        streamEmpty.hidden = true;
+        eventPagination.hidden = true;
+      } finally {
+        if (requestID === eventRequest) setEventPageBusy(false);
+      }
+    }
+
+    let eventRefreshTimer;
+    function scheduleEventStreamRefresh() {
+      clearTimeout(eventRefreshTimer);
+      eventRefreshTimer = setTimeout(() => {
+        if (eventPage === 0) loadEventPage(0);
+      }, 250);
+    }
+
+    function isChatEvent(event) {
+      return Boolean(
+        event &&
+        event.id &&
+        event.data &&
+        typeof event.data.message === "string" &&
+        event.data.message.trim()
+      );
+    }
+
+    function sortChatEvents(events) {
+      return [...events]
+        .sort((left, right) => {
+          const timeDifference = Number(left.created_at) - Number(right.created_at);
+          if (Number.isFinite(timeDifference) && timeDifference !== 0) return timeDifference;
+          return String(left.id).localeCompare(String(right.id));
+        })
+        .slice(-3);
+    }
+
+    function renderChatMessages() {
+      chatMessages.replaceChildren();
+      for (const event of chatEvents) {
+        const item = document.createElement("li");
+        item.className = "chat-item";
+        const meta = document.createElement("div");
+        meta.className = "chat-meta";
+        const author = document.createElement("span");
+        author.className = "chat-author";
+        author.textContent = shortOwner(event.owner);
+        const time = document.createElement("time");
+        time.className = "chat-time";
+        const createdAt = Number(event.created_at);
+        if (Number.isFinite(createdAt) && createdAt > 0) time.dateTime = new Date(createdAt * 1000).toISOString();
+        time.textContent = formatEventTime(event.created_at);
+        meta.append(author, time);
+        const text = document.createElement("p");
+        text.className = "chat-text";
+        text.textContent = event.data.message;
+        item.append(meta, text);
+        chatMessages.append(item);
+      }
+      chatMessages.hidden = chatEvents.length === 0;
+      chatEmpty.hidden = chatEvents.length !== 0;
+    }
+
+    function addChatEvent(event) {
+      if (!isChatEvent(event)) return;
+      chatEvents = sortChatEvents([event, ...chatEvents.filter((item) => item.id !== event.id)]);
+      renderChatMessages();
+    }
+
+    async function loadChatMessages() {
+      chatState.textContent = "Loading messages…";
+      chatError.hidden = true;
+      let loaded = false;
+      try {
+        const params = new URLSearchParams({ collection: CHAT_COLLECTION, limit: "3" });
+        const response = await fetch(`/events?${params}`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `Chat request failed (${response.status})`);
+        chatEvents = sortChatEvents((Array.isArray(payload.events) ? payload.events : []).filter(isChatEvent));
+        loaded = true;
+      } catch (error) {
+        chatState.textContent = "Unable to load messages";
+        chatError.textContent = error.message;
+        chatError.hidden = false;
+        chatEvents = [];
+      }
+
+      const queued = queuedChatEvents.splice(0).sort((left, right) => Number(left.created_at) - Number(right.created_at));
+      queued.forEach(addChatEvent);
+      chatHistoryReady = true;
+      renderChatMessages();
+      if (loaded) chatState.textContent = chatEvents.length ? "Showing the latest 3 messages" : "No messages yet";
+    }
+
+    function connectChatStream() {
+      if (!window.EventSource) {
+        chatState.textContent = "Live updates unsupported: EventSource is unavailable";
+        return;
+      }
+      const params = new URLSearchParams({ collection: CHAT_COLLECTION });
+      const source = new EventSource(`/events/stream?${params}`);
+      source.addEventListener("event", (message) => {
+        try {
+          const event = JSON.parse(message.data);
+          if (!chatHistoryReady) queuedChatEvents.push(event);
+          else addChatEvent(event);
+          chatState.textContent = "Live · message received";
+          scheduleEventStreamRefresh();
+        } catch (error) {
+          chatState.textContent = `Chat stream error: ${error.message}`;
+        }
+      });
+      source.onopen = () => {
+        if (chatHistoryReady) chatState.textContent = "Live · connected";
+      };
+      source.onerror = () => {
+        if (chatHistoryReady) chatState.textContent = "Reconnecting…";
+      };
+    }
+
+    async function publishChatMessage(message) {
+      const event = await createChatEvent(message);
+      const response = await fetch("/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(event)
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Message request failed (${response.status})`);
+      addChatEvent({ ...event, id: payload.id, stored_at: payload.stored_at, size: JSON.stringify(event).length });
+      chatMessage.value = "";
+      chatState.textContent = "Message published";
+      scheduleEventStreamRefresh();
+    }
+
+    streamRefresh.addEventListener("click", () => loadEventPage(0));
+    eventsPrev.addEventListener("click", () => loadEventPage(eventPage - 1));
+    eventsNext.addEventListener("click", () => loadEventPage(eventPage + 1));
+    chatForm.addEventListener("submit", async (submitEvent) => {
+      submitEvent.preventDefault();
+      const message = chatMessage.value.trim();
+      if (!message) return;
+      if (message.length > CHAT_MESSAGE_LIMIT) {
+        chatError.textContent = `Messages must be ${CHAT_MESSAGE_LIMIT} characters or fewer.`;
+        chatError.hidden = false;
+        return;
+      }
+      chatSubmit.disabled = true;
+      chatError.hidden = true;
+      chatState.textContent = "Signing message…";
+      try {
+        await publishChatMessage(message);
+      } catch (error) {
+        chatState.textContent = "Unable to publish message";
+        chatError.textContent = error.message;
+        chatError.hidden = false;
+      } finally {
+        chatSubmit.disabled = false;
+      }
+    });
+
     const canvas = document.getElementById("shared-canvas");
     const canvasContext = canvas.getContext("2d", { alpha: false });
     const pixelColor = document.getElementById("pixel-color");
@@ -335,14 +704,21 @@
       return Uint8Array.from(binary, (character) => character.charCodeAt(0));
     }
 
+    function canonicalJSONString(value) {
+      return JSON.stringify(value)
+        .replace(/[&<>]/g, (character) => ({ "&": "\\u0026", "<": "\\u003c", ">": "\\u003e" }[character]))
+        .replace(/\u2028/g, "\\u2028")
+        .replace(/\u2029/g, "\\u2029");
+    }
+
     function canonicalize(value) {
       if (Array.isArray(value)) {
         return `[${value.map((item) => canonicalize(item)).join(",")}]`;
       }
       if (value !== null && typeof value === "object") {
-        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
+        return `{${Object.keys(value).sort().map((key) => `${canonicalJSONString(key)}:${canonicalize(value[key])}`).join(",")}}`;
       }
-      return JSON.stringify(value);
+      return canonicalJSONString(value);
     }
 
     function drawGrid() {
@@ -488,24 +864,32 @@
       return identityPromise;
     }
 
-    async function createCanvasEvent(x, y, color) {
+    async function createSignedEvent(collection, label, data, createdAt = Math.floor(Date.now() / 1000)) {
       const identity = await getCanvasIdentity();
-      const createdAt = Math.floor(Date.now() / 1000);
       const expiresAt = createdAt + 30 * 24 * 60 * 60;
-      const data = { x, y, color, timestamp: createdAt };
       const canonicalData = canonicalize(data);
-      const message = `${identity.owner}:${CANVAS_COLLECTION}:${createdAt}:${expiresAt}:${canonicalData}::${CANVAS_LABEL}`;
+      const message = `${identity.owner}:${collection}:${createdAt}:${expiresAt}:${canonicalData}::${label}`;
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(message)));
       const signature = new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, identity.privateKey, digest));
       return {
         owner: identity.owner,
-        collection: CANVAS_COLLECTION,
+        collection,
         created_at: createdAt,
         expires_at: expiresAt,
         data,
-        labels: [CANVAS_LABEL],
+        labels: [label],
         sig: bytesToHex(signature)
       };
+    }
+
+    async function createCanvasEvent(x, y, color) {
+      const createdAt = Math.floor(Date.now() / 1000);
+      return createSignedEvent(CANVAS_COLLECTION, CANVAS_LABEL, { x, y, color, timestamp: createdAt }, createdAt);
+    }
+
+    async function createChatEvent(message) {
+      const createdAt = Math.floor(Date.now() / 1000);
+      return createSignedEvent(CHAT_COLLECTION, CHAT_LABEL, { message, timestamp: createdAt }, createdAt);
     }
 
     async function publishCanvasEvent(x, y, color) {
@@ -520,6 +904,7 @@
         if (!response.ok) throw new Error(payload.error || `Event request failed (${response.status})`);
         if (payload.id) seenCanvasEvents.add(payload.id);
         setCanvasStatus("Connected · signed event published");
+        scheduleEventStreamRefresh();
       } catch (error) {
         setCanvasStatus(`Event error: ${error.message}`);
       }
@@ -625,9 +1010,17 @@
       connectCanvasStream();
     }
 
+    async function initializeChat() {
+      chatState.textContent = "Loading messages…";
+      connectChatStream();
+      await loadChatMessages();
+    }
+
     refresh.addEventListener("click", loadStats);
     loadStats();
+    loadEventPage(0);
     initializeCanvas();
+    initializeChat();
   </script>
 </body>
 </html>
