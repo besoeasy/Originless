@@ -272,12 +272,6 @@ code,.m{font-family:var(--mono);font-size:.88em}
 .ws-input.mono{font-family:var(--mono)}
 .ws-input:focus{border-color:var(--ok)}
 
-/* Drag and Drop Zone */
-.dropzone{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;margin:14px 18px 0;background:var(--bg);cursor:pointer;transition:all .2s ease;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px}
-.dropzone:hover,.dropzone.dragover{border-color:var(--cy);background:rgba(6,182,212,.05)}
-.dropzone strong{font-size:13.5px;color:var(--ink)}
-.dropzone p{font-size:11.5px;color:var(--ink3);margin:0}
-
 /* Data Table */
 .tbl{border:1px solid var(--line);border-radius:14px;overflow-x:auto;background:var(--raise)}
 .explorer-card .tbl{border:0;border-radius:0}
@@ -627,22 +621,10 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           <span id="btnPublishDemoText">Demo event</span>
         </button>
-        <button class="btn btn-sm" id="btnTriggerBlobFile" type="button" title="Publish an event with attached binary blob">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <span>Upload blob</span>
-        </button>
         <button class="btn btn-sm btn-icon" id="btnRefreshEvents" type="button" title="Refresh records">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
-        <input type="file" id="blobFileInput" style="display:none">
       </div>
-    </div>
-
-    <!-- Dropzone directly inside the unified explorer -->
-    <div class="dropzone" id="blobDropzone">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cy)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <strong id="dropzoneText">Drop any file here or click to publish an event with attached blob</strong>
-      <p>Computes SHA-256 locally, signs the event with Ed25519, and stores both in a single atomic request</p>
     </div>
 
     <!-- Unified Events & Blobs Table -->
@@ -1202,10 +1184,9 @@ function renderEvents(list){
     tb.innerHTML = '<tr><td colspan="8" style="padding:0"><div class="empty">'
       + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="3"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>'
       + '<strong>No records found</strong>'
-      + '<p>Publish a signed JSON event or drop a file above to store an event with an attached blob.</p>'
+      + '<p>Publish a signed JSON event to see it appear here in real-time.</p>'
       + '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">'
       + '<button class="btn btn-sm solid" onclick="window.__publishDemo()" type="button">Publish demo event</button>'
-      + '<button class="btn btn-sm" onclick="$(\'blobFileInput\').click()" type="button">Upload file blob</button>'
       + '</div>'
       + '</div></td></tr>';
     return;
@@ -1404,62 +1385,6 @@ async function publishDemoRecord(){
 }
 $("btnPublishDemo").onclick = publishDemoRecord;
 window.__publishDemo = publishDemoRecord;
-
-/* 4b) Dashboard blob upload: hash locally, sign an event pointing at it,
-   then POST both parts (event first — the server validates the signature
-   before staging any bytes). */
-function hexOf(buf){
-  return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2, "0"); }).join("");
-}
-async function uploadBlobFile(file){
-  if(!file) return;
-  var label = $("dropzoneText");
-  var prev = label.textContent;
-  try{
-    label.textContent = "Hashing " + file.name + "…";
-    var data = await file.arrayBuffer();
-    var digest = await crypto.subtle.digest("SHA-256", data);
-    var hash = hexOf(digest);
-    label.textContent = "Signing event…";
-    var payload = await createSignedRecord("blobs",
-      { name: file.name, size: file.size }, ["client:web"], 86400 * 30, hash);
-    label.textContent = "Uploading…";
-    var fd = new FormData();
-    fd.append("event", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-    fd.append("blob", file, file.name || "upload");
-    var res = await fetch(o() + "/events", { method: "POST", body: fd });
-    var d = await res.json().catch(function(){ return {}; });
-    if(!res.ok || d.status !== "success"){
-      throw new Error((d && d.error) || ("upload failed (" + res.status + ")"));
-    }
-    showToast("Event with attached blob stored: " + hash.slice(0, 12) + "…", "ok");
-    eventsPage = 1;
-    fetchEvents(1);
-    fetchStatus();
-  }catch(err){
-    showToast("Upload error: " + err.message, "warn");
-  }finally{
-    label.textContent = prev;
-    $("blobFileInput").value = "";
-  }
-}
-$("btnTriggerBlobFile").onclick = function(){ $("blobFileInput").click(); };
-$("blobFileInput").addEventListener("change", function(){ uploadBlobFile(this.files[0]); });
-(function(){
-  var dz = $("blobDropzone");
-  if(!dz) return;
-  ["dragover", "dragenter"].forEach(function(ev){
-    dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.add("dragover"); });
-  });
-  ["dragleave", "drop"].forEach(function(ev){
-    dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.remove("dragover"); });
-  });
-  dz.addEventListener("drop", function(e){
-    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    uploadBlobFile(f);
-  });
-  dz.addEventListener("click", function(){ $("blobFileInput").click(); });
-})();
 
 /* 5) Inspector Modal */
 function openModal(title, bodyHtml, footHtml){
