@@ -389,27 +389,67 @@
           if (!window.crypto || !window.crypto.subtle) {
             throw new Error("Web Crypto Ed25519 is not available in this browser");
           }
-          const storageKey = "originless.canvas.private-key";
+          const storageKey = "originless.canvas.private-key-jwk";
+          const legacyStorageKey = "originless.canvas.private-key";
           const ownerKey = "originless.canvas.owner";
-          let privateBytes;
+          const base64UrlToBytes = (value) => {
+            const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
+            return base64ToBytes(padded);
+          };
+          let storedJWK;
+          let legacyPrivateBytes;
           let owner;
           try {
-            privateBytes = localStorage.getItem(storageKey);
+            const stored = localStorage.getItem(storageKey);
+            storedJWK = stored ? JSON.parse(stored) : null;
+            legacyPrivateBytes = localStorage.getItem(legacyStorageKey);
             owner = localStorage.getItem(ownerKey);
           } catch (_) {
-            privateBytes = null;
+            storedJWK = null;
+            legacyPrivateBytes = null;
             owner = null;
           }
 
-          if (privateBytes && owner) {
-            const privateKey = await crypto.subtle.importKey(
-              "raw",
-              base64ToBytes(privateBytes),
-              { name: "Ed25519" },
-              true,
-              ["sign"]
-            );
-            return { privateKey, owner };
+          if (storedJWK && storedJWK.kty === "OKP" && storedJWK.crv === "Ed25519") {
+            try {
+              const privateKey = await crypto.subtle.importKey(
+                "jwk",
+                storedJWK,
+                { name: "Ed25519" },
+                true,
+                ["sign"]
+              );
+              if (!owner && storedJWK.x) owner = `ed25519:${bytesToHex(base64UrlToBytes(storedJWK.x))}`;
+              if (owner) {
+                try {
+                  localStorage.setItem(ownerKey, owner);
+                } catch (_) {
+                  // The in-memory key still works when storage is unavailable.
+                }
+                return { privateKey, owner };
+              }
+            } catch (_) {
+              try {
+                localStorage.removeItem(storageKey);
+              } catch (_) {
+                // Ignore storage failures and create a fresh in-memory key.
+              }
+            }
+          }
+
+          if (legacyPrivateBytes && owner) {
+            try {
+              const privateKey = await crypto.subtle.importKey(
+                "raw",
+                base64ToBytes(legacyPrivateBytes),
+                { name: "Ed25519" },
+                true,
+                ["sign"]
+              );
+              return { privateKey, owner };
+            } catch (_) {
+              // Some browsers do not support importing raw Ed25519 private keys.
+            }
           }
 
           const keyPair = await crypto.subtle.generateKey(
@@ -417,12 +457,24 @@
             true,
             ["sign", "verify"]
           );
-          const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
-          const privateKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.privateKey));
-          owner = `ed25519:${bytesToHex(publicKey)}`;
+          let publicKey;
           try {
-            localStorage.setItem(storageKey, bytesToBase64(privateKey));
+            const publicJWK = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+            publicKey = base64UrlToBytes(publicJWK.x);
+          } catch (_) {
+            publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+          }
+          owner = `ed25519:${bytesToHex(publicKey)}`;
+          let privateJWK = null;
+          try {
+            privateJWK = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+          } catch (_) {
+            // Some implementations do not allow exporting private keys; the page still works for this session.
+          }
+          try {
+            if (privateJWK) localStorage.setItem(storageKey, JSON.stringify(privateJWK));
             localStorage.setItem(ownerKey, owner);
+            localStorage.removeItem(legacyStorageKey);
           } catch (_) {
             // The in-memory key still works when storage is unavailable.
           }
