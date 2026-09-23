@@ -168,10 +168,6 @@
         <dd id="storage-limit">—</dd>
         <dt>Objects</dt>
         <dd id="objects">—</dd>
-        <dt>Storage mode</dt>
-        <dd id="storage-mode">—</dd>
-        <dt>Repository version</dt>
-        <dd id="repo-version">—</dd>
       </dl>
     </section>
 
@@ -281,8 +277,6 @@
         setText("repo-size", formatBytes(size.RepoSize));
         setText("storage-limit", size.StorageMax ? formatBytes(size.StorageMax) : "Unlimited");
         setText("objects", Number(data.NumObjects || 0).toLocaleString());
-        setText("storage-mode", data.storage_mode === "ephemeral" ? "Ephemeral container" : data.storage_mode || "—");
-        setText("repo-version", data.Version || "Unknown");
         setText("event-count", Number(events.count || 0).toLocaleString());
         setText("event-owners", Number(events.unique_owners || 0).toLocaleString());
         setText("event-bytes", formatBytes(events.stored_bytes || 0));
