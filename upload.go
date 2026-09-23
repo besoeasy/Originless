@@ -58,8 +58,9 @@ type addResult struct {
 }
 
 type uploadHandler struct {
-	client *ipfsClient
-	folder bool
+	client    *ipfsClient
+	folder    bool
+	downloads *downloadRegistry
 }
 
 func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +107,15 @@ func (h *uploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		name = files[0].name
 	}
 	extension, mimeType := uploadMetadata(name, folder)
+	if h.downloads != nil && !folder && isDownloadableExtension(extension) {
+		h.downloads.add(downloadableFile{
+			CID:       result.CID,
+			Name:      name,
+			Extension: extension,
+			MIME:      mimeType,
+			Size:      totalBytes,
+		})
+	}
 	size := result.Size
 	if size == 0 {
 		size = totalBytes
