@@ -171,10 +171,12 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
+	downloads := newDownloadRegistry()
 	mux.HandleFunc("/", serveIndex)
 	mux.Handle("/stats", &statsHandler{client: client})
-	mux.Handle("/up", &uploadHandler{client: client})
-	mux.Handle("/upf", &uploadHandler{client: client, folder: true})
+	mux.Handle("/up", &uploadHandler{client: client, downloads: downloads})
+	mux.Handle("/upf", &uploadHandler{client: client, folder: true, downloads: downloads})
+	mux.Handle("/down/", &downloadHandler{client: client, registry: downloads})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
