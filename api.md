@@ -14,7 +14,8 @@ embedded IPFS node with pinning disabled.
 | `GET` | `/healthz` | Container health status as JSON |
 | `POST` | `/up` | Upload one file, or automatically upload multiple files/a folder |
 | `POST` | `/upf` | Upload a folder and return the folder root CID |
-| `GET` | `/down/{cid}` | Download content available in the local IPFS repository |
+| `GET` | `/ipfs/{cid}` | Download content available in the local IPFS repository |
+| `GET` | `/down/{cid}` | Compatibility alias for `/ipfs/{cid}` |
 | `POST` | `/events` | Publish a signed event |
 | `GET` | `/events` | Query signed events |
 | `GET` | `/events/{id}` | Retrieve one signed event |
@@ -132,19 +133,22 @@ curl \
   http://localhost:3232/upf
 ```
 
-## `GET /down/{cid}`
+## `GET /ipfs/{cid}`
 
 Serves any UnixFS content currently available in the local IPFS repository.
-The route calls Kubo with offline mode enabled, so it will not fetch a missing
-CID from the public network. If the content is not local, the route returns
-`404` or `502` when the IPFS node cannot provide it.
+The gateway-shaped path follows the conventional IPFS URL layout, but this
+route intentionally calls Kubo with offline mode enabled, so it will not fetch
+a missing CID from the public network. If the content is not local, the route
+returns `404` or `502` when the IPFS node cannot provide it.
 
 The response is returned as a generic binary attachment; the original filename
 and extension are not stored in the CID.
 
 ```bash
-curl -OJ http://localhost:3232/down/<cid>
+curl -OJ http://localhost:3232/ipfs/<cid>
 ```
+
+The legacy `/down/{cid}` path remains available as a compatibility alias.
 
 Because uploads are unpinned, content may disappear after IPFS garbage
 collection. This route does not perform copyright or content-type detection.

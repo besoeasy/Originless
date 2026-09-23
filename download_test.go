@@ -69,6 +69,28 @@ func TestDownloadAllowsAnyLocalCID(t *testing.T) {
 	}
 }
 
+func TestIPFSPathUsesLocalContent(t *testing.T) {
+	upstream := newLocalContentServer(t, "ipfs content", http.StatusOK)
+	defer upstream.close()
+
+	client, err := newIPFSClient(upstream.server.URL)
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ipfs/bafy-standard-path", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if recorder.Body.String() != "ipfs content" {
+		t.Errorf("body = %q, want ipfs content", recorder.Body.String())
+	}
+	if upstream.catCalls != 1 || upstream.lastCID != "bafy-standard-path" || upstream.lastOffline != "true" {
+		t.Errorf("cat calls = %d, CID = %q, offline = %q; want one local cat request", upstream.catCalls, upstream.lastCID, upstream.lastOffline)
+	}
+}
+
 func TestDownloadMissingLocalCID(t *testing.T) {
 	upstream := newLocalContentServer(t, "", http.StatusNotFound)
 	defer upstream.close()

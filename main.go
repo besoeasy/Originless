@@ -191,6 +191,7 @@ func newRouter(client *ipfsClient) http.Handler {
 	mux.Handle("/up", &uploadHandler{client: client})
 	mux.Handle("/upf", &uploadHandler{client: client, folder: true})
 	mux.Handle("/down/", &downloadHandler{client: client})
+	mux.Handle("/ipfs/", &downloadHandler{client: client})
 	mux.Handle("/events", &eventHandler{store: events})
 	mux.Handle("/events/", &eventHandler{store: events})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

@@ -17,9 +17,19 @@ type downloadHandler struct {
 	client *ipfsClient
 }
 
+const (
+	downloadPathPrefix = "/down/"
+	ipfsPathPrefix     = "/ipfs/"
+)
+
 func (h *downloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	const prefix = "/down/"
-	if !strings.HasPrefix(r.URL.Path, prefix) {
+	prefix := ""
+	switch {
+	case strings.HasPrefix(r.URL.Path, downloadPathPrefix):
+		prefix = downloadPathPrefix
+	case strings.HasPrefix(r.URL.Path, ipfsPathPrefix):
+		prefix = ipfsPathPrefix
+	default:
 		http.NotFound(w, r)
 		return
 	}
