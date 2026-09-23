@@ -8,123 +8,41 @@ import (
 	"testing"
 )
 
-type downloadTestServer struct {
+type localContentServer struct {
 	server      *httptest.Server
-	addCalls    int
 	catCalls    int
-	lastCatCID  string
+	lastCID     string
 	lastOffline string
-	addResponse string
-	catContent  string
+	content     string
+	status      int
 }
 
-func newDownloadTestServer(t *testing.T, addResponse, catContent string) *downloadTestServer {
+func newLocalContentServer(t *testing.T, content string, status int) *localContentServer {
 	t.Helper()
-	testServer := &downloadTestServer{
-		addResponse: addResponse,
-		catContent:  catContent,
-	}
-	testServer.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v0/add":
-			testServer.addCalls++
-			_, _ = io.Copy(io.Discard, r.Body)
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = io.WriteString(w, testServer.addResponse)
-		case "/api/v0/cat":
-			testServer.catCalls++
-			testServer.lastCatCID = r.URL.Query().Get("arg")
-			testServer.lastOffline = r.URL.Query().Get("offline")
-			_, _ = io.WriteString(w, testServer.catContent)
-		default:
+	local := &localContentServer{content: content, status: status}
+	local.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v0/cat" {
 			http.NotFound(w, r)
+			return
 		}
+		local.catCalls++
+		local.lastCID = r.URL.Query().Get("arg")
+		local.lastOffline = r.URL.Query().Get("offline")
+		if local.status != http.StatusOK {
+			http.Error(w, "not found", local.status)
+			return
+		}
+		_, _ = io.WriteString(w, local.content)
 	}))
-	return testServer
+	return local
 }
 
-func (s *downloadTestServer) close() {
+func (s *localContentServer) close() {
 	s.server.Close()
 }
 
-func TestDownloadAllowedUpload(t *testing.T) {
-	upstream := newDownloadTestServer(t,
-		"{\"Name\":\"payload.bin\",\"Hash\":\"bafy-bin\",\"Size\":\"6\"}\n",
-		"binary",
-	)
-	defer upstream.close()
-
-	client, err := newIPFSClient(upstream.server.URL)
-	if err != nil {
-		t.Fatalf("newIPFSClient() error = %v", err)
-	}
-	router := newRouter(client)
-
-	uploadRecorder := httptest.NewRecorder()
-	router.ServeHTTP(uploadRecorder, newUploadRequest(t, "/up", testUploadPart{
-		fieldName: "file",
-		fileName:  "payload.bin",
-		content:   "binary",
-	}))
-	upload := decodeUploadResponse(t, uploadRecorder)
-
-	downloadRecorder := httptest.NewRecorder()
-	router.ServeHTTP(downloadRecorder, httptest.NewRequest(http.MethodGet, "/down/"+upload.CID, nil))
-
-	if downloadRecorder.Code != http.StatusOK {
-		t.Fatalf("download status = %d, want %d; body = %s", downloadRecorder.Code, http.StatusOK, downloadRecorder.Body.String())
-	}
-	if downloadRecorder.Body.String() != "binary" {
-		t.Errorf("download body = %q, want binary", downloadRecorder.Body.String())
-	}
-	if got := downloadRecorder.Header().Get("Content-Type"); got != "application/octet-stream" {
-		t.Errorf("content type = %q, want application/octet-stream", got)
-	}
-	if got := downloadRecorder.Header().Get("Content-Length"); got != "6" {
-		t.Errorf("content length = %q, want 6", got)
-	}
-	if got := downloadRecorder.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment") || !strings.Contains(got, "payload.bin") {
-		t.Errorf("content disposition = %q, want attachment filename", got)
-	}
-	if upstream.catCalls != 1 || upstream.lastCatCID != upload.CID || upstream.lastOffline != "true" {
-		t.Errorf("cat calls = %d, CID = %q, offline = %q; want one local cat request", upstream.catCalls, upstream.lastCatCID, upstream.lastOffline)
-	}
-}
-
-func TestDownloadRejectsDisallowedUpload(t *testing.T) {
-	upstream := newDownloadTestServer(t,
-		"{\"Name\":\"photo.jpg\",\"Hash\":\"bafy-jpg\",\"Size\":\"6\"}\n",
-		"photo",
-	)
-	defer upstream.close()
-
-	client, err := newIPFSClient(upstream.server.URL)
-	if err != nil {
-		t.Fatalf("newIPFSClient() error = %v", err)
-	}
-	router := newRouter(client)
-
-	uploadRecorder := httptest.NewRecorder()
-	router.ServeHTTP(uploadRecorder, newUploadRequest(t, "/up", testUploadPart{
-		fieldName: "file",
-		fileName:  "photo.jpg",
-		content:   "photo",
-	}))
-	upload := decodeUploadResponse(t, uploadRecorder)
-
-	downloadRecorder := httptest.NewRecorder()
-	router.ServeHTTP(downloadRecorder, httptest.NewRequest(http.MethodGet, "/down/"+upload.CID, nil))
-
-	if downloadRecorder.Code != http.StatusNotFound {
-		t.Fatalf("download status = %d, want %d", downloadRecorder.Code, http.StatusNotFound)
-	}
-	if upstream.catCalls != 0 {
-		t.Errorf("cat calls = %d, want 0 for a disallowed extension", upstream.catCalls)
-	}
-}
-
-func TestDownloadUnknownCID(t *testing.T) {
-	upstream := newDownloadTestServer(t, "", "unused")
+func TestDownloadAllowsAnyLocalCID(t *testing.T) {
+	upstream := newLocalContentServer(t, "local content", http.StatusOK)
 	defer upstream.close()
 
 	client, err := newIPFSClient(upstream.server.URL)
@@ -132,45 +50,81 @@ func TestDownloadUnknownCID(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-unknown", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-any-local-cid", nil))
 
-	if recorder.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
-	if upstream.catCalls != 0 {
-		t.Errorf("cat calls = %d, want 0 for an unknown CID", upstream.catCalls)
+	if recorder.Body.String() != "local content" {
+		t.Errorf("body = %q, want local content", recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/octet-stream" {
+		t.Errorf("content type = %q, want application/octet-stream", got)
+	}
+	if got := recorder.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment") || !strings.Contains(got, "bafy-any-local-cid") {
+		t.Errorf("content disposition = %q, want attachment filename", got)
+	}
+	if upstream.catCalls != 1 || upstream.lastCID != "bafy-any-local-cid" || upstream.lastOffline != "true" {
+		t.Errorf("cat calls = %d, CID = %q, offline = %q; want one local cat request", upstream.catCalls, upstream.lastCID, upstream.lastOffline)
 	}
 }
 
-func TestDownloadHeadDoesNotFetchContent(t *testing.T) {
-	upstream := newDownloadTestServer(t,
-		"{\"Name\":\"data.json\",\"Hash\":\"bafy-json\",\"Size\":\"4\"}\n",
-		"data",
-	)
+func TestDownloadMissingLocalCID(t *testing.T) {
+	upstream := newLocalContentServer(t, "", http.StatusNotFound)
 	defer upstream.close()
 
 	client, err := newIPFSClient(upstream.server.URL)
 	if err != nil {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
-	router := newRouter(client)
-	uploadRecorder := httptest.NewRecorder()
-	router.ServeHTTP(uploadRecorder, newUploadRequest(t, "/up", testUploadPart{
-		fieldName: "file",
-		fileName:  "data.json",
-		content:   "data",
-	}))
-	upload := decodeUploadResponse(t, uploadRecorder)
+	recorder := httptest.NewRecorder()
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-missing", nil))
 
-	headRecorder := httptest.NewRecorder()
-	router.ServeHTTP(headRecorder, httptest.NewRequest(http.MethodHead, "/down/"+upload.CID, nil))
-	if headRecorder.Code != http.StatusOK {
-		t.Fatalf("HEAD status = %d, want %d", headRecorder.Code, http.StatusOK)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
 	}
-	if headRecorder.Body.Len() != 0 {
-		t.Errorf("HEAD body length = %d, want 0", headRecorder.Body.Len())
+	if !strings.Contains(recorder.Body.String(), "content unavailable") {
+		t.Errorf("body = %q, want content unavailable", recorder.Body.String())
+	}
+}
+
+func TestDownloadHeadChecksLocalContent(t *testing.T) {
+	upstream := newLocalContentServer(t, "data", http.StatusOK)
+	defer upstream.close()
+
+	client, err := newIPFSClient(upstream.server.URL)
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodHead, "/down/bafy-head", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if recorder.Body.Len() != 0 {
+		t.Errorf("body length = %d, want 0", recorder.Body.Len())
+	}
+	if upstream.catCalls != 1 || upstream.lastOffline != "true" {
+		t.Errorf("cat calls = %d, offline = %q; want one local cat request", upstream.catCalls, upstream.lastOffline)
+	}
+}
+
+func TestDownloadRejectsInvalidPath(t *testing.T) {
+	upstream := newLocalContentServer(t, "unused", http.StatusOK)
+	defer upstream.close()
+
+	client, err := newIPFSClient(upstream.server.URL)
+	if err != nil {
+		t.Fatalf("newIPFSClient() error = %v", err)
+	}
+	recorder := httptest.NewRecorder()
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-one/bafy-two", nil))
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
 	}
 	if upstream.catCalls != 0 {
-		t.Errorf("cat calls = %d, want 0 for HEAD", upstream.catCalls)
+		t.Errorf("cat calls = %d, want 0 for an invalid path", upstream.catCalls)
 	}
 }

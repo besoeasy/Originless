@@ -9,60 +9,12 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"path"
 	"strconv"
 	"strings"
-	"sync"
 )
 
-type downloadableFile struct {
-	CID       string
-	Name      string
-	Extension string
-	MIME      string
-	Size      int64
-}
-
-type downloadRegistry struct {
-	mu    sync.RWMutex
-	files map[string]downloadableFile
-}
-
-func newDownloadRegistry() *downloadRegistry {
-	return &downloadRegistry{files: make(map[string]downloadableFile)}
-}
-
-func (r *downloadRegistry) add(file downloadableFile) {
-	if r == nil || file.CID == "" || !isDownloadableExtension(file.Extension) {
-		return
-	}
-	r.mu.Lock()
-	r.files[file.CID] = file
-	r.mu.Unlock()
-}
-
-func (r *downloadRegistry) get(cid string) (downloadableFile, bool) {
-	if r == nil {
-		return downloadableFile{}, false
-	}
-	r.mu.RLock()
-	file, ok := r.files[cid]
-	r.mu.RUnlock()
-	return file, ok
-}
-
-func isDownloadableExtension(extension string) bool {
-	switch strings.ToLower(extension) {
-	case ".bin", ".blob", ".json":
-		return true
-	default:
-		return false
-	}
-}
-
 type downloadHandler struct {
-	client   *ipfsClient
-	registry *downloadRegistry
+	client *ipfsClient
 }
 
 func (h *downloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -80,46 +32,15 @@ func (h *downloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rawCID := strings.TrimPrefix(r.URL.Path, prefix)
-	if rawCID == "" || strings.Contains(rawCID, "/") {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "CID not found"})
-		return
-	}
 	cid, err := url.PathUnescape(rawCID)
-	if err != nil || cid == "" || strings.Contains(cid, "/") {
+	if err != nil || cid == "" || strings.ContainsAny(cid, "/?#") {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "CID not found"})
 		return
 	}
 
-	file, ok := h.registry.get(cid)
-	if !ok || !isDownloadableExtension(file.Extension) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "CID not found"})
-		return
-	}
-	if file.MIME == "" {
-		file.MIME = "application/octet-stream"
-	}
-
-	w.Header().Set("Cache-Control", "private, no-store")
-	w.Header().Set("Content-Type", file.MIME)
-	w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", file.CID))
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	filename := path.Base(strings.ReplaceAll(file.Name, "\\", "/"))
-	if filename == "." || filename == "/" || filename == "" {
-		filename = file.CID + file.Extension
-	}
-	if disposition := mime.FormatMediaType("attachment", map[string]string{"filename": filename}); disposition != "" {
-		w.Header().Set("Content-Disposition", disposition)
-	}
-
-	if r.Method == http.MethodHead {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	body, err := h.client.cat(r.Context(), file.CID)
+	resp, err := h.client.cat(r.Context(), cid)
 	if err != nil {
-		log.Printf("IPFS download failed for %s: %v", file.CID, err)
+		log.Printf("IPFS download failed for %s: %v", cid, err)
 		status := http.StatusBadGateway
 		var ipfsErr *ipfsDownloadError
 		if errors.As(err, &ipfsErr) && ipfsErr.status == http.StatusNotFound {
@@ -128,11 +49,27 @@ func (h *downloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]string{"error": "content unavailable"})
 		return
 	}
-	defer body.Close()
+	defer resp.Body.Close()
+
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", cid))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if resp.ContentLength >= 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+	}
+	if disposition := mime.FormatMediaType("attachment", map[string]string{"filename": cid}); disposition != "" {
+		w.Header().Set("Content-Disposition", disposition)
+	}
+
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, body); err != nil {
-		log.Printf("stream IPFS download %s: %v", file.CID, err)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		log.Printf("stream IPFS download %s: %v", cid, err)
 	}
 }
 
@@ -145,7 +82,7 @@ func (e *ipfsDownloadError) Error() string {
 	return e.message
 }
 
-func (c *ipfsClient) cat(ctx context.Context, cid string) (io.ReadCloser, error) {
+func (c *ipfsClient) cat(ctx context.Context, cid string) (*http.Response, error) {
 	endpointURL, err := url.Parse(c.endpoint("api/v0/cat"))
 	if err != nil {
 		return nil, fmt.Errorf("parse IPFS cat URL: %w", err)
@@ -177,5 +114,5 @@ func (c *ipfsClient) cat(ctx context.Context, cid string) (io.ReadCloser, error)
 			message: fmt.Sprintf("IPFS cat returned %s: %s", resp.Status, message),
 		}
 	}
-	return resp.Body, nil
+	return resp, nil
 }
