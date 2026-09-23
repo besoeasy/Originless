@@ -27,12 +27,12 @@ Returns the Kubo repository statistics:
 ```json
 {
   "NumObjects": 12,
-  "RepoPath": "/data/ipfs",
   "SizeStat": {
     "RepoSize": 2048,
     "StorageMax": 10000000000
   },
   "Version": "fs-repo@18",
+  "storage_mode": "ephemeral",
   "events": {
     "count": 4,
     "total": 5,

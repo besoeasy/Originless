@@ -10,7 +10,7 @@ docker run --rm --name originless \
   ghcr.io/besoeasy/originless:latest
 ```
 
-Open [http://localhost:3232](http://localhost:3232) after the container starts.
+Open [http://localhost:3232](http://localhost:3232) after the container starts. The container keeps its IPFS data in its ephemeral filesystem; no volume is mounted.
 
 For local Podman development:
 

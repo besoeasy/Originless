@@ -47,7 +47,7 @@ func TestRepoStats(t *testing.T) {
 	if stats.NumObjects != 12 || stats.SizeStat.RepoSize != 2048 || stats.SizeStat.StorageMax != 4096 {
 		t.Errorf("stats = %+v, want expected repository statistics", stats)
 	}
-	if stats.RepoPath != "/data/ipfs" || stats.Version != "fs-repo@16" {
+	if stats.Version != "fs-repo@16" {
 		t.Errorf("metadata = %+v, want expected repository metadata", stats)
 	}
 }
@@ -102,7 +102,7 @@ func TestStatsJSON(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.NumObjects != 7 || response.SizeStat.RepoSize != 1024 || response.RepoPath != "/repo" {
+	if response.NumObjects != 7 || response.SizeStat.RepoSize != 1024 || response.StorageMode != "ephemeral" {
 		t.Errorf("stats = %+v, want expected statistics", response)
 	}
 	if response.Events.Total != 0 || response.Events.Count != 0 || response.Events.UniqueOwners != 0 {

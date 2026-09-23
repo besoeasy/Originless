@@ -33,7 +33,6 @@ var indexHTML []byte
 
 type IPFSStats struct {
 	NumObjects uint64 `json:"NumObjects"`
-	RepoPath   string `json:"RepoPath"`
 	SizeStat   struct {
 		RepoSize   uint64 `json:"RepoSize"`
 		StorageMax uint64 `json:"StorageMax"`
@@ -43,7 +42,8 @@ type IPFSStats struct {
 
 type statsResponse struct {
 	IPFSStats
-	Events EventStats `json:"events"`
+	StorageMode string     `json:"storage_mode"`
+	Events      EventStats `json:"events"`
 }
 
 type ipfsClient struct {
@@ -147,8 +147,9 @@ func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		eventStats = h.events.stats(time.Now())
 	}
 	writeJSON(w, http.StatusOK, statsResponse{
-		IPFSStats: stats,
-		Events:    eventStats,
+		IPFSStats:   stats,
+		StorageMode: "ephemeral",
+		Events:      eventStats,
 	})
 }
 
