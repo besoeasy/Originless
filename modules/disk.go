@@ -16,27 +16,30 @@ import (
 // mass eviction).
 const sqliteFullCode = 13
 
-// Disk tuning. All values have compiled-in defaults and optional env
-// overrides so the stock run command never changes.
-var (
+// Disk tuning. All values are hardcoded to keep operation simple and predictable.
+const (
 	// DiskCeilingPct is the hard admission ceiling: this node's own writes
-	// never let usage cross it.
-	DiskCeilingPct = envOrDefaultInt("DISK_CEILING_PCT", 90)
-	// DiskSoftPct triggers opportunistic janitor sweeps before pressure.
-	DiskSoftPct = envOrDefaultInt("DISK_SOFT_PCT", 85)
+	// never let disk usage cross it. Breaching writes trigger one emergency
+	// eviction pass, then 507 Insufficient Storage.
+	DiskCeilingPct = 90
+	// DiskSoftPct triggers opportunistic janitor sweeps before pressure:
+	// expired records and eligible orphans are purged early, before any pressure.
+	DiskSoftPct = 85
 	// MaxBlobBytes caps a single blob upload. Besides abuse control this
 	// kills the single-write overshoot adversary: no one request can jump
 	// the ceiling in one streaming write.
-	MaxBlobBytes = envOrDefaultInt64("MAX_BLOB_BYTES", 1<<30)
+	MaxBlobBytes = 1 << 30
 	// EmergencyMaxItems caps deletions per emergency pass.
-	EmergencyMaxItems = envOrDefaultInt("EMERGENCY_MAX_ITEMS", 1000)
-	// EmergencyCooldownSecs is the minimum gap between emergency passes.
-	EmergencyCooldownSecs = envOrDefaultInt("EMERGENCY_COOLDOWN_MINS", 5) * 60
-	// EmergencyIncludeLive allows the last-resort tier (unexpired records)
-	// when safe tiers did not free enough. Default on; set 0 for safe-only.
-	EmergencyIncludeLive = envOrDefaultBool("EMERGENCY_INCLUDE_LIVE", true)
-	// EmergencyTargetFreePct stops a pass early once this much is free.
-	EmergencyTargetFreePct = envOrDefaultInt("EMERGENCY_TARGET_FREE_PCT", 5)
+	EmergencyMaxItems = 1000
+	// EmergencyCooldownSecs is the minimum gap between emergency passes —
+	// concurrent failing writers back off instead of stampeding.
+	EmergencyCooldownSecs = 5 * 60
+	// EmergencyIncludeLive allows the last-resort tier: when expired records
+	// and orphans didn't free enough, evict unexpired events (soonest-expiry first)
+	// and their orphaned blobs.
+	EmergencyIncludeLive = true
+	// EmergencyTargetFreePct stops a pass early once this much disk is free.
+	EmergencyTargetFreePct = 5
 )
 
 // DiskStats is a point-in-time view of the filesystem backing dataDir.

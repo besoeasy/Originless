@@ -68,17 +68,18 @@ All environment variables are optional with zero-config defaults:
 | :--- | :--- | :--- |
 | `NETWORK_ID` | `originless` | P2P swarm network ID. Nodes with matching IDs discover and sync with each other automatically across the internet. Set to `off` (or `none`, `false`, `0`) to disable P2P sync and run strictly offline. Set to a custom name (e.g. `my-project`) to create a private sync swarm. |
 | `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent Server-Sent Events subscribers (`GET /events/stream`) before returning HTTP 503. Set to `0` or negative for unlimited. |
-| `DISK_CEILING_PCT` | `90` | Hard admission ceiling: this node's own writes never let disk usage cross it. Breaching writes trigger one emergency eviction pass, then `507 Insufficient Storage`. |
-| `DISK_SOFT_PCT` | `85` | Background janitor early-sweep mark: expired records and eligible orphans are purged early, before any pressure. |
-| `MAX_BLOB_BYTES` | `1073741824` (1 GiB) | Maximum single blob upload. Requests past it get `413`; streaming uploads abort mid-write past the ceiling. |
-| `EMERGENCY_MAX_ITEMS` | `1000` | Cap on deletions per emergency pass. |
-| `EMERGENCY_COOLDOWN_MINS` | `5` | Minimum gap between emergency passes — concurrent failing writers back off instead of stampeding. |
-| `EMERGENCY_INCLUDE_LIVE` | `true` | Last-resort tier: when expired records and orphans didn't free enough, evict unexpired events (soonest-expiry first) and their orphaned blobs. Set `0` for expired+orphans only. |
-| `EMERGENCY_TARGET_FREE_PCT` | `5` | A pass stops early once this much disk is free. |
 
-### Disk Pressure
+### Disk Pressure & Automatic Eviction
 
-Writes are admission-checked against `DISK_CEILING_PCT` (reservations close the race between concurrent uploaders; HTTP and P2P sync share the same gate). Eviction order is expired records → orphan blobs → soonest-expiring live records, biggest first within each tier; blob files are unlinked before their DB rows so space materializes even at ~100% full. `/status` reports `disk{free_bytes, used_pct}` and the last emergency pass, and `/metrics` exposes `originless_emergency_evictions_total`.
+Disk tuning is built-in with sensible defaults to keep configuration simple and predictable:
+
+* **Admission Ceiling (`90%`)**: This node's own writes never let disk usage cross 90%. Breaching writes trigger one emergency eviction pass, then return `507 Insufficient Storage`.
+* **Soft Mark (`85%`)**: Background janitor early-sweep mark where expired records and eligible orphans are purged early before pressure builds.
+* **Max Single Blob (`1 GiB`)**: Maximum single blob upload (`1073741824` bytes). Requests past it get `413`; streaming uploads abort mid-write if they would cross the ceiling.
+* **Emergency Passes**: Caps deletions at `1,000` items per pass with a `5-minute` cooldown between passes so failing writers back off instead of stampeding. Eviction stops early once `5%` free disk is achieved.
+* **Eviction Order**: Expired records → orphan blobs → soonest-expiring live records (biggest first within each tier). Blob files are unlinked before their DB rows so space materializes even at ~100% full.
+
+`/status` reports `disk{free_bytes, used_pct}` and the last emergency pass, and `/metrics` exposes `originless_emergency_evictions_total`.
 
 ### Mesh Network Modes
 
