@@ -3,7 +3,7 @@
 # Originless
 
 **Zero-auth backend for the open web — signed events, binary blobs, live P2P sync.**  
-No accounts. No API keys. Zero complex setup. One single container.
+No accounts. No API keys. Zero complex setup. One single binary.
 
 <br>
 
@@ -13,24 +13,26 @@ No accounts. No API keys. Zero complex setup. One single container.
 
 ---
 
-## What Originless Replaces
+## 1. Overview
 
-Instead of running and configuring half a dozen microservices, API keys, and databases, Originless replaces them all with **two simple primitives** (signed JSON events + content-addressed binary blobs) running in a single binary:
+Originless replaces sprawling backend microservices with **two simple primitives** running inside a single zero-dependency container:
 
-| App / Service | What Originless Does Instead | Why It's Better |
+1. **Signed JSON Events**: Ephemeral or durable structured data signed client-side with **Ed25519**.
+2. **Content-Addressed Blobs**: Opaque binary files identified and deduplicated by **SHA-256**.
+
+| Service Replaced | What Originless Does Instead | Key Advantage |
 | :--- | :--- | :--- |
-| **ntfy / Pusher** | Real-time live pub/sub streams via Server-Sent Events (`GET /events/stream?label=...`). | No WebSockets, no server daemons. Subscribe directly in browser `EventSource` or `curl -N`. |
-| **Sentry** | Fire-and-forget signed telemetry and error logs (`POST /events`) with labels and automatic TTL expiry. | Zero auth tokens to provision or rotate. Filter by error tag or live-tail critical alerts. |
-| **Nostr Relays** | Cryptographically signed Ed25519 events with tamper-proof IDs and libp2p swarm sync. | No complex NIP protocols, no paid relay operators. Standard HTTP REST + SSE. |
-| **0x0.st / Pastebin** | Content-addressed ephemeral binary file drops (`POST /events` with a `blob` part, `GET /blob/<sha256>`). | Deduplicated by SHA-256. Reference-driven retention pins blobs while any signed event links them, then auto-evicts orphans cleanly. |
-| **Redis Pub/Sub** | Ephemeral JSON documents with self-expiring TTLs and real-time streaming. | Pure SQLite WAL storage with microsecond query latency and zero RAM bloat. |
-| **S3 / Object Store** | Content-addressed blob storage with streaming downloads and checksum verification. | Zero IAM policies or bucket configuration. Upload once, verify everywhere. |
+| **ntfy / Pusher** | Real-time pub/sub streams over Server-Sent Events (`GET /events/stream`). | Native browser `EventSource` and `curl -N`. No daemon required. |
+| **Sentry / Logs** | Signed telemetry and error ingestion (`POST /events`) with automatic TTL expiry. | Zero auth tokens to manage or rotate. Filter by label or tail live. |
+| **Nostr Relays** | Cryptographically verified Ed25519 events with libp2p swarm replication. | Standard HTTP REST + SSE; no custom relay protocols. |
+| **0x0.st / S3** | Content-addressed binary blob storage (`/blob/{sha256}`) with streaming downloads. | Blobs are tied to signed events; automatic orphan garbage collection. |
+| **Redis Pub/Sub** | Real-time streaming backed by high-performance SQLite WAL storage. | Microsecond queries, crash-safe persistence, zero memory bloat. |
 
 ---
 
-## Run in 10 seconds
+## 2. Quickstart
 
-Zero configuration. One command starts your node, joins the libp2p mesh, and starts syncing automatically:
+Run a full node with Docker (or Podman) in 10 seconds:
 
 ```bash
 docker run -d --name originless --restart unless-stopped \
@@ -38,9 +40,7 @@ docker run -d --name originless --restart unless-stopped \
   ghcr.io/besoeasy/originless:latest
 ```
 
-*(Works identically with `podman` by replacing `docker` with `podman`.)*
-
-Or using **`compose.yml`**:
+Or with `compose.yml`:
 
 ```yaml
 services:
@@ -58,127 +58,104 @@ volumes:
   originless-data:
 ```
 
-That's it! Your node is live at **http://localhost:3232**.
+Your node is now live at **http://localhost:3232**.
 
-### Environment Variables
+### Configuration
 
-All environment variables are optional with zero-config defaults:
+Configuration is deliberately minimal. Everything works out of the box with zero configuration:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `NETWORK_ID` | `originless` | P2P swarm network ID. Nodes with matching IDs discover and sync with each other automatically across the internet. Set to `off` (or `none`, `false`, `0`) to disable P2P sync and run strictly offline. Set to a custom name (e.g. `my-project`) to create a private sync swarm. |
-| `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent Server-Sent Events subscribers (`GET /events/stream`) before returning HTTP 503. Set to `0` or negative for unlimited. |
+| `NETWORK_ID` | `originless` | P2P swarm identity. Nodes with matching IDs automatically discover each other over DHT. Set to `off` (or `none`) to run offline, or set to a custom string (e.g. `my-project`) for a private swarm. |
+| `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent live stream subscribers (`GET /events/stream`). Set `0` for unlimited. |
 
-### Disk Pressure & Automatic Eviction
-
-Disk tuning is built-in with sensible defaults to keep configuration simple and predictable:
-
-* **Admission Ceiling (`90%`)**: This node's own writes never let disk usage cross 90%. Breaching writes trigger one emergency eviction pass, then return `507 Insufficient Storage`.
-* **Soft Mark (`85%`)**: Background janitor early-sweep mark where expired records and eligible orphans are purged early before pressure builds.
-* **Max Single Blob (`1 GiB`)**: Maximum single blob upload (`1073741824` bytes). Requests past it get `413`; streaming uploads abort mid-write if they would cross the ceiling.
-* **Emergency Passes**: Caps deletions at `1,000` items per pass with a `5-minute` cooldown between passes so failing writers back off instead of stampeding. Eviction stops early once `5%` free disk is achieved.
-* **Eviction Order**: Expired records → orphan blobs → soonest-expiring live records (biggest first within each tier). Blob files are unlinked before their DB rows so space materializes even at ~100% full.
-
-`/status` reports `disk{free_bytes, used_pct}` and the last emergency pass, and `/metrics` exposes `originless_emergency_evictions_total`.
-
-### Mesh Network Modes
-
-* **Public Mesh (Default)**: Zero configuration. By default, `NETWORK_ID` is `originless` — nodes automatically join the global libp2p Kad DHT via built-in bootstrap peers, rendezvous under `originless/originless`, punch holes across NATs, and relay through peers when needed.
-* **Custom Swarm**: Add `-e NETWORK_ID=my-project` — nodes with the same ID automatically find and sync with each other over the global DHT with zero manual bootstrap setup.
-* **Standalone / Local Only**: Add `-e NETWORK_ID=off` (or `none`) to disable P2P sync and run strictly offline.
-
-* **Dashboard**: Open **http://localhost:3232** in your browser.
-* **Live Web Apps**: Try interactive single-file apps at **[https://originless.besoeasy.com/](https://originless.besoeasy.com/)**.
-* **AI Agents**: Point LLMs or agents at **[/agent.txt](static/agent.txt)** for the complete machine-readable contract.
+* **Built-in Disk Guard**: 90% hard admission ceiling, 85% background janitor sweep, 1 GiB max single blob, and 5-minute emergency eviction cooldown. Hardcoded to ensure bulletproof, predictable node stability without configuration fatigue.
 
 ---
 
-## Automatic P2P Mesh (libp2p)
+## 3. The Core Primitives
 
-Originless is built for zero-config Docker and Podman deployments. With P2P active (`NETWORK_ID=originless` by default):
-
-1. **libp2p WebSocket on TCP 3232**: The HTTP API and P2P share one published port. Docker `-p 3232:3232` is enough for outbound mesh join and inbound WS.
-2. **QUIC on UDP 3232** (optional): Enables hole punching when you also publish UDP.
-3. **Kad DHT Rendezvous**: Nodes automatically join the global Kad DHT via built-in public bootstrap peers and rendezvous under `originless/<NETWORK_ID>` with zero configuration.
-4. **AutoNAT, Identify, DCUtR**: Observed addresses replace UPnP. Direct connect first, then hole punch.
-5. **Circuit relay v2**: Any publicly reachable Originless node may hop traffic for NATted Docker peers, with resource caps.
-6. **mDNS**: Same-LAN / `--network host` discovery at local wire speed.
-7. **Bloom Filter Set Reconciliation**: Upon connection, nodes exchange 1% false-positive Bloom filters to transfer missing records and binary blobs without redundant bandwidth.
-8. **Persistent identity**: Peer ID is stored at `/data/p2p.key` so a volume keeps the same node across restarts.
-
----
-
-## The Two Primitives
-
-### 1. Events — Signed JSON Documents (8 KB max, TTL ≤ 1 year)
-Events are immutable, cryptographically signed JSON documents. You own the private key; Originless verifies the Ed25519 signature and stores the event.
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/events` | Publish a signed event (`201` created, `200` duplicate) |
-| `GET` | `/events?collection=&label=&owner=&since=&until=&search=&blob=&limit=&cursor=` | Query newest-first. Expired events hidden by default. |
-| `GET` | `/events/{id}` | Fetch a single event. Add `?resolve=blob` to inline linked blob metadata. |
-| `GET` | `/events/stream?collection=&label=&owner=&search=` | Real-time Server-Sent Events (SSE) feed. |
+### Events (Signed JSON Documents)
+Events are immutable, cryptographically signed JSON documents (≤ 8 KB, TTL ≤ 1 year). The client holds the Ed25519 private key; the node verifies the signature and validates TTL:
 
 ```json
 {
-  "owner": "ed25519:<64 hex pubkey>",
-  "collection": "alerts",
+  "owner": "ed25519:<64 hex public key>",
+  "collection": "chat",
   "created_at": 1758420000,
   "expires_at": 1789956000,
-  "data": { "service": "api", "error": "database connection timeout" },
+  "data": { "user": "alice", "message": "Hello world!" },
   "blob": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "labels": ["severity:critical", "env:prod"],
+  "labels": ["room:lobby"],
   "sig": "<128 hex chars>"
 }
 ```
-(`blob` is the optional top-level attachment pointer — a SHA-256 hex string. Omit it or send `null` for blob-less events.)
+*Signature covers:* `owner:collection:created_at:expires_at:canonical(data):blob:labels`.
 
-### 2. Blobs — Opaque Binary Objects (Content-Addressed)
-Upload raw binary bytes. Originless verifies the SHA-256 checksum and serves it with immutable caching headers.
+### Blobs (Content-Addressed Binary Storage)
+Upload raw binary bytes up to 1 GiB. Originless re-hashes bytes and stores them by SHA-256:
+* **Atomic Multipart Upload**: Publish a signed event and its binary attachment in a single `multipart/form-data` request (`event` part + `blob` part).
+* **Reference-Driven Retention**: A blob survives while at least one unexpired event references it. Once all referencing events expire, the blob is cleanly evicted as an orphan.
+* **Opaque Content Shield**: Only raw binary data is accepted (sniffed `text/*`, `image/*`, and `application/pdf` are rejected). All blobs download with `application/octet-stream` and `nosniff`, preventing hotlinking, XSS, and media CDN abuse.
 
-| **Method** | **Endpoint** | **Description** |
-| :--- | :--- | :--- |
-| `POST` | `/events` | Publish a signed event; add a `blob` multipart part (after the `event` part) to carry the raw bytes of one content-addressed blob in the same request. Signature is validated before any bytes touch disk. |
-| `GET` | `/blob/{hash}` | Download by SHA-256 hash (64-char hex). Supports `HEAD`, `ETag`, and byte ranges. |
-| `GET` | `/blobs?limit=50&offset=0` | List stored blobs sorted by newest upload. |
-
-* **Retention**: Reference-driven, size-neutral. A blob is pinned while any unexpired signed event references it; once the last event expires it becomes an orphan and is auto-evicted after `BlobOrphanGraceDays` (default 7).
-* **Link to Events**: Set the top-level `blob = "<sha256>"` field before signing. The hash feeds the event ID, so a linked blob can't be silently swapped — and `data` stays 100% yours, no reserved keys inside it.
-
-#### Opaque Bytes Only (Abuse Immunity & Security)
-Originless accepts only opaque binary bytes and rejects renderable/textual payloads (`text/*`, `image/*`, `application/pdf`) by sniffing content, not filenames. All downloads are served as `application/octet-stream` with `X-Content-Type-Options: nosniff`:
-
-* **No Free Media CDN / Hotlinking**: Prevents third-party sites from embedding images or streaming video through your node, protecting your bandwidth.
-* **Immunity to XSS & Phishing**: Browsers never execute, parse, or inline-render uploaded files under your origin. Malicious HTML, scripts, or weaponized SVGs are completely neutralized.
-* **Legal & Abuse Shield**: Open unauthenticated image/video hosts are magnets for copyright infringement, pirate streaming, and illicit media. Opaque blobs keep Originless a blind, neutral data pipe.
-* **Zero Parsing Attack Surface**: No image thumbnailers, EXIF extractors, or video transcoders that can be targeted by decompression bombs or memory corruption exploits.
-* **Client-Sovereign Media**: Need to store an image or document? Package or encrypt it into opaque bytes, set the event's top-level `blob` field to its SHA-256, and decode or render it client-side (`URL.createObjectURL`).
-
----
-
-## Client Guides & Documentation
-
-Originless requires no proprietary SDKs or API keys. Complete copy-pasteable guides are available in the [`docs/`](docs/) directory:
-
-* 📖 [**cURL & Shell Guide**](docs/curl.md) — Signing with OpenSSL, multipart atomic blob uploads, SSE streaming with `curl -N`, and keyset pagination.
-* 🐍 [**Python Guide**](docs/python.md) — Zero-auth Ed25519 signing helper, JSON publishing, binary blob uploads, and real-time streaming.
-* 🟢 [**Node.js & JavaScript Guide**](docs/nodejs.md) — Zero-dependency integration using Node.js native `node:crypto`, `fetch`, and `FormData`.
-* 🌐 [**Browser Web Examples**](examples/) — Single-file zero-auth HTML apps deployed live at **[originless.besoeasy.com](https://originless.besoeasy.com/)** (Room Comments, 2-Player Board Game, Collaborative Pixel Canvas, Zero-Knowledge Encrypted Pastebin, Synchronized Soundboard, Global Music Lounge) using `esm.sh` and `@noble/curves`.
-* 🤖 [**AI Agent Skill Contract**](static/agent.txt) — Plaintext specification served at `/agent.txt` for autonomous LLM agents (Claude, Cursor, Copilot, Antigravity).
-
----
-
-## API Summary
+### API Summary
 
 | Endpoint | Method | Purpose |
 | :--- | :--- | :--- |
-| `GET /status` | `GET` | Health, event/blob counts, active SSE clients, and libp2p mesh status |
-| `POST /events` | `POST` | Publish signed event, or event + one content-addressed blob's bytes (multipart `event` + `blob` parts, event first) |
-| `GET /events` | `GET` | Query events with filtering (`collection`, `label`, `owner`, `since`, `until`, `blob`, `cursor`) |
-| `GET /events/{id}` | `GET` | Fetch event by ID (`?resolve=blob` to inline linked blob) |
-| `GET /events/stream` | `GET` | Real-time Server-Sent Events stream |
-| `GET /blob/{hash}` | `GET` | Download blob bytes by hash (`HEAD` supported) |
-| `GET /blobs` | `GET` | List stored blobs |
+| `GET /status` | `GET` | Node health, connected peers, storage vitals, and sync telemetry |
+| `POST /events` | `POST` | Publish a signed event, or event + blob atomically via multipart |
+| `GET /events` | `GET` | Query records (`?collection=&label=&owner=&since=&until=&search=&blob=&cursor=`) |
+| `GET /events/{id}` | `GET` | Retrieve single event (`?resolve=blob` inlines linked blob metadata) |
+| `GET /events/stream` | `GET` | Real-time Server-Sent Events stream (`?collection=&label=`) |
+| `GET /blob/{hash}` | `GET` | Stream raw binary blob by SHA-256 (`HEAD`, ranges, and `ETag` supported) |
+| `GET /blobs` | `GET` | List stored blobs sorted newest first |
 | `GET /metrics` | `GET` | Prometheus telemetry metrics |
-| `GET /agent.txt` | `GET` | Machine-readable contract for AI agents |
+| `GET /agent.txt` | `GET` | Machine-readable API contract for AI agents and LLMs |
+
+---
+
+## 4. Automatic P2P Mesh
+
+Originless includes an autonomous, zero-configuration P2P mesh powered by **libp2p**:
+
+* **Single-Port Multiplexing**: Both the HTTP REST API and libp2p WebSocket transport share port `3232/tcp`.
+* **Zero-Config Discovery**: Local nodes discover each other instantly via **mDNS**. Internet nodes rendezvous over the **Kademlia DHT** under `originless/<NETWORK_ID>`.
+* **NAT Traversal & Relays**: Employs **AutoNAT**, **DCUtR hole punching**, and built-in **Circuit Relay v2** to connect nodes behind strict or symmetric firewalls.
+* **$O(1)$ State Root Sync**: Nodes exchange a commutative multiset XOR state root. If roots match, sync is a 120-byte no-op. If roots differ, the engine triggers continuous salted Bloom filter reconciliation.
+* **Zero-Trust Swarm Ingestion**: Every event and blob received over the swarm is fully cryptographically re-verified. P2P writes are bounded by admission control without triggering local eviction.
+
+---
+
+## 5. Documentation & Integration Guides
+
+Complete copy-pasteable guides and reference implementations are available in the [`docs/`](docs/) directory:
+
+### [cURL & Shell Guide](docs/curl.md)
+* [Node Health & Prometheus Telemetry](docs/curl.md#1-node-health--telemetry) — Inspecting `/status` and `/metrics` with `curl` and `jq`.
+* [Generating Ed25519 Keypairs](docs/curl.md#step-1-generate-an-ed25519-keypair-once) — One-line OpenSSL key generation and public key hex extraction.
+* [Canonical Signing & Event Publishing](docs/curl.md#step-2-sign-and-publish-an-event) — Canonical JSON sorting, SHA-256 digest creation, Ed25519 signing, and `POST /events`.
+* [Atomic Multipart Blob Uploads](docs/curl.md#3-uploading-binary-blobs--events-atomic-multipart) — Uploading an event together with raw binary bytes in one request.
+* [Downloading & Verifying Blobs](docs/curl.md#4-downloading-blobs) — Content-addressed downloads, ETag verification, and `/blobs` listing.
+* [Querying, Filtering & Keyset Pagination](docs/curl.md#5-querying-events) — Filtering by collection, labels, owner, full-text search, and keyset cursor paging.
+* [Live Event Streaming](docs/curl.md#6-real-time-streaming-server-sent-events) — Tailing live feeds with `curl -N /events/stream`.
+
+### [Node.js & JavaScript Guide](docs/nodejs.md)
+* [Zero-Dependency Helper (`originless.mjs`)](docs/nodejs.md#1-zero-dependency-signing-helper-originlessmjs) — Pure standard library signing utility using `node:crypto` and native `fetch`.
+* [Event Generation & Publishing](docs/nodejs.md#2-publishing-an-event) — Creating, canonicalizing, signing, and posting events in Node.js v18+.
+* [Multipart Event + Blob Uploads](docs/nodejs.md#3-uploading-an-event-with-attached-binary-blob-atomic-multipart) — Streaming files with native `FormData` and `Blob`.
+* [Querying Events & Resolving Blobs](docs/nodejs.md#4-querying-events--downloading-blobs) — Querying records, inlining metadata with `?resolve=blob`, and downloading buffers.
+* [Real-Time Streaming in Node.js & Web Browsers](docs/nodejs.md#5-real-time-streaming-server-sent-events) — Processing SSE streams in Node.js and in front-end browser `EventSource`.
+
+### [Python Guide](docs/python.md)
+* [Prerequisites & Key Generation](docs/python.md#prerequisites) — Setup with `cryptography` and `requests`.
+* [Ed25519 Helper Functions](docs/python.md#1-key-generation--event-signing) — Clean, reusable `generate_keypair()` and `sign_event()` routines.
+* [Publishing JSON Events](docs/python.md#2-publishing-an-event) — Posting structured event payloads.
+* [Multipart Event + Binary File Uploads](docs/python.md#3-uploading-an-event-with-attached-binary-blob-atomic-multipart) — Packaging multipart payloads with correct part ordering.
+* [Querying & Downloading](docs/python.md#4-querying-events--downloading-blobs) — Querying with parameters, inspecting attached blobs, and binary file downloads.
+* [Streaming Events with Chunked Decoding](docs/python.md#5-streaming-live-events-server-sent-events) — Reading live SSE streams using `requests(stream=True)`.
+
+### [AI Agent Specification (`/agent.txt`)](static/agent.txt)
+* Plaintext system contract served at `/agent.txt` describing cryptographic signing rules, endpoint specifications, and JSON schemas for LLMs and autonomous coding assistants (Claude, Cursor, Copilot, Antigravity).
+
+### [Live Web Applications](https://originless.besoeasy.com/)
+* Interactive single-file web applications built on Originless: Room Chat, 2-Player Board Game, Collaborative Pixel Canvas, Encrypted Pastebin, and Soundboard.
