@@ -40,8 +40,8 @@ ENV IPFS_PATH=/data/ipfs \
 
 VOLUME ["/data"]
 
-# Originless web UI, IPFS swarm transport, and the local IPFS RPC API.
-EXPOSE 3232/tcp 4001/tcp 4001/udp 5001/tcp
+# Only the Originless web UI is exposed. IPFS swarm and RPC ports remain internal.
+EXPOSE 3232/tcp
 
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
