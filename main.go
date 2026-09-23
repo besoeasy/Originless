@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -27,6 +27,9 @@ const (
 )
 
 var version = "1.0.0"
+
+//go:embed static/index.html
+var indexHTML []byte
 
 type IPFSStats struct {
 	NumObjects uint64 `json:"NumObjects"`
@@ -109,123 +112,8 @@ func (c *ipfsClient) repoStats(ctx context.Context) (IPFSStats, error) {
 	return stats, nil
 }
 
-type homeHandler struct {
-	template *template.Template
-}
-
-type homeData struct {
-	AppVersion string
-}
-
 type statsHandler struct {
-	client   *ipfsClient
-	template *template.Template
-}
-
-type pageData struct {
-	AppVersion string
-	Stats      IPFSStats
-	FetchedAt  string
-	HasError   bool
-}
-
-var homePage = template.Must(template.New("home").Parse(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Originless</title>
-  <style>
-    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #10131a; color: #f4f6fb; }
-    main { width: min(42rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #2d3545; border-radius: 1rem; background: #181d27; box-shadow: 0 1rem 3rem #0004; }
-    h1 { margin: 0; font-size: 2rem; }
-    p { color: #9da9bd; line-height: 1.6; }
-    ul { padding-left: 1.25rem; line-height: 2; }
-    a { color: #9ecbff; }
-    footer { margin-top: 1.75rem; color: #778399; font-size: .85rem; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Originless</h1>
-    <p>Originless is running with an embedded IPFS node.</p>
-    <ul>
-      <li><a href="/stats">IPFS statistics (JSON)</a></li>
-      <li><a href="/stats?format=html">IPFS statistics (HTML)</a></li>
-      <li><a href="/healthz">Health check</a></li>
-    </ul>
-    <footer>Originless v{{.AppVersion}}</footer>
-  </main>
-</body>
-</html>`))
-
-var statsPage = template.Must(template.New("stats").Funcs(template.FuncMap{
-	"formatBytes": formatBytes,
-}).Parse(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Originless IPFS Stats</title>
-  <style>
-    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #10131a; color: #f4f6fb; }
-    main { width: min(42rem, calc(100% - 2rem)); padding: 2rem; border: 1px solid #2d3545; border-radius: 1rem; background: #181d27; box-shadow: 0 1rem 3rem #0004; }
-    h1 { margin: 0; font-size: 2rem; }
-    h2 { margin: 0 0 1.25rem; font-size: 1rem; color: #9da9bd; font-weight: 500; }
-    .subtitle { margin: .35rem 0 1.75rem; color: #9da9bd; }
-    dl { display: grid; grid-template-columns: minmax(9rem, 1fr) 2fr; gap: .8rem 1rem; margin: 0; }
-    dt { color: #9da9bd; }
-    dd { margin: 0; overflow-wrap: anywhere; }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .error { padding: 1rem; border-radius: .5rem; background: #4a2028; color: #ffd9df; }
-    footer { margin-top: 1.75rem; color: #778399; font-size: .85rem; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Originless</h1>
-    <p class="subtitle">IPFS node stats · v{{.AppVersion}}</p>
-    {{if .HasError}}
-      <h2>IPFS node unavailable</h2>
-      <div class="error">The stats endpoint could not be reached. Check that the IPFS daemon is running.</div>
-    {{else}}
-      <h2>Repository statistics</h2>
-      <dl>
-        <dt>Repository size</dt>
-        <dd>{{formatBytes .Stats.SizeStat.RepoSize}}</dd>
-        <dt>Storage limit</dt>
-        <dd>{{if .Stats.SizeStat.StorageMax}}{{formatBytes .Stats.SizeStat.StorageMax}}{{else}}Unlimited{{end}}</dd>
-        <dt>Objects</dt>
-        <dd>{{.Stats.NumObjects}}</dd>
-        <dt>Repository path</dt>
-        <dd><code>{{if .Stats.RepoPath}}{{.Stats.RepoPath}}{{else}}—{{end}}</code></dd>
-        <dt>Repository version</dt>
-        <dd>{{if .Stats.Version}}{{.Stats.Version}}{{else}}Unknown{{end}}</dd>
-      </dl>
-    {{end}}
-    <footer>Updated {{.FetchedAt}}</footer>
-  </main>
-</body>
-</html>`))
-
-func (h *homeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.template.Execute(w, homeData{AppVersion: version}); err != nil {
-		log.Printf("render home page: %v", err)
-	}
+	client *ipfsClient
 }
 
 func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -242,42 +130,35 @@ func (h *statsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	data := pageData{
-		AppVersion: version,
-		FetchedAt:  time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
-	}
 	stats, err := h.client.repoStats(ctx)
 	if err != nil {
 		log.Printf("IPFS stats request failed: %v", err)
-		if wantsHTML(r) {
-			data.HasError = true
-			h.render(w, http.StatusServiceUnavailable, data)
-			return
-		}
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"error": "IPFS node unavailable",
 		})
 		return
 	}
-
-	if wantsHTML(r) {
-		data.Stats = stats
-		h.render(w, http.StatusOK, data)
-		return
-	}
 	writeJSON(w, http.StatusOK, stats)
 }
 
-func wantsHTML(r *http.Request) bool {
-	return strings.EqualFold(r.URL.Query().Get("format"), "html")
-}
+func serveIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-func (h *statsHandler) render(w http.ResponseWriter, status int, data pageData) {
-	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	if err := h.template.Execute(w, data); err != nil {
-		log.Printf("render stats page: %v", err)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := w.Write(indexHTML); err != nil {
+		log.Printf("write home page: %v", err)
 	}
 }
 
@@ -292,35 +173,17 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", &homeHandler{template: homePage})
-	mux.Handle("/stats", &statsHandler{client: client, template: statsPage})
+	mux.HandleFunc("/", serveIndex)
+	mux.Handle("/stats", &statsHandler{client: client})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = io.WriteString(w, "ok\n")
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	return mux
-}
-
-func formatBytes(bytes uint64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	value := float64(bytes)
-	units := []string{"KiB", "MiB", "GiB", "TiB", "PiB"}
-	for _, suffix := range units {
-		value /= unit
-		if value < unit {
-			return fmt.Sprintf("%.1f %s", value, suffix)
-		}
-	}
-	return fmt.Sprintf("%.1f EiB", value)
 }
 
 func configuredPort() (string, error) {
