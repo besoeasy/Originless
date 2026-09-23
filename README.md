@@ -7,11 +7,6 @@ No accounts. No API keys. Zero complex setup. One single container.
 
 <br>
 
-[![Live Demo](https://img.shields.io/badge/live%20apps-originless.besoeasy.com-10b981?style=flat-square&logo=globe)](https://originless.besoeasy.com/)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-0db7ed?logo=docker&logoColor=white&style=flat-square)](https://ghcr.io/besoeasy/originless)
-[![P2P Mesh](https://img.shields.io/badge/p2p-libp2p-orange?style=flat-square)](https://github.com/besoeasy/originless)
-[![Agent Contract](https://img.shields.io/badge/agent%20contract-agent.txt-1f6feb?style=flat-square)](static/agent.txt)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg?style=flat-square)](https://opensource.org/ISC)
 [![Available on Umbrel](https://apps.umbrel.com/api/app/originless/badge-light.svg)](https://apps.umbrel.com/app/originless)
 
 </div>
