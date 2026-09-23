@@ -32,25 +32,26 @@ type Options struct {
 	DisableQUIC      bool
 	DisableAutoRelay bool
 	StaticRelays     []peer.AddrInfo
+	DiskGuard        *modules.DiskGuard
 }
 
 // Manager coordinates configuration, peer discovery, transport, and data synchronization.
 type Manager struct {
-	config      Config
-	opts        Options
-	store       *modules.Store
-	broadcaster *modules.RecordBroadcaster
-	engine      *SyncEngine
-	transport   *Transport
-	host        host.Host
-	discovery   *meshDiscovery
-	nodeID      string
-	ownsHTTP    bool
+	config       Config
+	opts         Options
+	store        *modules.Store
+	broadcaster  *modules.RecordBroadcaster
+	engine       *SyncEngine
+	transport    *Transport
+	host         host.Host
+	discovery    *meshDiscovery
+	nodeID       string
+	ownsHTTP     bool
 	reachability atomic.Value // network.Reachability
-	ctx         context.Context
-	cancel      context.CancelFunc
-	stopChan    chan struct{}
-	wg          sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+	stopChan     chan struct{}
+	wg           sync.WaitGroup
 }
 
 // NewManager creates a P2P manager if NETWORK_ID is set.
@@ -79,6 +80,9 @@ func NewManagerWithOptions(opts Options) *Manager {
 	}
 
 	engine := NewSyncEngine(opts.Store, opts.BlobDir, cfg.NetworkID, "", opts.Broadcaster)
+	if opts.DiskGuard != nil {
+		engine.SetDiskGuard(opts.DiskGuard)
+	}
 	transport := NewTransport(engine, cfg.NetworkID, "", opts.ListenPort, cfg.MaxPeers)
 
 	m := &Manager{
@@ -109,6 +113,17 @@ func (m *Manager) SetBroadcaster(b *modules.RecordBroadcaster) {
 	m.broadcaster = b
 	if m.engine != nil {
 		m.engine.SetBroadcaster(b)
+	}
+}
+
+// SetDiskGuard attaches the admission ledger to the sync engine.
+func (m *Manager) SetDiskGuard(g *modules.DiskGuard) {
+	if m == nil {
+		return
+	}
+	m.opts.DiskGuard = g
+	if m.engine != nil {
+		m.engine.SetDiskGuard(g)
 	}
 }
 

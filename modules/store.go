@@ -651,6 +651,122 @@ func (s *Store) DeleteExpiredRecords(nowUnix int64) (int64, error) {
 	return n, nil
 }
 
+// EvictRecord is an event selected for emergency eviction.
+type EvictRecord struct {
+	ID       string
+	Size     int64
+	BlobHash string
+}
+
+// BiggestExpiredRecords returns expired events largest-first. Deleting the
+// biggest dead rows first frees the most bytes per deletion.
+func (s *Store) BiggestExpiredRecords(nowUnix int64, limit int) ([]EvictRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 1000 {
+		limit = 1000
+	}
+	rows, err := s.db.Query(
+		`SELECT id, size, blob_hash FROM records
+		  WHERE expires_at <= ? ORDER BY size DESC LIMIT ?`,
+		nowUnix, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []EvictRecord
+	for rows.Next() {
+		var r EvictRecord
+		if err := rows.Scan(&r.ID, &r.Size, &r.BlobHash); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// BiggestBlobs returns tracked blobs largest-first. Callers filter live
+// references (GetReferencedBlobHashes) before deleting.
+func (s *Store) BiggestBlobs(limit int) ([]BlobRow, error) {
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 1000 {
+		limit = 1000
+	}
+	rows, err := s.db.Query(
+		`SELECT hash, size, created_at, last_access FROM blobs
+		 ORDER BY size DESC LIMIT ?`,
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BlobRow
+	for rows.Next() {
+		var b BlobRow
+		if err := rows.Scan(&b.Hash, &b.Size, &b.CreatedAt, &b.LastAccess); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// EarliestLiveRecords returns unexpired events, soonest-expiry first with
+// biggest-size tiebreak: the last-resort tier destroys the data closest to
+// worthless already.
+func (s *Store) EarliestLiveRecords(nowUnix int64, limit int) ([]EvictRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	} else if limit > 1000 {
+		limit = 1000
+	}
+	rows, err := s.db.Query(
+		`SELECT id, size, blob_hash FROM records
+		  WHERE expires_at > ? ORDER BY expires_at ASC, size DESC LIMIT ?`,
+		nowUnix, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []EvictRecord
+	for rows.Next() {
+		var r EvictRecord
+		if err := rows.Scan(&r.ID, &r.Size, &r.BlobHash); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// DeleteRecords removes events by ID. record_labels rows cascade via FK;
+// blob linkage lives on records.blob_hash and dies with the row, turning
+// solely-referenced blobs into orphans for the sweep. Returns rows removed.
+func (s *Store) DeleteRecords(ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	ph := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		ph[i] = "?"
+		args[i] = id
+	}
+	res, err := s.db.Exec(`DELETE FROM records WHERE id IN (`+joinPlaceholders(ph)+`)`, args...)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if n > 0 {
+		_, _ = s.db.Exec(`PRAGMA incremental_vacuum`)
+	}
+	return n, nil
+}
+
 // ListBlobs returns newest blobs first.
 func (s *Store) ListBlobs(limit, offset int) ([]BlobMeta, error) {
 	if limit <= 0 || limit > 100 {
@@ -743,4 +859,3 @@ func (s *Store) GetDBFileSize() int64 {
 	}
 	return total
 }
-

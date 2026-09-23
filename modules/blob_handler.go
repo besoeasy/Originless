@@ -27,10 +27,12 @@ var errEmptyBlob = errors.New("empty file")
 // stageBlobData streams opaque binary bytes to a temp file while hashing
 // them with SHA-256, applying the same abuse-immunity guard the old /up
 // used: renderable or textual payloads (text/*, image/*, application/pdf)
-// are refused even though there is no filename to trust. Returns the temp
-// path, byte count and hash; callers either commit via commitBlob or remove
-// the temp.
-func stageBlobData(dir string, r io.Reader) (tmpName string, size int64, h [32]byte, err error) {
+// are refused even though there is no filename to trust. Writes pass
+// through a ceiling writer (MAX_BLOB_BYTES cap + periodic free-space
+// re-checks against the guard ceiling), so unknown-size streams cannot
+// overshoot. Returns the temp path, byte count and hash; callers either
+// commit via commitBlob or remove the temp.
+func stageBlobData(dir string, r io.Reader, g *DiskGuard) (tmpName string, size int64, h [32]byte, err error) {
 	// Sniff the head before trusting the bytes. Empty bodies skip the
 	// sniff (DetectContentType reports "" as text/plain) and fall through
 	// to the empty-file check.
@@ -55,7 +57,8 @@ func stageBlobData(dir string, r io.Reader) (tmpName string, size int64, h [32]b
 	hasher := sha256.New()
 	// Replays the sniffed head so no byte is lost or double-counted.
 	stream := io.MultiReader(bytes.NewReader(headBytes), r)
-	written, err := io.Copy(tmp, io.TeeReader(stream, hasher))
+	cw := &ceilingWriter{w: tmp, g: g, maxBytes: MaxBlobBytes}
+	written, err := io.Copy(cw, io.TeeReader(stream, hasher))
 	if err != nil {
 		abort()
 		return "", 0, [32]byte{}, err

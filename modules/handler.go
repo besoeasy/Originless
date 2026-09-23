@@ -78,6 +78,15 @@ func (h *Handler) SetStore(s *Store) {
 	h.store = s
 }
 
+// diskGuard returns the admission ledger via the janitor (wired in main).
+// Nil when unwired: admission is skipped but per-op ENOSPC still surfaces.
+func (h *Handler) diskGuard() *DiskGuard {
+	if h.janitor == nil {
+		return nil
+	}
+	return h.janitor.Guard()
+}
+
 func (h *Handler) recordStore() *Store {
 	if h.store != nil {
 		return h.store
@@ -193,6 +202,23 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	} else {
 		payload["p2p"] = map[string]any{
 			"enabled": false,
+		}
+	}
+
+	if h.janitor != nil {
+		if g := h.janitor.Guard(); g != nil {
+			if ds, err := g.Stats(); err == nil {
+				payload["disk"] = map[string]any{
+					"path":        ds.Path,
+					"total_bytes": ds.TotalBytes,
+					"free_bytes":  ds.FreeBytes,
+					"free_str":    FormatBytes(ds.FreeBytes),
+					"used_pct":    ds.UsedPct,
+					"inodes_free": ds.InodesFree,
+					"ceiling_pct": DiskCeilingPct,
+					"soft_pct":    DiskSoftPct,
+				}
+			}
 		}
 	}
 

@@ -46,6 +46,7 @@ func main() {
 	defer database.Close()
 
 	janitorMgr := modules.NewJanitor(database)
+	janitorMgr.SetDiskGuard(modules.NewDiskGuard(dataDir))
 
 	log.Printf("[STARTUP] reconciling blob store...")
 	if err := janitorMgr.ReconcileBlobs(); err != nil {
@@ -56,6 +57,9 @@ func main() {
 	go janitorMgr.Run(workerCtx, time.Duration(modules.JanitorInterval)*time.Minute)
 
 	p2pMgr := p2p.NewManager(database, modules.BlobDir, nil, modules.Port, dataDir)
+	if p2pMgr != nil {
+		p2pMgr.SetDiskGuard(janitorMgr.Guard())
+	}
 	router := modules.NewRouter(janitorMgr, uiFS(), p2pMgr)
 	if p2pMgr != nil {
 		p2pMgr.SetHTTPHandler(router)

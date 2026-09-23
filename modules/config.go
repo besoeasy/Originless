@@ -49,6 +49,18 @@ func envOrDefaultInt(key string, fallback int) int {
 	return n
 }
 
+func envOrDefaultInt64(key string, fallback int64) int64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return n
+}
+
 // envOrDefaultBool reads a truthy/falsey env var. Unset or unrecognized
 // values use fallback. Accepted truthy: 1, true, yes, on. Falsey: 0, false, no, off.
 func envOrDefaultBool(key string, fallback bool) bool {

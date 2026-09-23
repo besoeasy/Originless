@@ -23,6 +23,7 @@ type SyncEngine struct {
 	nodeID       string
 	seenCache    *SeenCache
 	broadcaster  *modules.RecordBroadcaster
+	guard        *modules.DiskGuard
 	eventsSynced int64
 	blobsSynced  int64
 	lastSync     time.Time
@@ -48,6 +49,14 @@ func (se *SyncEngine) SetTransport(t *Transport) {
 
 func (se *SyncEngine) SetBroadcaster(b *modules.RecordBroadcaster) {
 	se.broadcaster = b
+}
+
+// SetDiskGuard attaches the admission ledger. The sync path admits but
+// never evicts: a refused record is simply skipped and re-offered later.
+func (se *SyncEngine) SetDiskGuard(g *modules.DiskGuard) {
+	se.mu.Lock()
+	defer se.mu.Unlock()
+	se.guard = g
 }
 
 // Stats returns sync counters and metadata for /status reporting.
@@ -102,13 +111,13 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 
 	// Serialize record into input format (omitting server-computed fields)
 	inputMap := map[string]any{
-		"owner":       rec.Owner,
-		"collection":  rec.Collection,
-		"created_at":  rec.CreatedAt,
-		"expires_at":  rec.ExpiresAt,
-		"data":        rec.Data,
-		"labels":      rec.Labels,
-		"sig":         rec.Sig,
+		"owner":      rec.Owner,
+		"collection": rec.Collection,
+		"created_at": rec.CreatedAt,
+		"expires_at": rec.ExpiresAt,
+		"data":       rec.Data,
+		"labels":     rec.Labels,
+		"sig":        rec.Sig,
 	}
 	if rec.Blob != "" {
 		inputMap["blob"] = rec.Blob
@@ -122,6 +131,23 @@ func (se *SyncEngine) IngestRecord(rec *modules.Record) (bool, error) {
 	validRec, err := modules.ValidateRecordBody(rawJSON, time.Now().Unix())
 	if err != nil {
 		return false, fmt.Errorf("cryptographic validation failed: %w", err)
+	}
+
+	// Admission: the swarm is an unmetered writer unless gated. Refusals
+	// are silent skips — the peer re-offers later, and this path never
+	// triggers eviction.
+	se.mu.RLock()
+	g := se.guard
+	se.mu.RUnlock()
+	want := validRec.Size
+	if want <= 0 {
+		want = int64(len(rawJSON))
+	}
+	if g != nil {
+		if !g.Admit(want) {
+			return false, fmt.Errorf("disk ceiling would be exceeded")
+		}
+		defer g.Release(want)
 	}
 
 	created, _, err := se.store.InsertRecord(validRec)
@@ -160,6 +186,21 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 	computedHash := hex.EncodeToString(sum[:])
 	if computedHash != hash {
 		return false, fmt.Errorf("blob integrity mismatch: got %s, want %s", computedHash, hash)
+	}
+
+	// Admission before touching disk. Oversize blobs are refused outright;
+	// the reservation covers the temp-file window.
+	se.mu.RLock()
+	g := se.guard
+	se.mu.RUnlock()
+	if int64(len(data)) > modules.MaxBlobBytes {
+		return false, fmt.Errorf("blob exceeds MAX_BLOB_BYTES")
+	}
+	if g != nil {
+		if !g.Admit(int64(len(data))) {
+			return false, fmt.Errorf("disk ceiling would be exceeded")
+		}
+		defer g.Release(int64(len(data)))
 	}
 
 	// Atomic write: write to temp file then rename

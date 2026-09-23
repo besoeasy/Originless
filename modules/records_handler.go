@@ -191,7 +191,7 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 					return fmt.Errorf("duplicate blob part")
 				}
 				blobSeen = true
-				tmp, size, digest, err := stageBlobData(BlobDir, part)
+				tmp, size, digest, err := stageBlobData(BlobDir, part, h.diskGuard())
 				if err != nil {
 					return err
 				}
@@ -215,6 +215,15 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 				})
 			case errors.Is(err, errEmptyBlob):
 				writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": "empty file"})
+			case errors.Is(err, errDiskCapExceeded):
+				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{
+					"status": "error", "error": "blob too large", "maxSize": MaxBlobBytes,
+				})
+			case IsStorageExhausted(err):
+				// The part stream is consumed; the client retries and the
+				// freed space is waiting.
+				stats := h.emergencyPass(0)
+				writeInsufficientStorage(w, stats, "")
 			default:
 				writeJSON(w, http.StatusBadRequest, map[string]any{"status": "error", "error": err.Error()})
 			}
@@ -254,9 +263,25 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if _, err := commitBlob(BlobDir, st, stageName, stagedSize, stagedDigest); err != nil {
-			log.Printf("[events] blob commit failed: %v", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store blob"})
-			return
+			if IsStorageExhausted(err) {
+				// Rename is space-free; only the accounting row can fail
+				// here, and its retry is idempotent (dest-exists → dupe).
+				stats := h.emergencyPass(stagedSize)
+				if _, rerr := commitBlob(BlobDir, st, stageName, stagedSize, stagedDigest); rerr != nil {
+					if IsStorageExhausted(rerr) {
+						log.Printf("[events] blob commit failed after eviction: %v", rerr)
+						writeInsufficientStorage(w, stats, "")
+						return
+					}
+					log.Printf("[events] blob commit failed: %v", rerr)
+					writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store blob"})
+					return
+				}
+			} else {
+				log.Printf("[events] blob commit failed: %v", err)
+				writeJSON(w, http.StatusInternalServerError, map[string]any{"status": "error", "error": "cannot store blob"})
+				return
+			}
 		}
 		stageName = "" // consumed by commit
 	case blobHash != "":
@@ -284,12 +309,96 @@ func (h *Handler) publishEventMultipart(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// errDiskAdmit marks an admission refusal (ceiling would break).
+var errDiskAdmit = errors.New("disk ceiling would be exceeded")
+
+// writeInsufficientStorage answers 507 with what the emergency pass freed.
+func writeInsufficientStorage(w http.ResponseWriter, stats EmergencyEvictStats, detail string) {
+	payload := map[string]any{"status": "error", "error": "insufficient storage"}
+	if detail != "" {
+		payload["detail"] = detail
+	}
+	if !stats.At.IsZero() {
+		payload["evicted_items"] = stats.Items
+		payload["freed_bytes"] = stats.FreedBytes
+		payload["evict_tier"] = stats.Tier
+	}
+	writeJSON(w, http.StatusInsufficientStorage, payload)
+}
+
+// emergencyPass runs one janitor emergency pass targeting wantBytes newly
+// free (at least the emergency free-space target). Shared by every
+// write path; cooldown + caps live in EmergencyEvict.
+func (h *Handler) emergencyPass(wantBytes int64) EmergencyEvictStats {
+	var zero EmergencyEvictStats
+	if h.janitor == nil {
+		return zero
+	}
+	target := wantBytes
+	st, err := StatDisk(BlobDir)
+	if err == nil {
+		if t := TargetFreeBytes(st); t > target {
+			target = t
+		}
+		var freeFn func() int64
+		freeFn = func() int64 {
+			s, e := StatDisk(BlobDir)
+			if e != nil {
+				return 0
+			}
+			return s.FreeBytes
+		}
+		stats, _ := h.janitor.EmergencyEvict(target, EmergencyMaxItems, EmergencyIncludeLive, freeFn)
+		if h.metrics != nil && stats.Items > 0 {
+			h.metrics.IncEmergency(stats.FreedBytes)
+		}
+		return stats
+	}
+	stats, _ := h.janitor.EmergencyEvict(target, EmergencyMaxItems, EmergencyIncludeLive, nil)
+	if h.metrics != nil && stats.Items > 0 {
+		h.metrics.IncEmergency(stats.FreedBytes)
+	}
+	return stats
+}
+
+// storeRecord persists one validated event behind admission control:
+// reserve → soft-mark sweep → insert; on storage-exhausted failure run one
+// emergency pass and retry the insert once (transactional rollback makes
+// the retry safe). Reservations release on return.
+func (h *Handler) storeRecord(st *Store, rec *Record) (created bool, storedAt string, evStats EmergencyEvictStats, err error) {
+	g := h.diskGuard()
+	want := rec.Size
+	if want <= 0 {
+		want = 512
+	}
+	if g != nil {
+		h.janitor.MaybeEarlySweep(g)
+		if !g.Admit(want) {
+			evStats = h.emergencyPass(want)
+			if !g.Admit(want) {
+				return false, "", evStats, errDiskAdmit
+			}
+		}
+		defer g.Release(want)
+	}
+	created, storedAt, err = st.InsertRecord(rec)
+	if err != nil && IsStorageExhausted(err) {
+		evStats = h.emergencyPass(want)
+		created, storedAt, err = st.InsertRecord(rec)
+	}
+	return created, storedAt, evStats, err
+}
+
 // insertAndBroadcast stores a record and fans it out once (only the created
 // side broadcasts; a duplicate replay must not re-broadcast). Writes the
 // duplicate (200) response itself and reports created + storedAt.
 func (h *Handler) insertAndBroadcast(w http.ResponseWriter, st *Store, rec *Record) (created bool, storedAt string, err error) {
-	created, storedAt, err = st.InsertRecord(rec)
+	created, storedAt, evStats, err := h.storeRecord(st, rec)
 	if err != nil {
+		if errors.Is(err, errDiskAdmit) || IsStorageExhausted(err) {
+			writeInsufficientStorage(w, evStats, "")
+			return false, "", err
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"status": "error", "error": "failed to store record",
 		})

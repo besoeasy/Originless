@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -15,9 +16,31 @@ import (
 
 type Manager struct {
 	store              *Store
+	guard              *DiskGuard
 	mu                 sync.RWMutex
 	lastRun            time.Time
 	purgedRecordsTotal int64
+	lastEmergency      EmergencyEvictStats
+}
+
+// SetDiskGuard attaches the admission ledger (wired in main).
+func (m *Manager) SetDiskGuard(g *DiskGuard) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.guard = g
+}
+
+// Guard returns the admission ledger, possibly nil.
+func (m *Manager) Guard() *DiskGuard {
+	if m == nil {
+		return nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.guard
 }
 
 func NewJanitor(store *Store) *Manager {
@@ -56,6 +79,7 @@ func (m *Manager) Status() map[string]any {
 	m.mu.RLock()
 	lastRun := m.lastRun
 	purged := m.purgedRecordsTotal
+	le := m.lastEmergency
 	m.mu.RUnlock()
 
 	res := map[string]any{
@@ -65,6 +89,14 @@ func (m *Manager) Status() map[string]any {
 	}
 	if !lastRun.IsZero() {
 		res["last_run"] = lastRun.Format(time.RFC3339)
+	}
+	if !le.At.IsZero() {
+		res["last_emergency"] = map[string]any{
+			"at":          le.At.Format(time.RFC3339),
+			"items":       le.Items,
+			"freed_bytes": le.FreedBytes,
+			"tier":        le.Tier,
+		}
 	}
 	return res
 }
@@ -186,6 +218,251 @@ func (m *Manager) EvictBlobs() error {
 		log.Printf("[janitor] blob eviction done: evicted %d blobs, freed %s", evicted, FormatBytes(freed))
 	}
 	return nil
+}
+
+// ErrEmergencyCooldown signals an emergency pass skipped because a cleanup
+// ran within the cooldown window.
+var ErrEmergencyCooldown = errors.New("emergency eviction on cooldown")
+
+// EmergencyEvictStats describes one emergency pass for /status and logs.
+// FreedBytes for deleted DB rows is estimated from row sizes: SQLite
+// reclaims pages lazily (incremental vacuum runs per delete).
+type EmergencyEvictStats struct {
+	At         time.Time `json:"at"`
+	Items      int64     `json:"items"`
+	FreedBytes int64     `json:"freed_bytes"`
+	Tier       string    `json:"tier"`
+}
+
+// EmergencyEvict frees disk in value order until freeBytes() reports at
+// least targetBytes free or maxItems items were removed. Tiers:
+//
+//  1. expired records, biggest first (dead data, violates nothing);
+//  2. orphan blobs ignoring grace, biggest first (unreferenced bytes);
+//  3. if includeLive: unexpired records, soonest-expiry first with biggest
+//     tiebreak, then their newly orphaned blobs.
+//
+// Blob files are unlinked before their DB rows so freed bytes materialize
+// even when SQLite itself can barely write. A pass that deletes nothing
+// still counts against cooldown: concurrent failing writers must back off,
+// not stampede.
+func (m *Manager) EmergencyEvict(targetBytes int64, maxItems int, includeLive bool, freeBytes func() int64) (EmergencyEvictStats, error) {
+	var zero EmergencyEvictStats
+	if m == nil || m.store == nil {
+		return zero, nil
+	}
+	if maxItems <= 0 || maxItems > EmergencyMaxItems {
+		maxItems = EmergencyMaxItems
+	}
+	m.mu.Lock()
+	if !m.lastEmergency.At.IsZero() && time.Since(m.lastEmergency.At) < time.Duration(EmergencyCooldownSecs)*time.Second {
+		m.mu.Unlock()
+		return zero, ErrEmergencyCooldown
+	}
+	m.lastEmergency.At = time.Now().UTC()
+	m.mu.Unlock()
+
+	stats := EmergencyEvictStats{At: time.Now().UTC(), Tier: "none"}
+	now := time.Now().Unix()
+	var freed, items int64
+	done := func() bool {
+		if items >= int64(maxItems) {
+			return true
+		}
+		if targetBytes > 0 && freeBytes != nil && freeBytes() >= targetBytes {
+			return true
+		}
+		return false
+	}
+	remaining := func() int {
+		r := maxItems - int(items)
+		if r < 1 {
+			return 0
+		}
+		if r > 100 {
+			return 100
+		}
+		return r
+	}
+
+	// Tier 1: biggest expired records.
+	for !done() {
+		recs, err := m.store.BiggestExpiredRecords(now, remaining())
+		if err != nil {
+			log.Printf("[emergency] expired scan failed: %v", err)
+			break
+		}
+		if len(recs) == 0 {
+			break
+		}
+		ids := make([]string, len(recs))
+		var sz int64
+		for i, r := range recs {
+			ids[i] = r.ID
+			sz += r.Size
+		}
+		n, err := m.store.DeleteRecords(ids)
+		if err != nil {
+			log.Printf("[emergency] expired delete failed: %v", err)
+			break
+		}
+		if n == 0 {
+			break
+		}
+		items += n
+		freed += sz
+		stats.Tier = "expired"
+	}
+
+	// Tier 2: biggest orphan blobs, grace ignored. On exemption-list
+	// failure the tier is skipped outright: deleting possibly-live blobs
+	// blind is worse than freeing nothing.
+	if !done() {
+		referenced, err := m.store.GetReferencedBlobHashes(now)
+		if err != nil {
+			log.Printf("[emergency] exemption list failed, skipping orphan tier: %v", err)
+		} else {
+			for !done() {
+				cand, err := m.store.BiggestBlobs(remaining())
+				if err != nil {
+					log.Printf("[emergency] blob scan failed: %v", err)
+					break
+				}
+				if len(cand) == 0 {
+					break
+				}
+				progress := false
+				for _, b := range cand {
+					if done() {
+						break
+					}
+					if referenced[b.Hash] {
+						continue
+					}
+					path := BlobPath(BlobDir, b.Hash)
+					if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+						log.Printf("[emergency] failed to remove blob %s: %v", b.Hash, err)
+						continue
+					}
+					freed += b.Size
+					progress = true
+					stats.Tier = "orphan"
+					if err := m.store.DeleteBlob(b.Hash); err != nil {
+						log.Printf("[emergency] failed to delete blob row %s: %v", b.Hash, err)
+						continue
+					}
+					items++
+				}
+				if !progress {
+					break
+				}
+			}
+		}
+	}
+
+	// Tier 3: live records, soonest-expiry first. Deleting the event turns
+	// solely-referenced blobs into orphans, swept right after — never a
+	// referenced blob alone, so no event is left dangling.
+	if includeLive && !done() {
+		for !done() {
+			recs, err := m.store.EarliestLiveRecords(now, remaining())
+			if err != nil {
+				log.Printf("[emergency] live scan failed: %v", err)
+				break
+			}
+			if len(recs) == 0 {
+				break
+			}
+			ids := make([]string, len(recs))
+			var sz int64
+			for i, r := range recs {
+				ids[i] = r.ID
+				sz += r.Size
+			}
+			n, err := m.store.DeleteRecords(ids)
+			if err != nil {
+				log.Printf("[emergency] live delete failed: %v", err)
+				break
+			}
+			if n == 0 {
+				break
+			}
+			items += n
+			freed += sz
+			stats.Tier = "live"
+		}
+		if !done() {
+			referenced, err := m.store.GetReferencedBlobHashes(now)
+			if err != nil {
+				log.Printf("[emergency] post-live exemption list failed: %v", err)
+			} else {
+				for !done() {
+					cand, err := m.store.BiggestBlobs(remaining())
+					if err != nil || len(cand) == 0 {
+						break
+					}
+					progress := false
+					for _, b := range cand {
+						if done() {
+							break
+						}
+						if referenced[b.Hash] {
+							continue
+						}
+						if err := os.Remove(BlobPath(BlobDir, b.Hash)); err != nil && !os.IsNotExist(err) {
+							continue
+						}
+						freed += b.Size
+						progress = true
+						stats.Tier = "orphan"
+						if err := m.store.DeleteBlob(b.Hash); err != nil {
+							continue
+						}
+						items++
+					}
+					if !progress {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	stats.Items = items
+	stats.FreedBytes = freed
+	m.mu.Lock()
+	m.lastEmergency = stats
+	m.mu.Unlock()
+	log.Printf("[emergency] pass done: tier=%s items=%d freed~%s", stats.Tier, items, FormatBytes(freed))
+	return stats, nil
+}
+
+// MaybeEarlySweep runs a standard purge+evict pass when the guard reports
+// pressure above the soft mark. Throttled by the shared cleanup clock so
+// hot request paths can't trigger sweep storms. Safe tiers only: expired
+// records and grace-eligible orphans — never live data.
+func (m *Manager) MaybeEarlySweep(g *DiskGuard) {
+	if m == nil || m.store == nil || g == nil {
+		return
+	}
+	if !g.OverSoftMark() {
+		return
+	}
+	m.mu.Lock()
+	if !m.lastEmergency.At.IsZero() && time.Since(m.lastEmergency.At) < time.Duration(EmergencyCooldownSecs)*time.Second {
+		m.mu.Unlock()
+		return
+	}
+	m.lastEmergency.At = time.Now().UTC()
+	m.mu.Unlock()
+	now := time.Now().Unix()
+	if n, err := m.store.DeleteExpiredRecords(now); err == nil && n > 0 {
+		m.recordSweep(n)
+		log.Printf("[janitor] early sweep purged %d expired records (soft mark)", n)
+	}
+	if err := m.EvictBlobs(); err != nil {
+		log.Printf("[janitor] early sweep eviction error: %v", err)
+	}
 }
 
 // ReconcileBlobs imports untracked blob files into the DB and drops rows
