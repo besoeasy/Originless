@@ -358,6 +358,12 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 #pxBoard{width:min(100%,560px);height:auto;aspect-ratio:1/1;image-rendering:pixelated;cursor:crosshair;border-radius:8px;background:#fff;touch-action:none}
 .px-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
 
+/* Node stats checklist */
+.stat-list{list-style:none;padding:0;display:grid;gap:14px;max-width:80ch}
+.stat-list li{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--ink2);line-height:1.55}
+.stat-mark{font-family:var(--mono);color:var(--ok);font-weight:600;flex-shrink:0}
+.stat-list strong{color:var(--ink);font-weight:600}
+
 /* Minimal chatbox showcase */
 .chat-card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.03);backdrop-filter:blur(8px);max-width:720px}
 .chat-list{height:320px;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
@@ -486,6 +492,19 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
       </ul>
     </div>
   </div>
+</section>
+
+<section id="node">
+  <h2>What is this node?</h2>
+  <p class="sub">One self-hosted process. The numbers below are live, refreshed every few seconds from <code>/status</code>.</p>
+  <ul class="stat-list">
+    <li><span class="stat-mark">[*]</span><div><strong>Signed storage — <span class="g" id="statStore">…</span></strong><br>Every record is an Ed25519-signed event, every file a SHA-256 blob. No accounts, no API keys.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>Live subscribers — <span class="g" id="statLive">…</span></strong><br>Writes broadcast over Server-Sent Events the moment they land. The explorer, canvas and chat above all listen.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>Self-cleaning — <span class="g" id="statJanitor">…</span></strong><br>A janitor purges expired records and orphan blobs. Nothing outlives its <code>expires_at</code>.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>P2P mesh — <span class="g" id="statP2p">…</span></strong><br>Nodes gossip signed records over libp2p; signatures are re-verified on receipt.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>Lean runtime — <span class="g" id="statRuntime">…</span></strong><br>A single Go binary serving plain HTTP on one port.</div></li>
+    <li><span class="stat-mark">[*]</span><div><strong>Open traffic — <span class="g" id="statTraffic">…</span></strong><br>Every endpoint is unauthenticated by design; Prometheus metrics live at <code>/metrics</code>.</div></li>
+  </ul>
 </section>
 
 <!-- Live Node Data Explorer -->
@@ -1024,6 +1043,20 @@ async function fetchStatus(){
       }
       if($("svgStatSseClients")) $("svgStatSseClients").textContent = sseCount;
 
+      // Node stats checklist (What is this node?)
+      if($("statStore")) $("statStore").textContent = evCount + " events · " + bCount + " blobs (" + bSize + ")";
+      if($("statLive")) $("statLive").textContent = sseCount + " connected";
+      var purged = (d.janitor && d.janitor.purged_records !== undefined) ? d.janitor.purged_records : 0;
+      if($("statJanitor")) $("statJanitor").textContent = purged + " expired purged";
+      if($("statP2p")){
+        $("statP2p").textContent = (d.p2p && d.p2p.enabled)
+          ? ((d.p2p.peers_connected || 0) + " peers" + (d.p2p.network_id ? " on " + d.p2p.network_id : ""))
+          : "solo (mesh off)";
+      }
+      var gor = (d.vitals && d.vitals.goroutines !== undefined) ? d.vitals.goroutines : "–";
+      if($("statRuntime")) $("statRuntime").textContent = ramStr + " RAM · " + gor + " goroutines · up " + uptime;
+      if($("statTraffic") && d.traffic && d.traffic.total_requests !== undefined) $("statTraffic").textContent = d.traffic.total_requests + " requests served";
+
       // Top collections quick-filter bar
       if(d.storage && Array.isArray(d.storage.top_collections)){
         renderTopCollections(d.storage.top_collections);
@@ -1050,6 +1083,7 @@ async function fetchStatus(){
     if($("teleRam")) $("teleRam").textContent = "--";
     if($("svgStatRam")) $("svgStatRam").textContent = "--";
     if($("teleDbSize")) $("teleDbSize").textContent = "--";
+    ["statStore","statLive","statJanitor","statP2p","statRuntime","statTraffic"].forEach(function(id){ if($(id)) $(id).textContent = "unreachable"; });
     if($("teleTrafficItem")) $("teleTrafficItem").style.display = "none";
     if($("teleP2pItem")) $("teleP2pItem").style.display = "none";
   }
