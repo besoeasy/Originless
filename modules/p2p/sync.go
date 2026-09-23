@@ -403,15 +403,17 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		if err := json.Unmarshal(payload, &req); err != nil || req.Hash == "" {
 			return
 		}
-		blobBytes, err := se.ReadBlob(req.Hash)
-		if err != nil {
-			return
-		}
-		// Send blob data: 64 bytes hash + raw bytes
-		var frame bytes.Buffer
-		frame.WriteString(req.Hash)
-		frame.Write(blobBytes)
-		_ = session.Send(MsgBlobData, frame.Bytes())
+		go func() {
+			blobBytes, err := se.ReadBlob(req.Hash)
+			if err != nil {
+				return
+			}
+			// Send blob data: 64 bytes hash + raw bytes
+			var frame bytes.Buffer
+			frame.WriteString(req.Hash)
+			frame.Write(blobBytes)
+			_ = session.Send(MsgBlobData, frame.Bytes())
+		}()
 
 	case MsgBlobData:
 		if len(payload) < 64 {
@@ -419,10 +421,12 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 		}
 		hash := string(payload[0:64])
 		data := payload[64:]
-		created, err := se.IngestBlob(hash, data)
-		if err == nil && created && se.transport != nil {
-			se.transport.BroadcastBlob(hash, int64(len(data)), session.id)
-		}
+		go func() {
+			created, err := se.IngestBlob(hash, data)
+			if err == nil && created && se.transport != nil {
+				se.transport.BroadcastBlob(hash, int64(len(data)), session.id)
+			}
+		}()
 
 	case MsgBlobBroadcast:
 		var bcast BlobBroadcastPayload
@@ -430,9 +434,12 @@ func (se *SyncEngine) Dispatch(session *PeerSession, msgType byte, payload []byt
 			return
 		}
 		if !se.seenCache.Has(bcast.Hash) {
-			// Request this new blob from the announcing peer
-			req, _ := json.Marshal(BlobPullPayload{Hash: bcast.Hash})
-			_ = session.Send(MsgBlobPull, req)
+			dest := modules.BlobPath(se.blobDir, bcast.Hash)
+			if _, statErr := os.Stat(dest); os.IsNotExist(statErr) {
+				// Request this new blob from the announcing peer
+				req, _ := json.Marshal(BlobPullPayload{Hash: bcast.Hash})
+				_ = session.Send(MsgBlobPull, req)
+			}
 		}
 
 	case MsgPing:
