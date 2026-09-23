@@ -175,6 +175,7 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		"storage":     storage,
 		"blobs": map[string]any{
 			"count": bCount, "size": bSize, "sizeStr": FormatBytes(bSize),
+			"max_bytes": MaxBlobBytes, "max_bytes_str": FormatBytes(MaxBlobBytes),
 		},
 		"events": map[string]any{
 			"count": rCount,
@@ -215,8 +216,10 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 					"free_str":    FormatBytes(ds.FreeBytes),
 					"used_pct":    ds.UsedPct,
 					"inodes_free": ds.InodesFree,
-					"ceiling_pct": DiskCeilingPct,
-					"soft_pct":    DiskSoftPct,
+					"ceiling_pct":    DiskCeilingPct,
+					"soft_pct":       DiskSoftPct,
+					"max_blob_bytes": MaxBlobBytes,
+					"max_blob_str":   FormatBytes(MaxBlobBytes),
 				}
 			}
 		}

@@ -25,10 +25,6 @@ const (
 	// DiskSoftPct triggers opportunistic janitor sweeps before pressure:
 	// expired records and eligible orphans are purged early, before any pressure.
 	DiskSoftPct = 85
-	// MaxBlobBytes caps a single blob upload. Besides abuse control this
-	// kills the single-write overshoot adversary: no one request can jump
-	// the ceiling in one streaming write.
-	MaxBlobBytes = 1 << 30
 	// EmergencyMaxItems caps deletions per emergency pass.
 	EmergencyMaxItems = 1000
 	// EmergencyCooldownSecs is the minimum gap between emergency passes —
@@ -40,6 +36,17 @@ const (
 	EmergencyIncludeLive = true
 	// EmergencyTargetFreePct stops a pass early once this much disk is free.
 	EmergencyTargetFreePct = 5
+
+	// DefaultMaxBlobBytes is 1 GiB (1073741824 bytes).
+	DefaultMaxBlobBytes int64 = 1 << 30
+)
+
+var (
+	// MaxBlobBytes caps a single blob upload. Besides abuse control this
+	// kills the single-write overshoot adversary: no one request can jump
+	// the ceiling in one streaming write. Configurable via MAX_BLOB_BYTES
+	// (e.g. "500MB", "2GB", "1073741824", or "0" for unlimited), defaulting to 1 GiB.
+	MaxBlobBytes = envOrDefaultBytes("MAX_BLOB_BYTES", DefaultMaxBlobBytes)
 )
 
 // DiskStats is a point-in-time view of the filesystem backing dataDir.

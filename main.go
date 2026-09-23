@@ -47,6 +47,7 @@ func main() {
 
 	janitorMgr := modules.NewJanitor(database)
 	janitorMgr.SetDiskGuard(modules.NewDiskGuard(dataDir))
+	log.Printf("[STARTUP] max blob size: %s (%d bytes)", modules.FormatBytes(modules.MaxBlobBytes), modules.MaxBlobBytes)
 
 	log.Printf("[STARTUP] reconciling blob store...")
 	if err := janitorMgr.ReconcileBlobs(); err != nil {

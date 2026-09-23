@@ -200,7 +200,7 @@ func (se *SyncEngine) IngestBlob(hash string, data []byte) (bool, error) {
 	se.mu.RLock()
 	g := se.guard
 	se.mu.RUnlock()
-	if int64(len(data)) > modules.MaxBlobBytes {
+	if modules.MaxBlobBytes > 0 && int64(len(data)) > modules.MaxBlobBytes {
 		return false, fmt.Errorf("blob exceeds MAX_BLOB_BYTES")
 	}
 	if g != nil {

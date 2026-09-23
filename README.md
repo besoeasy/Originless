@@ -67,9 +67,10 @@ Configuration is deliberately minimal. Everything works out of the box with zero
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `NETWORK_ID` | `originless` | P2P swarm identity. Nodes with matching IDs automatically discover each other over DHT. Set to `off` (or `none`) to run offline, or set to a custom string (e.g. `my-project`) for a private swarm. |
+| `MAX_BLOB_BYTES` | `1GiB` (`1073741824`) | Maximum single blob upload cap. Accepts raw bytes or human units (e.g. `500MB`, `2GB`). Set `0` for unlimited. |
 | `SSE_MAX_SUBSCRIBERS` | `256` | Maximum concurrent live stream subscribers (`GET /events/stream`). Set `0` for unlimited. |
 
-* **Built-in Disk Guard**: 90% hard admission ceiling, 85% background janitor sweep, 1 GiB max single blob, and 5-minute emergency eviction cooldown. Hardcoded to ensure bulletproof, predictable node stability without configuration fatigue.
+* **Built-in Disk Guard**: 90% hard admission ceiling, 85% background janitor sweep, and 5-minute emergency eviction cooldown. Hardcoded to ensure bulletproof, predictable node stability without configuration fatigue.
 
 ---
 
@@ -93,7 +94,7 @@ Events are immutable, cryptographically signed JSON documents (≤ 8 KB, TTL ≤
 *Signature covers:* `owner:collection:created_at:expires_at:canonical(data):blob:labels`.
 
 ### Blobs (Content-Addressed Binary Storage)
-Upload raw binary bytes up to 1 GiB. Originless re-hashes bytes and stores them by SHA-256:
+Upload raw binary bytes up to `MAX_BLOB_BYTES` (default 1 GiB). Originless re-hashes bytes and stores them by SHA-256:
 * **Atomic Multipart Upload**: Publish a signed event and its binary attachment in a single `multipart/form-data` request (`event` part + `blob` part).
 * **Reference-Driven Retention**: A blob survives while at least one unexpired event references it. Once all referencing events expire, the blob is cleanly evicted as an orphan.
 * **Opaque Content Shield**: Only raw binary data is accepted (sniffed `text/*`, `image/*`, and `application/pdf` are rejected). All blobs download with `application/octet-stream` and `nosniff`, preventing hotlinking, XSS, and media CDN abuse.

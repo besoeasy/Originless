@@ -49,16 +49,79 @@ func envOrDefaultInt(key string, fallback int) int {
 	return n
 }
 
+// ParseBytes parses a human-readable byte string (e.g. "500MB", "1GB", "2GiB", "1073741824")
+// into int64 bytes. If val is empty, malformed, or negative, fallback is returned.
+func ParseBytes(val string, fallback int64) int64 {
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return fallback
+	}
+	if n, err := strconv.ParseInt(val, 10, 64); err == nil {
+		if n < 0 {
+			return fallback
+		}
+		return n
+	}
+	lower := strings.ToLower(val)
+	var multiplier int64 = 1
+	var numStr string
+	switch {
+	case strings.HasSuffix(lower, "tib"):
+		multiplier = 1 << 40
+		numStr = strings.TrimSuffix(lower, "tib")
+	case strings.HasSuffix(lower, "tb"):
+		multiplier = 1 << 40
+		numStr = strings.TrimSuffix(lower, "tb")
+	case strings.HasSuffix(lower, "t"):
+		multiplier = 1 << 40
+		numStr = strings.TrimSuffix(lower, "t")
+	case strings.HasSuffix(lower, "gib"):
+		multiplier = 1 << 30
+		numStr = strings.TrimSuffix(lower, "gib")
+	case strings.HasSuffix(lower, "gb"):
+		multiplier = 1 << 30
+		numStr = strings.TrimSuffix(lower, "gb")
+	case strings.HasSuffix(lower, "g"):
+		multiplier = 1 << 30
+		numStr = strings.TrimSuffix(lower, "g")
+	case strings.HasSuffix(lower, "mib"):
+		multiplier = 1 << 20
+		numStr = strings.TrimSuffix(lower, "mib")
+	case strings.HasSuffix(lower, "mb"):
+		multiplier = 1 << 20
+		numStr = strings.TrimSuffix(lower, "mb")
+	case strings.HasSuffix(lower, "m"):
+		multiplier = 1 << 20
+		numStr = strings.TrimSuffix(lower, "m")
+	case strings.HasSuffix(lower, "kib"):
+		multiplier = 1 << 10
+		numStr = strings.TrimSuffix(lower, "kib")
+	case strings.HasSuffix(lower, "kb"):
+		multiplier = 1 << 10
+		numStr = strings.TrimSuffix(lower, "kb")
+	case strings.HasSuffix(lower, "k"):
+		multiplier = 1 << 10
+		numStr = strings.TrimSuffix(lower, "k")
+	case strings.HasSuffix(lower, "b"):
+		multiplier = 1
+		numStr = strings.TrimSuffix(lower, "b")
+	default:
+		return fallback
+	}
+	numStr = strings.TrimSpace(numStr)
+	if f, err := strconv.ParseFloat(numStr, 64); err == nil && f >= 0 {
+		return int64(f * float64(multiplier))
+	}
+	return fallback
+}
+
+func envOrDefaultBytes(key string, fallback int64) int64 {
+	value := os.Getenv(key)
+	return ParseBytes(value, fallback)
+}
+
 func envOrDefaultInt64(key string, fallback int64) int64 {
-	value := strings.TrimSpace(os.Getenv(key))
-	if value == "" {
-		return fallback
-	}
-	n, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
-	if err != nil {
-		return fallback
-	}
-	return n
+	return envOrDefaultBytes(key, fallback)
 }
 
 // envOrDefaultBool reads a truthy/falsey env var. Unset or unrecognized
