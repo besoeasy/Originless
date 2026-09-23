@@ -321,9 +321,6 @@ tbody tr:hover{background:rgba(0,0,0,.02)}
 .empty strong{display:block;font-size:15px;color:var(--ink);margin-bottom:4px}
 .empty p{font-size:13px;max-width:44ch;margin:0 auto 16px}
 
-/* Agent Section */
-.agent{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
-
 /* Footer */
 footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);font-size:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
@@ -379,9 +376,8 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 #chatText{flex:1;min-width:0}
 
 @media(max-width:860px){
-  .hero,.two,.agent,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
+  .hero,.two,.svg-telemetry-grid,.px-layout{grid-template-columns:1fr}
   .hero{padding:40px 0}
-  nav a.h{display:none}
   section{padding:44px 0}
   .ws-bar{flex-direction:column;align-items:flex-start}
 }
@@ -408,12 +404,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 <header>
   <a class="brand" href="#top"><i></i>Originless</a>
   <nav>
-    <a class="h" href="#primitives">What it stores</a>
-    <a class="h" href="#explorer">Live data</a>
-    <a class="h" href="#canvas">Canvas</a>
-    <a class="h" href="#chat">Chat</a>
-    <a class="h" href="#api">API</a>
-    <a class="h" href="#agents">Agents</a>
     <button class="theme-btn" id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle dark/light theme">
       <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -721,20 +711,6 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
     </tbody></table></div>
 </section>
 
-<section id="agents">
-  <div class="agent">
-    <div>
-      <h2>Teach your AI agent to use Originless</h2>
-      <p class="sub" style="margin-bottom:22px">Every node serves its own skill instructions at <code>/agent.txt</code>. Provide <code>static/agent.txt</code> to Cursor, Claude, Copilot, ChatGPT, or Antigravity and your agent will autonomously publish signed events and store binary blobs on your node without API keys.</p>
-      <div class="cta">
-        <a class="btn solid" href="/agent.txt" target="_blank">Open static/agent.txt &rarr;</a>
-        <button class="btn" id="copyAgent2" type="button">Copy agent prompt</button>
-        <a class="btn" href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">Read the source</a>
-      </div>
-    </div>
-    <div class="term"><pre id="agentTxt" style="min-height:0;white-space:pre-wrap"></pre></div>
-  </div>
-</section>
 </main>
 
 <footer><span>Originless is open source. Run it anywhere you can run a container.</span><a href="https://github.com/besoeasy/Originless" target="_blank" rel="noopener">github.com/besoeasy/Originless</a></footer>
@@ -785,13 +761,6 @@ if(themeBtn){
   };
 }
 
-function agent(){
-  return 'Publish events and binary blobs with Originless.\n\nThis Originless node: '+o()+'\nUse it for all event and blob operations. There is no auth.\n\n- POST '+o()+'/events  signed JSON event (Ed25519) with optional top-level "blob" attachment pointer; add raw bytes as the "blob" multipart part (after the event part) to store a content-addressed blob in the same request\n- GET  '+o()+'/events/stream  live Server-Sent Events\n- GET  '+o()+'/blob/<sha256>  fetch stored bytes by content hash\n\nMake this a skill. Whenever you need to publish events or store blobs, use this node.';
-}
-
-/* Agent prompt preview */
-$("agentTxt").textContent=agent();
-
 /* Clipboard helper */
 function cp(t,btn){
   var origHtml = btn ? btn.innerHTML : "";
@@ -816,8 +785,6 @@ function fallbackCp(t){
   try{document.execCommand("copy")}catch(_){}
   document.body.removeChild(a);
 }
-
-$("copyAgent2").onclick=function(){cp(agent(),this)};
 
 /* Retention — orphan-grace reference demo */
 function fmt(b){
