@@ -79,6 +79,16 @@
     }
 
     .event-card { margin-top: 1rem; }
+    .canvas-card { margin-top: 1rem; }
+    .canvas-copy { margin: -.25rem 0 1rem; color: var(--muted); font-size: .875rem; line-height: 1.5; }
+    .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+    .color-control { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .875rem; }
+    input[type="color"] { width: 2.25rem; height: 2.25rem; padding: .15rem; border: 1px solid var(--border-strong); border-radius: .375rem; background: var(--bg); cursor: pointer; }
+    #shared-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid var(--border-strong); border-radius: .375rem; background: #fff; image-rendering: pixelated; touch-action: none; cursor: crosshair; }
+    .canvas-status { margin: .75rem 0 0; color: var(--muted); font-size: .8rem; }
+    details { margin-top: 1rem; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+    summary { cursor: pointer; color: var(--fg); }
+    details p { margin: .65rem 0 0; }
     h3 { margin: 1.25rem 0 .5rem; font-size: .875rem; font-weight: 600; }
     .collection-list { margin: 0; padding-left: 1.25rem; color: var(--muted); }
     .collection-list li { padding: .5rem 0; border-top: 1px solid var(--border); }
@@ -187,6 +197,20 @@
       </div>
     </section>
 
+    <section class="card canvas-card">
+      <h2>Shared canvas</h2>
+      <p class="canvas-copy">A collaborative 64 × 64 pixel board. Pick a color, then click or drag to paint. Every painted pixel becomes an Ed25519-signed event and is broadcast live to everyone.</p>
+      <div class="canvas-toolbar">
+        <label class="color-control" for="pixel-color">Color <input id="pixel-color" type="color" value="#ef4444" aria-label="Pixel color"></label>
+        <span id="canvas-status" class="canvas-status" aria-live="polite">Connecting…</span>
+      </div>
+      <canvas id="shared-canvas" width="512" height="512" aria-label="64 by 64 collaborative pixel canvas"></canvas>
+      <details>
+        <summary>How the canvas works</summary>
+        <p>Your browser signs each pixel action locally, posts it to <code>/events</code>, and listens to <code>/events/stream</code>. The canvas replays the last 30 days of pixel events from oldest to newest; the newest event wins for each cell.</p>
+      </details>
+    </section>
+
     <footer>
       <a href="/stats">Raw statistics JSON</a>
       <a href="/events">Events JSON</a>
@@ -281,8 +305,282 @@
       }
     }
 
+    const canvas = document.getElementById("shared-canvas");
+    const canvasContext = canvas.getContext("2d", { alpha: false });
+    const pixelColor = document.getElementById("pixel-color");
+    const canvasStatus = document.getElementById("canvas-status");
+    const GRID_SIZE = 64;
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+    const CANVAS_COLLECTION = "originless/canvas";
+    const CANVAS_LABEL = "canvas:landing";
+    const seenCanvasEvents = new Set();
+    const queuedCanvasEvents = [];
+    let canvasHistoryReady = false;
+    let painting = false;
+    let lastPaintedCell = "";
+    let identityPromise;
+    let publishQueue = Promise.resolve();
+
+    function setCanvasStatus(message) {
+      canvasStatus.textContent = message;
+    }
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      for (const byte of bytes) binary += String.fromCharCode(byte);
+      return btoa(binary);
+    }
+
+    function base64ToBytes(value) {
+      const binary = atob(value);
+      return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    }
+
+    function canonicalize(value) {
+      if (Array.isArray(value)) {
+        return `[${value.map((item) => canonicalize(item)).join(",")}]`;
+      }
+      if (value !== null && typeof value === "object") {
+        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
+      }
+      return JSON.stringify(value);
+    }
+
+    function drawGrid() {
+      canvasContext.strokeStyle = "rgba(0, 0, 0, 0.10)";
+      canvasContext.lineWidth = 1;
+      for (let index = 0; index <= GRID_SIZE; index += 1) {
+        const position = index * CELL_SIZE + 0.5;
+        canvasContext.beginPath();
+        canvasContext.moveTo(position, 0);
+        canvasContext.lineTo(position, canvas.height);
+        canvasContext.stroke();
+        canvasContext.beginPath();
+        canvasContext.moveTo(0, position);
+        canvasContext.lineTo(canvas.width, position);
+        canvasContext.stroke();
+      }
+    }
+
+    function resetCanvas() {
+      canvasContext.fillStyle = "#ffffff";
+      canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+    }
+
+    function paintCell(x, y, color) {
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return;
+      if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+      canvasContext.fillStyle = color;
+      canvasContext.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+      drawGrid();
+    }
+
+    function applyCanvasEvent(event) {
+      if (!event || !event.id || seenCanvasEvents.has(event.id)) return;
+      const data = event.data || {};
+      if (!Number.isInteger(data.x) || !Number.isInteger(data.y) || typeof data.color !== "string") return;
+      if (!/^#[0-9a-f]{6}$/i.test(data.color)) return;
+      seenCanvasEvents.add(event.id);
+      paintCell(data.x, data.y, data.color);
+    }
+
+    async function getCanvasIdentity() {
+      if (!identityPromise) {
+        identityPromise = (async () => {
+          if (!window.crypto || !window.crypto.subtle) {
+            throw new Error("Web Crypto Ed25519 is not available in this browser");
+          }
+          const storageKey = "originless.canvas.private-key";
+          const ownerKey = "originless.canvas.owner";
+          let privateBytes;
+          let owner;
+          try {
+            privateBytes = localStorage.getItem(storageKey);
+            owner = localStorage.getItem(ownerKey);
+          } catch (_) {
+            privateBytes = null;
+            owner = null;
+          }
+
+          if (privateBytes && owner) {
+            const privateKey = await crypto.subtle.importKey(
+              "raw",
+              base64ToBytes(privateBytes),
+              { name: "Ed25519" },
+              true,
+              ["sign"]
+            );
+            return { privateKey, owner };
+          }
+
+          const keyPair = await crypto.subtle.generateKey(
+            { name: "Ed25519" },
+            true,
+            ["sign", "verify"]
+          );
+          const publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+          const privateKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.privateKey));
+          owner = `ed25519:${bytesToHex(publicKey)}`;
+          try {
+            localStorage.setItem(storageKey, bytesToBase64(privateKey));
+            localStorage.setItem(ownerKey, owner);
+          } catch (_) {
+            // The in-memory key still works when storage is unavailable.
+          }
+          return { privateKey: keyPair.privateKey, owner };
+        })().catch((error) => {
+          identityPromise = null;
+          throw error;
+        });
+      }
+      return identityPromise;
+    }
+
+    async function createCanvasEvent(x, y, color) {
+      const identity = await getCanvasIdentity();
+      const createdAt = Math.floor(Date.now() / 1000);
+      const expiresAt = createdAt + 30 * 24 * 60 * 60;
+      const data = { x, y, color, timestamp: createdAt };
+      const canonicalData = canonicalize(data);
+      const message = `${identity.owner}:${CANVAS_COLLECTION}:${createdAt}:${expiresAt}:${canonicalData}::${CANVAS_LABEL}`;
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(message)));
+      const signature = new Uint8Array(await crypto.subtle.sign({ name: "Ed25519" }, identity.privateKey, digest));
+      return {
+        owner: identity.owner,
+        collection: CANVAS_COLLECTION,
+        created_at: createdAt,
+        expires_at: expiresAt,
+        data,
+        labels: [CANVAS_LABEL],
+        sig: bytesToHex(signature)
+      };
+    }
+
+    async function publishCanvasEvent(x, y, color) {
+      try {
+        const event = await createCanvasEvent(x, y, color);
+        const response = await fetch("/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(event)
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `Event request failed (${response.status})`);
+        if (payload.id) seenCanvasEvents.add(payload.id);
+        setCanvasStatus("Connected · signed event published");
+      } catch (error) {
+        setCanvasStatus(`Event error: ${error.message}`);
+      }
+    }
+
+    function queueCanvasEvent(x, y, color) {
+      publishQueue = publishQueue.then(() => publishCanvasEvent(x, y, color));
+    }
+
+    function cellFromPointer(event) {
+      const bounds = canvas.getBoundingClientRect();
+      const x = Math.floor(((event.clientX - bounds.left) / bounds.width) * GRID_SIZE);
+      const y = Math.floor(((event.clientY - bounds.top) / bounds.height) * GRID_SIZE);
+      if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return null;
+      return { x, y };
+    }
+
+    function paintFromPointer(event) {
+      const cell = cellFromPointer(event);
+      if (!cell) return;
+      const key = `${cell.x}:${cell.y}`;
+      if (key === lastPaintedCell) return;
+      lastPaintedCell = key;
+      const color = pixelColor.value.toLowerCase();
+      paintCell(cell.x, cell.y, color);
+      queueCanvasEvent(cell.x, cell.y, color);
+    }
+
+    async function loadCanvasHistory() {
+      const since = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+      const history = [];
+      let cursor = "";
+      for (let page = 0; page < 10; page += 1) {
+        const params = new URLSearchParams({
+          collection: CANVAS_COLLECTION,
+          label: CANVAS_LABEL,
+          since: String(since),
+          limit: "100"
+        });
+        if (cursor) params.set("cursor", cursor);
+        const response = await fetch(`/events?${params}`, { headers: { Accept: "application/json" } });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `History request failed (${response.status})`);
+        history.push(...(payload.events || []));
+        cursor = payload.next_cursor || "";
+        if (!cursor) break;
+      }
+      history.sort((left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id));
+      history.forEach(applyCanvasEvent);
+      queuedCanvasEvents.sort((left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id));
+      queuedCanvasEvents.splice(0).forEach(applyCanvasEvent);
+      canvasHistoryReady = true;
+    }
+
+    function connectCanvasStream() {
+      if (!window.EventSource) {
+        setCanvasStatus("Live updates unsupported: EventSource is unavailable");
+        return;
+      }
+      const params = new URLSearchParams({ collection: CANVAS_COLLECTION, label: CANVAS_LABEL });
+      const source = new EventSource(`/events/stream?${params}`);
+      source.addEventListener("event", (message) => {
+        try {
+          const event = JSON.parse(message.data);
+          if (!canvasHistoryReady) queuedCanvasEvents.push(event);
+          else applyCanvasEvent(event);
+          setCanvasStatus("Live · pixel received");
+        } catch (error) {
+          setCanvasStatus(`Stream error: ${error.message}`);
+        }
+      });
+      source.onopen = () => setCanvasStatus("Live · connected");
+      source.onerror = () => setCanvasStatus("Reconnecting…");
+    }
+
+    canvas.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      painting = true;
+      lastPaintedCell = "";
+      canvas.setPointerCapture(event.pointerId);
+      paintFromPointer(event);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (painting) paintFromPointer(event);
+    });
+    ["pointerup", "pointercancel", "pointerleave"].forEach((eventName) => {
+      canvas.addEventListener(eventName, () => {
+        painting = false;
+        lastPaintedCell = "";
+      });
+    });
+
+    async function initializeCanvas() {
+      resetCanvas();
+      setCanvasStatus("Loading canvas history…");
+      try {
+        await loadCanvasHistory();
+        setCanvasStatus("Ready · paint to collaborate");
+      } catch (error) {
+        canvasHistoryReady = true;
+        setCanvasStatus(`History unavailable: ${error.message}`);
+      }
+      connectCanvasStream();
+    }
+
     refresh.addEventListener("click", loadStats);
     loadStats();
+    initializeCanvas();
   </script>
 </body>
 </html>
