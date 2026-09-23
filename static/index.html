@@ -707,7 +707,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="canvas">
   <h2>🎨 Collaborative Pixel Canvas</h2>
-  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: canvas</code>) streamed live over SSE. <a class="g" href="https://github.com/besoeasy/Originless/blob/main/examples/pixel-canvas.html" target="_blank" rel="noopener" style="font-weight:600">Open full version &rarr;</a></p>
+  <p class="sub">A minimal r/place on your node — 64×64 shared grid. Pick a color, click to paint. Every pixel is an Ed25519-signed event (<code>collection: canvas</code>) streamed live over SSE.</p>
   <div class="px-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="pxDot"></span> <span id="pxStatus">Loading canvas...</span></span>
@@ -738,7 +738,7 @@ footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--ink3);fo
 
 <section id="chat">
   <h2>💬 Live chatbox</h2>
-  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: chat</code>) streamed live over SSE. <a class="g" href="https://github.com/besoeasy/Originless/blob/main/examples/comment-box.html" target="_blank" rel="noopener" style="font-weight:600">Open full version &rarr;</a></p>
+  <p class="sub">A minimal signed chat on your node — room <code>#general</code>. Every message is an Ed25519-signed event (<code>collection: chat</code>) streamed live over SSE.</p>
   <div class="chat-card">
     <div class="px-bar">
       <span class="pill pill-ok"><span class="dot-pulse" id="chatDot"></span> <span id="chatStatus">Connecting...</span></span>
@@ -1393,7 +1393,6 @@ function connectSSE(){
           fetchEvents(p);
         });
 
-        showToast("Live event received in \"" + rec.collection + "\"", "cy");
         fetchStatus();
         setTimeout(function(){ rec.__isNew = false; }, 3000);
       }catch(err){}
