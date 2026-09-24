@@ -526,7 +526,7 @@
     <section id="storage">
       <p class="eyebrow">IPFS storage</p>
       <h1>Drop files. Get CIDs.</h1>
-      <p class="lede">Files and folders go straight into the local Kubo node via <code>/up</code> — up to 1 GiB per upload.</p>
+      <p class="lede">Files and folders go straight into the local Kubo node via <code>/up</code> — up to 1 GiB per upload. Open any CID anywhere through the public gateway at <code>inbrowser.link/ipfs/&lt;cid&gt;</code>.</p>
 
       <div class="dropzone" id="ipfs-dropzone">
         <input type="file" id="file-input" style="display:none;" multiple>
@@ -1271,11 +1271,16 @@
         dl.href = `/ipfs/${encodeURIComponent(data.cid)}`;
         dl.target = "_blank";
         dl.textContent = "Download";
+        const view = document.createElement("a");
+        view.href = `https://inbrowser.link/ipfs/${encodeURIComponent(data.cid)}`;
+        view.target = "_blank";
+        view.rel = "noopener noreferrer";
+        view.textContent = "View in browser";
         const copyBtn = document.createElement("button");
         copyBtn.type = "button";
         copyBtn.textContent = "Copy CID";
         copyBtn.addEventListener("click", () => copySnippet(data.cid));
-        actions.append(dl, copyBtn);
+        actions.append(dl, view, copyBtn);
         li.append(info, actions);
         uploadHistory.prepend(li);
         showToast("Uploaded to IPFS: " + (data.cid ? data.cid.slice(0, 12) + "…" : "OK"));
