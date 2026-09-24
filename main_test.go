@@ -58,20 +58,23 @@ func TestHomePageIsEmbeddedAndDoesNotRequireIPFS(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	newRouter(client).ServeHTTP(recorder, request)
+	router := newRouter(client)
+	for _, target := range []string{"/", "/index.html"} {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, target, nil)
+		router.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
-	}
-	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
-		t.Errorf("content type = %q, want text/html", contentType)
-	}
-	body := recorder.Body.String()
-	for _, want := range []string{"Originless", `fetch("/stats"`, "Refresh stats"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("response body does not contain %q", want)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("target %s status = %d, want %d", target, recorder.Code, http.StatusOK)
+		}
+		if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/html") {
+			t.Errorf("target %s content type = %q, want text/html", target, contentType)
+		}
+		body := recorder.Body.String()
+		for _, want := range []string{"Originless", `fetch("/stats"`, "Refresh stats", "Shared Canvas", "Signed Chat"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("target %s response body does not contain %q", target, want)
+			}
 		}
 	}
 }

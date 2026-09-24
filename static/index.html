@@ -3,43 +3,584 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Originless | IPFS Node</title>
+  <title>Originless | Universal App Backend &amp; Docker IPFS Node</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #fff;
-      --fg: #000;
-      --muted: #666;
-      --border: #eaeaea;
-      --border-strong: #d4d4d4;
-      --hover: #fafafa;
-      --error-bg: #fff0f0;
-      --error-fg: #c50f1f;
-      font-family: "Geist", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--fg);
+      --bg: #ffffff;
+      --bg-canvas: #f8fafc;
+      --surface: #ffffff;
+      --surface-elevated: #ffffff;
+      --surface-subtle: #f1f5f9;
+      --surface-hover: #f8fafc;
+      
+      --fg-primary: #0f172a;
+      --fg-secondary: #475569;
+      --fg-muted: #64748b;
+      --fg-subtle: #94a3b8;
+      
+      --border: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --border-strong: #cbd5e1;
+      
+      /* Vibrant Accent Palette */
+      --brand-primary: #4f46e5;
+      --brand-gradient: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+      --brand-hover: #4338ca;
+      --brand-subtle: #eef2ff;
+      --brand-border: #c7d2fe;
+      
+      --blue-50: #eff6ff;
+      --blue-100: #dbeafe;
+      --blue-500: #3b82f6;
+      --blue-600: #2563eb;
+      --blue-700: #1d4ed8;
+      
+      --emerald-50: #ecfdf5;
+      --emerald-100: #d1fae5;
+      --emerald-500: #10b981;
+      --emerald-600: #059669;
+      --emerald-700: #047857;
+      
+      --purple-50: #faf5ff;
+      --purple-100: #f3e8ff;
+      --purple-500: #a855f7;
+      --purple-600: #9333ea;
+      --purple-700: #7e22ce;
+      
+      --amber-50: #fffbeb;
+      --amber-100: #fef3c7;
+      --amber-500: #f59e0b;
+      --amber-600: #d97706;
+      
+      --rose-50: #fff1f2;
+      --rose-100: #ffe4e6;
+      --rose-500: #f43f5e;
+      --rose-600: #e11d48;
+
+      --cyan-50: #ecfeff;
+      --cyan-100: #cffafe;
+      --cyan-500: #06b6d4;
+      --cyan-600: #0891b2;
+      
+      --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+      --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+      --shadow-card-hover: 0 12px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
+      --shadow-glow: 0 0 20px -3px rgba(79, 70, 229, 0.2);
+      
+      --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.06) 0px, transparent 50%),
+        radial-gradient(at 50% 20%, rgba(168, 85, 247, 0.03) 0px, transparent 60%);
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: var(--fg-primary);
       min-height: 100vh;
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 1.5rem;
-      background: var(--bg);
-      color: var(--fg);
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
     }
 
+    /* Top Navigation Bar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .navbar-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .nav-brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      text-decoration: none;
+      color: var(--fg-primary);
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.025em;
+    }
+
+    .nav-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--brand-gradient);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+    }
+
+    .nav-logo-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    .nav-divider {
+      color: var(--border-strong);
+      font-weight: 300;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: var(--emerald-50);
+      border: 1px solid var(--emerald-100);
+      color: var(--emerald-700);
+    }
+
+    .status-pill.offline {
+      background: var(--rose-50);
+      border-color: var(--rose-100);
+      color: var(--rose-600);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald-500);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-ring 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .pulse-dot.offline {
+      background: var(--rose-500);
+      box-shadow: none;
+      animation: none;
+    }
+
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    /* Buttons */
+    button, a.button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      line-height: 1;
+      height: 2.15rem;
+      padding: 0 0.95rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn-gradient {
+      background: var(--brand-gradient);
+      color: #ffffff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+    }
+    .btn-gradient:hover {
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-dark {
+      background: #0f172a;
+      color: #ffffff;
+      border: 1px solid #1e293b;
+    }
+    .btn-dark:hover {
+      background: #1e293b;
+      border-color: #334155;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--fg-primary);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-secondary:hover {
+      background: var(--surface-subtle);
+      border-color: var(--border-strong);
+      color: var(--fg-primary);
+    }
+
+    .btn-outline-blue {
+      background: var(--blue-50);
+      color: var(--blue-700);
+      border: 1px solid var(--blue-100);
+    }
+    .btn-outline-blue:hover {
+      background: var(--blue-100);
+      border-color: var(--blue-500);
+    }
+
+    .btn-sm {
+      height: 1.85rem;
+      padding: 0 0.7rem;
+      font-size: 0.75rem;
+    }
+
+    /* Sub-nav Segmented Bar */
+    .tabs-bar {
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(8px);
+    }
+
+    .tabs-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      gap: 1.75rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-container::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      position: relative;
+      background: none;
+      border: none;
+      padding: 0.85rem 0;
+      color: var(--fg-muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 0;
+      height: auto;
+      transition: color 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .tab-btn:hover {
+      color: var(--fg-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--brand-primary);
+      font-weight: 600;
+    }
+
+    .tab-btn.active::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2.5px;
+      background: var(--brand-gradient);
+      border-radius: 2px 2px 0 0;
+    }
+
+    .tab-count {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      border-radius: 9999px;
+      color: var(--blue-600);
+    }
+
+    .tab-count.live {
+      background: var(--emerald-50);
+      border-color: var(--emerald-100);
+      color: var(--emerald-600);
+    }
+
+    /* Main Container */
     main {
-      width: 100%;
-      max-width: 30rem;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
     }
 
-    header {
+    /* Modern Docker Console Banner */
+    .docker-banner {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .docker-banner::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #0284c7 0%, #4f46e5 50%, #06b6d4 100%);
+    }
+
+    .docker-banner-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .docker-banner-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--fg-primary);
+    }
+
+    .docker-logo-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: #e0f2fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0284c7;
+    }
+
+    .docker-banner-chips {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .chip-blue { background: var(--blue-50); color: var(--blue-700); border: 1px solid var(--blue-100); }
+    .chip-purple { background: var(--purple-50); color: var(--purple-700); border: 1px solid var(--purple-100); }
+    .chip-emerald { background: var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-100); }
+    .chip-cyan { background: var(--cyan-50); color: var(--cyan-700); border: 1px solid var(--cyan-100); }
+
+    /* Terminal Window inside Banner */
+    .terminal-box {
+      background: #0b0f19;
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .terminal-header {
+      background: #111827;
+      padding: 0.45rem 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1f2937;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.red { background: #ef4444; }
+    .terminal-dot.yellow { background: #f59e0b; }
+    .terminal-dot.green { background: #10b981; }
+
+    .terminal-title {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: #94a3b8;
+    }
+
+    .terminal-body {
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .terminal-code {
+      font-family: var(--font-mono);
+      font-size: 0.825rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .terminal-code::-webkit-scrollbar { display: none; }
+
+    .syntax-cmd { color: #38bdf8; font-weight: 600; }
+    .syntax-arg { color: #94a3b8; }
+    .syntax-val { color: #f1f5f9; }
+    .syntax-port { color: #34d399; font-weight: 500; }
+    .syntax-pkg { color: #c084fc; font-weight: 500; }
+
+    /* Stat Cards Grid with Color Identity */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-card);
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+      border-color: var(--border-strong);
+    }
+
+    .stat-card.card-blue:hover { border-color: var(--blue-500); }
+    .stat-card.card-indigo:hover { border-color: var(--brand-primary); }
+    .stat-card.card-emerald:hover { border-color: var(--emerald-500); }
+    .stat-card.card-purple:hover { border-color: var(--purple-500); }
+    .stat-card.card-cyan:hover { border-color: var(--cyan-500); }
+    .stat-card.card-amber:hover { border-color: var(--amber-500); }
+
+    .stat-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .stat-icon-wrapper {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-blue { background: var(--blue-50); color: var(--blue-600); border: 1px solid var(--blue-100); }
+    .icon-indigo { background: var(--brand-subtle); color: var(--brand-primary); border: 1px solid var(--brand-border); }
+    .icon-emerald { background: var(--emerald-50); color: var(--emerald-600); border: 1px solid var(--emerald-100); }
+    .icon-purple { background: var(--purple-50); color: var(--purple-600); border: 1px solid var(--purple-100); }
+    .icon-cyan { background: var(--cyan-50); color: var(--cyan-600); border: 1px solid var(--cyan-100); }
+    .icon-amber { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-100); }
+
+    .stat-label {
+      font-size: 0.8125rem;
+      color: var(--fg-secondary);
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      color: var(--fg-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-sub {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+    }
+
+    /* Content Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 1.5rem;
+    }
+
+    .card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -47,260 +588,1148 @@
       margin-bottom: 1.25rem;
     }
 
-    .brand { margin: 0 0 .25rem; color: var(--muted); font-size: .875rem; }
-    h1 { margin: 0; font-size: 1.75rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
-    h2 { margin: 0 0 1rem; font-size: .875rem; font-weight: 500; color: var(--muted); }
-
-    button, a { font: inherit; }
-
-    button {
-      height: 2.25rem;
-      padding: 0 .9rem;
-      border: 1px solid var(--fg);
-      border-radius: .375rem;
-      background: var(--fg);
-      color: var(--bg);
-      font-size: .875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background .15s, border-color .15s;
+    .card-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
 
-    button:hover { background: #333; border-color: #333; }
-    button:disabled { cursor: wait; opacity: .5; }
-
-    :focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-
-    .card {
-      padding: 1.25rem 1.5rem;
-      border: 1px solid var(--border);
-      border-radius: .5rem;
-      background: var(--bg);
+    .card-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--fg-primary);
     }
 
-    .event-card { margin-top: 1rem; }
-    .stream-card { margin-top: 1rem; }
-    .canvas-card { margin-top: 1rem; }
-    .stream-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
-    .stream-toolbar .state { margin: 0; }
-    .secondary-button { height: 2rem; padding: 0 .65rem; background: var(--bg); color: var(--fg); font-size: .8rem; }
-    .secondary-button:hover { background: var(--hover); color: var(--fg); }
-    .event-list { list-style: none; margin: 0; padding: 0; }
-    .event-item { padding: .85rem 0; border-top: 1px solid var(--border); }
-    .event-item:first-child { border-top: 0; padding-top: 0; }
-    .event-item:last-child { padding-bottom: 0; }
-    .event-heading { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
-    .event-collection { font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
-    .event-time { flex: 0 0 auto; color: var(--muted); font-size: .75rem; white-space: nowrap; }
-    .event-meta { margin: .25rem 0 0; color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
-    .event-data { display: block; margin-top: .5rem; max-height: 4.5rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .event-link { display: inline-block; margin-top: .5rem; font-size: .75rem; }
-    .event-pagination { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1rem; }
-    .event-pagination button:disabled { cursor: not-allowed; }
-    .event-page { color: var(--muted); font-size: .8rem; }
-    .chat-card { margin-top: 1rem; }
-    .chat-list { list-style: none; margin: 0 0 1rem; padding: 0; }
-    .chat-item { padding: .75rem 0; border-top: 1px solid var(--border); }
-    .chat-item:first-child { border-top: 0; padding-top: 0; }
-    .chat-item:last-child { padding-bottom: 0; }
-    .chat-meta { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; color: var(--muted); font-size: .75rem; }
-    .chat-author { color: var(--fg); font-weight: 600; overflow-wrap: anywhere; }
-    .chat-time { flex: 0 0 auto; white-space: nowrap; }
-    .chat-text { margin: .4rem 0 0; font-size: .875rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .chat-form { margin-top: 1rem; }
-    .chat-label { display: block; margin-bottom: .4rem; color: var(--muted); font-size: .8rem; }
-    .chat-compose { display: flex; gap: .5rem; }
-    .chat-input { min-width: 0; flex: 1; height: 2.25rem; padding: 0 .7rem; border: 1px solid var(--border-strong); border-radius: .375rem; background: var(--bg); color: var(--fg); font: inherit; font-size: .875rem; }
-    .chat-input:focus { border-color: var(--fg); }
-    .chat-hint { margin: .5rem 0 0; color: var(--muted); font-size: .75rem; }
-    .canvas-copy { margin: -.25rem 0 1rem; color: var(--muted); font-size: .875rem; line-height: 1.5; }
-    .canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
-    .color-control { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .875rem; }
-    input[type="color"] { width: 2.25rem; height: 2.25rem; padding: .15rem; border: 1px solid var(--border-strong); border-radius: .375rem; background: var(--bg); cursor: pointer; }
-    #shared-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 1px solid var(--border-strong); border-radius: .375rem; background: #fff; image-rendering: pixelated; touch-action: none; cursor: crosshair; }
-    .canvas-status { margin: .75rem 0 0; color: var(--muted); font-size: .8rem; }
-    details { margin-top: 1rem; color: var(--muted); font-size: .8rem; line-height: 1.5; }
-    summary { cursor: pointer; color: var(--fg); }
-    details p { margin: .65rem 0 0; }
-    h3 { margin: 1.25rem 0 .5rem; font-size: .875rem; font-weight: 600; }
-    .collection-list { margin: 0; padding-left: 1.25rem; color: var(--muted); }
-    .collection-list li { padding: .5rem 0; border-top: 1px solid var(--border); }
-    .collection-list li:first-child { border-top: 0; }
-    .collection-list strong { color: var(--fg); font-weight: 600; }
+    .card-subtitle {
+      margin: 0;
+      font-size: 0.8125rem;
+      color: var(--fg-secondary);
+    }
 
-    dl {
+    /* Layout Grids */
+    .two-col-grid {
       display: grid;
-      grid-template-columns: max-content 1fr;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .two-col-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Top Collections Pill list with Color Accents */
+    .collections-flex {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 0.75rem;
+    }
+
+    .collection-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+
+    .collection-pill:hover {
+      border-color: var(--brand-primary);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .collection-bullet {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--brand-primary);
+    }
+
+    .collection-pill-name {
+      color: var(--fg-primary);
+      font-family: var(--font-mono);
+      font-size: 0.785rem;
+    }
+
+    .collection-pill-count {
+      background: var(--blue-50);
+      color: var(--blue-700);
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    /* Event Stream Table / List */
+    .stream-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 0.75rem;
+      width: 14px;
+      height: 14px;
+      color: var(--fg-subtle);
+    }
+
+    .search-input {
+      font-family: inherit;
+      font-size: 0.8125rem;
+      padding: 0.45rem 0.75rem 0.45rem 2.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #ffffff;
+      color: var(--fg-primary);
+      min-width: 250px;
+      transition: var(--transition);
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .stream-table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.8125rem;
+      min-width: 860px;
+    }
+
+    .events-table th {
+      padding: 0.8rem 1rem;
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+      color: var(--fg-secondary);
+      font-weight: 600;
+      font-size: 0.725rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .events-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+      color: var(--fg-primary);
+    }
+
+    .events-table tr.event-row:hover td {
+      background: #f8fafc;
+    }
+
+    .events-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .event-payload-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.25rem 0.6rem;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--fg-primary);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: left;
+    }
+
+    .event-payload-chip:hover {
+      background: #e2e8f0;
+      border-color: var(--border-strong);
+    }
+
+    .event-detail-row td {
+      padding: 0.75rem 1.25rem 1rem;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .event-expanded-box {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--fg-primary);
+      max-height: 14rem;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
       margin: 0;
     }
 
-    dt, dd {
-      padding: .75rem 0;
-      border-top: 1px solid var(--border);
-      font-size: .875rem;
-    }
-
-    dt:first-of-type, dt:first-of-type + dd { border-top: 0; padding-top: 0; }
-    dt:last-of-type, dt:last-of-type + dd { padding-bottom: 0; }
-
-    dt { color: var(--muted); padding-right: 2rem; }
-    dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-
-    code {
-      padding: .1rem .35rem;
-      border: 1px solid var(--border);
-      border-radius: .25rem;
-      background: var(--hover);
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: .8125rem;
-    }
-
-    .state { margin: 0; color: var(--muted); font-size: .875rem; }
-    .error { margin: 0; padding: .75rem 1rem; border-radius: .375rem; background: var(--error-bg); color: var(--error-fg); font-size: .875rem; }
-    [hidden] { display: none !important; }
-
-    footer {
+    .event-header {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .event-meta-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .tag-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .tag-chat { background: var(--purple-50); color: var(--purple-700); border: 1px solid var(--purple-100); }
+    .tag-canvas { background: var(--rose-50); color: var(--rose-600); border: 1px solid var(--rose-100); }
+    .tag-generic { background: var(--blue-50); color: var(--blue-700); border: 1px solid var(--blue-100); }
+    .tag-label { background: var(--cyan-50); color: var(--cyan-700); border: 1px solid var(--cyan-100); }
+    .tag-size { background: var(--surface-subtle); color: var(--fg-secondary); border: 1px solid var(--border); }
+
+    .event-time {
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+
+    .event-owner-line {
+      font-size: 0.775rem;
+      color: var(--fg-secondary);
+      margin-bottom: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .avatar-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--brand-gradient);
+      display: inline-block;
+    }
+
+    .event-data-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--fg-primary);
+      max-height: 6.5rem;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Shared Canvas Visuals */
+    .canvas-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .canvas-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.65rem 0.85rem;
+    }
+
+    .palette-group {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .color-swatch:hover {
+      transform: scale(1.15);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .color-swatch.active {
+      outline: 2.5px solid var(--brand-primary);
+      outline-offset: 1.5px;
+    }
+
+    input[type="color"] {
+      width: 28px;
+      height: 28px;
+      padding: 0.1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    #shared-canvas {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 1;
+      margin: 0 auto;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      image-rendering: pixelated;
+      touch-action: none;
+      cursor: crosshair;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Chat Section */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-identity-box {
+      background: var(--purple-50);
+      border: 1px solid var(--purple-100);
+      border-radius: var(--radius-md);
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.775rem;
+    }
+
+    .chat-identity-text {
+      font-family: var(--font-mono);
+      color: var(--purple-700);
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chat-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 1;
+      min-height: 180px;
+      max-height: 330px;
+      overflow-y: auto;
+      margin-bottom: 0.85rem;
+    }
+
+    .chat-item {
+      padding: 0.75rem 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+    .chat-item:hover {
+      border-color: var(--brand-border);
+      box-shadow: var(--shadow-card);
+    }
+
+    .chat-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.35rem;
+      font-size: 0.75rem;
+    }
+
+    .chat-author {
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--brand-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .chat-text {
+      margin: 0;
+      font-size: 0.825rem;
+      line-height: 1.45;
+      color: var(--fg-primary);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .chat-compose-box {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .chat-input {
+      flex: 1;
+      min-width: 0;
+      height: 2.35rem;
+      padding: 0 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.8125rem;
+      background: #ffffff;
+      color: var(--fg-primary);
+      transition: var(--transition);
+    }
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    /* IPFS Upload Dropzone */
+    .dropzone {
+      border: 2px dashed #93c5fd;
+      border-radius: var(--radius-xl);
+      padding: 2.75rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--blue-600);
+      background: var(--blue-50);
+      transform: scale(1.005);
+    }
+
+    .dropzone-icon-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #e0f2fe;
+      display: flex;
+      align-items: center;
       justify-content: center;
+      color: #0284c7;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+    }
+
+    .upload-history-list {
+      list-style: none;
+      margin: 1rem 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .upload-history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      gap: 1rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* API Reference Table */
+    .api-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+
+    .api-table th {
+      text-align: left;
+      padding: 0.75rem 0.85rem;
+      border-bottom: 2px solid var(--border);
+      font-weight: 600;
+      color: var(--fg-secondary);
+    }
+
+    .api-table td {
+      padding: 0.85rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .method-pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.725rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .method-get { background: var(--blue-50); color: var(--blue-700); border: 1px solid var(--blue-100); }
+    .method-post { background: var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-100); }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 0.75rem 1.15rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+      border: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+
+    @keyframes toast-in {
+      from { transform: translateY(12px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.75rem 1.5rem;
+      background: #ffffff;
+    }
+
+    .footer-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
       gap: 1.25rem;
-      margin-top: 1.25rem;
-      font-size: .875rem;
+      font-size: 0.8125rem;
+      color: var(--fg-muted);
     }
 
-    a { color: var(--muted); text-decoration: none; transition: color .15s; }
-    a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: .2em; }
-
-    @media (max-width: 30rem) {
-      dl { grid-template-columns: 1fr; }
-      dt { padding-bottom: 0; border-top: 1px solid var(--border); padding-top: .75rem; }
-      dd { border-top: 0; padding-top: .15rem; text-align: left; }
-      dt:first-of-type { border-top: 0; padding-top: 0; }
-      dt:first-of-type + dd { padding-top: .15rem; }
-      dt:last-of-type + dd { padding-bottom: 0; }
+    .footer-links {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
     }
+
+    .footer-links a {
+      color: var(--fg-secondary);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover {
+      color: var(--brand-primary);
+      text-decoration: underline;
+    }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fade-in 0.2s ease-out; }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .state { color: var(--fg-muted); font-size: 0.875rem; margin: 0; }
+    .error { color: var(--rose-600); background: var(--rose-50); border: 1px solid var(--rose-100); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.8125rem; margin: 0; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <div>
-        <p class="brand">Originless</p>
-        <h1>IPFS node</h1>
-      </div>
-      <button id="refresh" type="button">Refresh stats</button>
-    </header>
 
-    <section class="card" aria-live="polite">
-      <h2>Repository statistics</h2>
-      <p id="loading" class="state">Loading statistics…</p>
-      <p id="error" class="error" hidden></p>
-      <dl id="stats" hidden>
-        <dt>Repository size</dt>
-        <dd id="repo-size">—</dd>
-        <dt>Storage limit</dt>
-        <dd id="storage-limit">—</dd>
-        <dt>Objects</dt>
-        <dd id="objects">—</dd>
-      </dl>
-    </section>
-
-    <section class="card event-card" aria-live="polite">
-      <h2>Event statistics</h2>
-      <p id="events-state" class="state">Waiting for statistics…</p>
-      <p id="events-error" class="error" hidden></p>
-      <dl id="event-stats" hidden>
-        <dt>Live events</dt>
-        <dd id="event-count">—</dd>
-        <dt>Unique owners</dt>
-        <dd id="event-owners">—</dd>
-        <dt>Stored event data</dt>
-        <dd id="event-bytes">—</dd>
-        <dt>Expired events</dt>
-        <dd id="event-expired">—</dd>
-        <dt>Stream subscribers</dt>
-        <dd id="event-subscribers">—</dd>
-      </dl>
-      <div id="event-collections" hidden>
-        <h3>Top collections</h3>
-        <ol id="top-collections" class="collection-list"></ol>
-      </div>
-    </section>
-
-    <section class="card stream-card" aria-live="polite">
-      <h2>Event stream</h2>
-      <p class="canvas-copy">The latest signed events, newest first. Browse 10 events per page.</p>
-      <div class="stream-toolbar">
-        <p id="stream-state" class="state">Loading events…</p>
-        <button id="stream-refresh" class="secondary-button" type="button">Refresh</button>
-      </div>
-      <p id="stream-error" class="error" hidden></p>
-      <ol id="event-list" class="event-list" hidden></ol>
-      <p id="stream-empty" class="state" hidden>No events have been published yet.</p>
-      <nav id="event-pagination" class="event-pagination" aria-label="Event pages" hidden>
-        <button id="events-prev" class="secondary-button" type="button">Previous</button>
-        <span id="events-page" class="event-page">Page 1</span>
-        <button id="events-next" class="secondary-button" type="button">Next</button>
-      </nav>
-    </section>
-
-    <section class="card chat-card" aria-live="polite">
-      <h2>Chat</h2>
-      <p class="canvas-copy">Write to <code>originless/chat</code>. Messages are signed in your browser, and the latest three appear for everyone.</p>
-      <p id="chat-state" class="state">Loading messages…</p>
-      <p id="chat-error" class="error" hidden></p>
-      <ol id="chat-messages" class="chat-list" hidden></ol>
-      <p id="chat-empty" class="state" hidden>No messages yet. Start the conversation.</p>
-      <form id="chat-form" class="chat-form">
-        <label class="chat-label" for="chat-message">Message</label>
-        <div class="chat-compose">
-          <input id="chat-message" class="chat-input" type="text" maxlength="1000" autocomplete="off" placeholder="Write a message…" required>
-          <button id="chat-submit" type="submit">Send</button>
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="navbar-container">
+      <div class="nav-brand-group">
+        <a href="#overview" class="nav-logo">
+          <div class="nav-logo-icon">
+            <svg viewBox="0 0 24 24"><polygon points="12,2 22,21 2,21"/></svg>
+          </div>
+          <span style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Originless</span>
+        </a>
+        <span class="nav-divider">/</span>
+        <div class="status-pill" id="container-status-badge">
+          <span class="pulse-dot" id="health-pulse"></span>
+          <span id="health-text">Docker Node Healthy</span>
+          <span id="ping-text" style="color:var(--emerald-600); font-family:var(--font-mono); font-size:0.7rem;">· 0ms</span>
         </div>
-        <p class="chat-hint">Messages expire after 30 days.</p>
-      </form>
-    </section>
-
-    <section class="card canvas-card">
-      <h2>Shared canvas</h2>
-      <p class="canvas-copy">A collaborative 64 × 64 pixel board. Pick a color, then click or drag to paint. Every painted pixel becomes an Ed25519-signed event and is broadcast live to everyone.</p>
-      <div class="canvas-toolbar">
-        <label class="color-control" for="pixel-color">Color <input id="pixel-color" type="color" value="#ef4444" aria-label="Pixel color"></label>
-        <span id="canvas-status" class="canvas-status" aria-live="polite">Connecting…</span>
       </div>
-      <canvas id="shared-canvas" width="512" height="512" aria-label="64 by 64 collaborative pixel canvas"></canvas>
-      <details>
-        <summary>How the canvas works</summary>
-        <p>Your browser signs each pixel action locally, posts it to <code>/events</code>, and listens to <code>/events/stream</code>. The canvas replays the last 30 days of pixel events from oldest to newest; the newest event wins for each cell.</p>
-      </details>
-    </section>
+      <div class="nav-actions">
+        <button id="refresh" class="btn-secondary btn-sm" type="button" title="Refresh stats">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Refresh</span>
+        </button>
+        <button class="btn-dark btn-sm" id="copy-docker-btn" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>docker run</span>
+        </button>
+        <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer" class="button btn-secondary btn-sm" title="View on GitHub">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
 
-    <footer>
-      <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub repository</a>
-      <a href="/stats">Raw statistics JSON</a>
-      <a href="/events">Events JSON</a>
-      <a href="/events/stream">Event stream</a>
-      <a href="/healthz">Health check</a>
-    </footer>
+  <!-- Segmented Tab Navigation -->
+  <nav class="tabs-bar" aria-label="Sections">
+    <div class="tabs-container">
+      <button class="tab-btn active" data-tab="overview">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <span>Overview</span>
+      </button>
+      <button class="tab-btn" data-tab="stream">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>Live Stream</span>
+        <span class="tab-count" id="stream-tab-count">0</span>
+      </button>
+      <button class="tab-btn" data-tab="apps">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+        <span>Chat &amp; Canvas</span>
+        <span class="tab-count live">Live</span>
+      </button>
+      <button class="tab-btn" data-tab="ipfs">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span>IPFS Storage</span>
+      </button>
+      <button class="tab-btn" data-tab="docker">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+        <span>Docker &amp; API</span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-panel active">
+      
+      <!-- Metrics Grid with Colorful Accents -->
+      <div class="stats-grid">
+        <div class="stat-card card-blue">
+          <div class="stat-top">
+            <span class="stat-label">Repository Size</span>
+            <div class="stat-icon-wrapper icon-blue">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="repo-size">—</div>
+          <div class="stat-sub">Storage Limit: <strong id="storage-limit" style="color:var(--blue-700);">—</strong></div>
+        </div>
+
+        <div class="stat-card card-indigo">
+          <div class="stat-top">
+            <span class="stat-label">IPFS Objects</span>
+            <div class="stat-icon-wrapper icon-indigo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="objects">—</div>
+          <div class="stat-sub">Local UnixFS DAG blocks</div>
+        </div>
+
+        <div class="stat-card card-emerald">
+          <div class="stat-top">
+            <span class="stat-label">Live Events</span>
+            <div class="stat-icon-wrapper icon-emerald">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="event-count">—</div>
+          <div class="stat-sub"><strong id="event-bytes" style="color:var(--emerald-600);">—</strong> active in memory</div>
+        </div>
+
+        <div class="stat-card card-purple">
+          <div class="stat-top">
+            <span class="stat-label">Unique Signers</span>
+            <div class="stat-icon-wrapper icon-purple">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="event-owners">—</div>
+          <div class="stat-sub">Ed25519 client identities</div>
+        </div>
+
+        <div class="stat-card card-cyan">
+          <div class="stat-top">
+            <span class="stat-label">SSE Subscribers</span>
+            <div class="stat-icon-wrapper icon-cyan">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="event-subscribers">—</div>
+          <div class="stat-sub">Active live stream sockets</div>
+        </div>
+
+        <div class="stat-card card-amber">
+          <div class="stat-top">
+            <span class="stat-label">Expired Events</span>
+            <div class="stat-icon-wrapper icon-amber">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="event-expired">—</div>
+          <div class="stat-sub">Automatically pruned TTLs</div>
+        </div>
+      </div>
+
+      <!-- Top Collections Card -->
+      <section class="card" id="collections-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">Top Collections</h2>
+            <p class="card-subtitle">Partitioned event namespaces currently stored on this node</p>
+          </div>
+          <button class="btn-outline-blue btn-sm" id="view-stream-btn" type="button">Explore Feed →</button>
+        </div>
+        <div id="collections-empty" class="state" style="padding: 1rem 0;">Loading collections…</div>
+        <div id="top-collections-pills" class="collections-flex" hidden></div>
+      </section>
+
+      <!-- Quick Action Cards Grid -->
+      <div class="two-col-grid">
+        <div class="card">
+          <h2 class="card-title">Interactive Collaborative Apps</h2>
+          <p class="card-subtitle" style="margin-top:0.35rem; margin-bottom:1.15rem;">
+            Test the live capabilities of your Docker node directly from your browser.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-subtle);">
+              <div>
+                <strong style="font-size:0.875rem; color:var(--fg-primary);">Shared 256×256 Pixel Canvas</strong>
+                <p style="margin:0; font-size:0.75rem; color:var(--fg-muted);">Ed25519-signed pixel placements streamed in real-time</p>
+              </div>
+              <button class="btn-gradient btn-sm" onclick="switchTab('apps')" type="button">Open Canvas</button>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.85rem; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-subtle);">
+              <div>
+                <strong style="font-size:0.875rem; color:var(--fg-primary);">Signed Chat</strong>
+                <p style="margin:0; font-size:0.75rem; color:var(--fg-muted);">Zero-server-auth messages signed on-device</p>
+              </div>
+              <button class="btn-secondary btn-sm" onclick="switchTab('apps')" type="button">Open Chat</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Node Diagnostics &amp; Health</h2>
+          <p class="card-subtitle" style="margin-top:0.35rem; margin-bottom:1.15rem;">
+            Inspect your running IPFS node status and runtime parameters.
+          </p>
+          <dl style="display:grid; grid-template-columns:140px 1fr; margin:0; font-size:0.8125rem;">
+            <dt style="color:var(--fg-muted); padding:0.45rem 0;">Node Status</dt>
+            <dd style="margin:0; padding:0.45rem 0; font-weight:600; color:var(--emerald-600);" id="node-diag-status">Operational</dd>
+            <dt style="color:var(--fg-muted); padding:0.45rem 0;">Storage Mode</dt>
+            <dd style="margin:0; padding:0.45rem 0; font-family:var(--font-mono); color:var(--blue-700);">ephemeral (in-container)</dd>
+            <dt style="color:var(--fg-muted); padding:0.45rem 0;">IPFS Engine</dt>
+            <dd style="margin:0; padding:0.45rem 0; font-family:var(--font-mono);" id="node-diag-version">Kubo IPFS</dd>
+            <dt style="color:var(--fg-muted); padding:0.45rem 0;">Health Check</dt>
+            <dd style="margin:0; padding:0.45rem 0;"><a href="/healthz" target="_blank" style="color:var(--brand-primary); font-family:var(--font-mono); font-weight:600;">/healthz</a></dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: LIVE STREAM -->
+    <div id="tab-stream" class="tab-panel">
+      <section class="card">
+        <div class="stream-toolbar">
+          <div>
+            <h2 class="card-title">Event Stream Feed</h2>
+            <p class="card-subtitle" id="stream-state">Loading latest signed events…</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.65rem;">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="stream-search" class="search-input" placeholder="Filter collection, label, signer…" aria-label="Filter events">
+            </div>
+            <button id="stream-refresh" class="btn-secondary btn-sm" type="button">Refresh</button>
+          </div>
+        </div>
+
+        <p id="stream-error" class="error" hidden></p>
+        <div id="stream-table-container" class="stream-table-container" hidden>
+          <table class="events-table">
+            <thead>
+              <tr>
+                <th style="width: 15%;">Collection</th>
+                <th style="width: 16%;">Signer</th>
+                <th>Payload (Click to Expand)</th>
+                <th style="width: 14%;">Labels</th>
+                <th style="width: 9%;">Size</th>
+                <th style="width: 14%;">Time</th>
+                <th style="width: 9%; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="event-table-body"></tbody>
+          </table>
+        </div>
+        <p id="stream-empty" class="state" style="padding: 2.5rem 0; text-align: center;" hidden>No events found.</p>
+
+        <nav id="event-pagination" style="display:flex; align-items:center; justify-content:space-between; margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border);" aria-label="Event pagination" hidden>
+          <button id="events-prev" class="btn-secondary btn-sm" type="button">← Previous</button>
+          <span id="events-page" style="font-size:0.8125rem; color:var(--fg-muted); font-weight:500;">Page 1</span>
+          <button id="events-next" class="btn-secondary btn-sm" type="button">Next →</button>
+        </nav>
+      </section>
+    </div>
+
+    <!-- TAB 3: REAL-TIME APPS (CHAT & CANVAS) -->
+    <div id="tab-apps" class="tab-panel">
+      <!-- Shared Canvas Card -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">Shared Canvas (256×256)</h2>
+            <p class="card-subtitle">Full-width collaborative pixel board. Each pixel placement is signed via Ed25519.</p>
+          </div>
+          <span id="canvas-status" class="tag-badge tag-generic">Connecting…</span>
+        </div>
+
+        <div class="canvas-layout">
+          <div class="canvas-controls">
+            <div class="palette-group">
+              <span style="font-size:0.75rem; color:var(--fg-secondary); font-weight:600; margin-right:4px;">Palette:</span>
+              <button class="color-swatch active" style="background:#ef4444;" data-color="#ef4444" title="Red" type="button"></button>
+              <button class="color-swatch" style="background:#f97316;" data-color="#f97316" title="Orange" type="button"></button>
+              <button class="color-swatch" style="background:#f59e0b;" data-color="#f59e0b" title="Amber" type="button"></button>
+              <button class="color-swatch" style="background:#10b981;" data-color="#10b981" title="Green" type="button"></button>
+              <button class="color-swatch" style="background:#0ea5e9;" data-color="#0ea5e9" title="Sky" type="button"></button>
+              <button class="color-swatch" style="background:#6366f1;" data-color="#6366f1" title="Indigo" type="button"></button>
+              <button class="color-swatch" style="background:#8b5cf6;" data-color="#8b5cf6" title="Purple" type="button"></button>
+              <button class="color-swatch" style="background:#0f172a;" data-color="#0f172a" title="Dark Slate" type="button"></button>
+              <button class="color-swatch" style="background:#ffffff;" data-color="#ffffff" title="White" type="button"></button>
+              <input id="pixel-color" type="color" value="#ef4444" aria-label="Custom color picker">
+            </div>
+            <span id="canvas-coords" style="font-size:0.75rem; font-family:var(--font-mono); color:var(--brand-primary); font-weight:600;">X: — Y: —</span>
+          </div>
+
+          <canvas id="shared-canvas" width="1024" height="1024" aria-label="Collaborative 256 by 256 pixel grid"></canvas>
+
+          <p style="font-size:0.75rem; color:var(--fg-muted); margin:0; text-align:center;">
+            Channel: <code style="font-family:var(--font-mono); color:var(--brand-primary);">originless/canvas</code> · Automatically replays the last 30 days of pixel history.
+          </p>
+        </div>
+      </section>
+
+      <!-- Live Chat Card -->
+      <section class="card chat-container">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">Signed Chat</h2>
+            <p class="card-subtitle">Channel: <code>originless/chat</code></p>
+          </div>
+          <span id="chat-status-badge" class="tag-badge tag-chat">Live SSE</span>
+        </div>
+
+        <div class="chat-identity-box">
+          <span style="font-weight:600; color:var(--purple-700);">Signer Key:</span>
+          <span id="device-identity-val" class="chat-identity-text">Generating…</span>
+          <button class="btn-secondary btn-sm" id="copy-my-key-btn" type="button" style="height:1.4rem; padding:0 0.45rem; font-size:0.7rem; border-color:var(--purple-100);">Copy</button>
+        </div>
+
+        <p id="chat-state" class="state" style="font-size:0.8125rem; margin-bottom:0.5rem;">Loading messages…</p>
+        <p id="chat-error" class="error" hidden></p>
+
+        <ol id="chat-messages" class="chat-list" hidden></ol>
+        <p id="chat-empty" class="state" style="padding:2rem 0; text-align:center;" hidden>No messages yet. Send the first message.</p>
+
+        <form id="chat-form" style="margin-top:auto;">
+          <div class="chat-compose-box">
+            <input id="chat-message" class="chat-input" type="text" maxlength="1000" autocomplete="off" placeholder="Write a signed message…" required>
+            <button id="chat-submit" class="btn-gradient" type="submit">
+              <span>Send</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:0.4rem; font-size:0.7rem; color:var(--fg-subtle);">
+            <span>Signed on-device with Web Crypto Ed25519</span>
+            <span id="chat-char-count">0/1000</span>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- TAB 4: IPFS STORAGE -->
+    <div id="tab-ipfs" class="tab-panel">
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 class="card-title">IPFS File Upload &amp; Content Addressing</h2>
+            <p class="card-subtitle">Add files or folders directly to the local Kubo IPFS node via <code>/up</code></p>
+          </div>
+        </div>
+
+        <div class="dropzone" id="ipfs-dropzone">
+          <input type="file" id="file-input" style="display:none;" multiple>
+          <div class="dropzone-icon-box">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </div>
+          <div>
+            <strong style="font-size:1rem; color:var(--fg-primary);">Drop files here, or <span style="color:var(--brand-primary); text-decoration:underline;">browse your computer</span></strong>
+            <p style="margin:0.25rem 0 0; font-size:0.775rem; color:var(--fg-muted);">Direct multipart upload to local IPFS repository · up to 1 GiB</p>
+          </div>
+        </div>
+
+        <div id="upload-status" class="state" style="margin-top:0.85rem;" hidden>Uploading to IPFS…</div>
+
+        <div id="upload-history-section" style="margin-top:1.5rem;" hidden>
+          <h3 style="font-size:0.875rem; font-weight:600; margin:0 0 0.65rem; color:var(--fg-primary);">Uploaded Content (This Session)</h3>
+          <ul id="upload-history" class="upload-history-list"></ul>
+        </div>
+
+        <div style="margin-top:1.75rem; padding-top:1.25rem; border-top:1px solid var(--border);">
+          <h3 style="font-size:0.875rem; font-weight:600; margin:0 0 0.5rem; color:var(--fg-primary);">cURL Quick Upload Example</h3>
+          <div class="terminal-box" style="background:#0f172a;">
+            <div class="terminal-body" style="padding:0.75rem 1rem;">
+              <code class="terminal-code"><span class="syntax-cmd">curl</span> <span class="syntax-arg">-F</span> <span class="syntax-val">"file=@sample.png"</span> <span class="syntax-pkg">http://localhost:3232/up</span></code>
+              <button class="btn-dark btn-sm" onclick="copySnippet('curl -F &quot;file=@sample.png&quot; http://localhost:3232/up')" type="button" style="background:#1e293b;">Copy</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- TAB 5: DOCKER & API REFERENCE -->
+    <div id="tab-docker" class="tab-panel">
+      <section class="card">
+        <h2 class="card-title">Docker Deployment &amp; Commands</h2>
+        <p class="card-subtitle" style="margin-top:0.35rem; margin-bottom:1.25rem;">
+          Deploy Originless as an autonomous, self-contained IPFS microservice container.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:1.15rem;">
+          <div>
+            <span style="font-size:0.8125rem; font-weight:600; color:var(--fg-primary);">Run Container (Foreground)</span>
+            <div class="terminal-box" style="margin-top:0.4rem;">
+              <div class="terminal-body">
+                <code class="terminal-code"><span class="syntax-cmd">docker run</span> <span class="syntax-arg">--rm -p</span> <span class="syntax-port">3232:3232</span> <span class="syntax-pkg">ghcr.io/besoeasy/originless:latest</span></code>
+                <button class="btn-dark btn-sm" onclick="copySnippet('docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest')" type="button" style="background:#1e293b;">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span style="font-size:0.8125rem; font-weight:600; color:var(--fg-primary);">Docker Compose Configuration</span>
+            <div class="terminal-box" style="margin-top:0.4rem;">
+              <div class="terminal-body" style="align-items:flex-start;">
+                <pre class="terminal-code" style="margin:0;"><span class="syntax-cmd">services:</span>
+  <span class="syntax-val">originless:</span>
+    <span class="syntax-arg">image:</span> <span class="syntax-pkg">ghcr.io/besoeasy/originless:latest</span>
+    <span class="syntax-arg">container_name:</span> <span class="syntax-val">originless</span>
+    <span class="syntax-arg">restart:</span> <span class="syntax-val">unless-stopped</span>
+    <span class="syntax-arg">ports:</span>
+      - <span class="syntax-port">"3232:3232"</span></pre>
+                <button class="btn-dark btn-sm" onclick="copySnippet('services:\n  originless:\n    image: ghcr.io/besoeasy/originless:latest\n    container_name: originless\n    restart: unless-stopped\n    ports:\n      - &quot;3232:3232&quot;')" type="button" style="background:#1e293b;">Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">HTTP API Endpoints</h2>
+        <p class="card-subtitle" style="margin-top:0.35rem; margin-bottom:1rem;">
+          Universal backend endpoints exposed on port 3232
+        </p>
+
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Route</th>
+              <th>Description</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/stats</code></td>
+              <td>IPFS repo and signed event metrics JSON</td>
+              <td><a href="/stats" target="_blank" class="button btn-outline-blue btn-sm">Open</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/healthz</code></td>
+              <td>Docker healthcheck status</td>
+              <td><a href="/healthz" target="_blank" class="button btn-outline-blue btn-sm">Open</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-post">POST</span></td>
+              <td><code>/up</code></td>
+              <td>Upload file/folder multipart body to local IPFS</td>
+              <td><span class="tag-badge tag-generic">Multipart</span></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/ipfs/{cid}</code></td>
+              <td>Download content stored in local IPFS repository</td>
+              <td><span class="tag-badge tag-generic">Binary</span></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-post">POST</span></td>
+              <td><code>/events</code></td>
+              <td>Publish Ed25519-signed event payload</td>
+              <td><span class="tag-badge tag-generic">JSON</span></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/events</code></td>
+              <td>Query events with pagination &amp; filters</td>
+              <td><a href="/events" target="_blank" class="button btn-outline-blue btn-sm">Open</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/events/stream</code></td>
+              <td>Native Server-Sent Events (SSE) stream</td>
+              <td><a href="/events/stream" target="_blank" class="button btn-outline-blue btn-sm">Stream</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
   </main>
 
+  <!-- Footer -->
+  <footer>
+    <div class="footer-container">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <span class="pulse-dot"></span>
+        <span style="font-weight:500;">Originless IPFS Node · Docker Edition</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="/stats" target="_blank">Raw Stats JSON</a>
+        <a href="/events" target="_blank">Events JSON</a>
+        <a href="/events/stream" target="_blank">Event Stream</a>
+        <a href="/healthz" target="_blank">Health Check</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
   <script>
-    const loading = document.getElementById("loading");
-    const error = document.getElementById("error");
-    const stats = document.getElementById("stats");
-    const eventStats = document.getElementById("event-stats");
-    const eventsState = document.getElementById("events-state");
-    const eventsError = document.getElementById("events-error");
-    const eventCollections = document.getElementById("event-collections");
-    const refresh = document.getElementById("refresh");
+    // Elements
+    const refreshBtn = document.getElementById("refresh");
+    const copyDockerBtn = document.getElementById("copy-docker-btn");
+    const copyCmdBtn = document.getElementById("copy-cmd-btn");
+    const healthPulse = document.getElementById("health-pulse");
+    const healthText = document.getElementById("health-text");
+    const pingText = document.getElementById("ping-text");
+    const nodeDiagStatus = document.getElementById("node-diag-status");
+    const nodeDiagVersion = document.getElementById("node-diag-version");
+    const toastContainer = document.getElementById("toast-container");
+
+    // Overview Stats
+    const repoSize = document.getElementById("repo-size");
+    const storageLimit = document.getElementById("storage-limit");
+    const objects = document.getElementById("objects");
+    const eventCount = document.getElementById("event-count");
+    const eventOwners = document.getElementById("event-owners");
+    const eventBytes = document.getElementById("event-bytes");
+    const eventExpired = document.getElementById("event-expired");
+    const eventSubscribers = document.getElementById("event-subscribers");
+    const topCollectionsPills = document.getElementById("top-collections-pills");
+    const collectionsEmpty = document.getElementById("collections-empty");
+    const viewStreamBtn = document.getElementById("view-stream-btn");
+
+    // Event Stream
     const streamState = document.getElementById("stream-state");
     const streamError = document.getElementById("stream-error");
     const streamRefresh = document.getElementById("stream-refresh");
-    const eventList = document.getElementById("event-list");
+    const streamSearch = document.getElementById("stream-search");
+    const streamTableContainer = document.getElementById("stream-table-container");
+    const eventTableBody = document.getElementById("event-table-body");
     const streamEmpty = document.getElementById("stream-empty");
     const eventPagination = document.getElementById("event-pagination");
     const eventsPrev = document.getElementById("events-prev");
     const eventsNext = document.getElementById("events-next");
     const eventsPage = document.getElementById("events-page");
+    const streamTabCount = document.getElementById("stream-tab-count");
+
+    // Chat
     const chatState = document.getElementById("chat-state");
     const chatError = document.getElementById("chat-error");
     const chatMessages = document.getElementById("chat-messages");
@@ -308,22 +1737,117 @@
     const chatForm = document.getElementById("chat-form");
     const chatMessage = document.getElementById("chat-message");
     const chatSubmit = document.getElementById("chat-submit");
+    const chatCharCount = document.getElementById("chat-char-count");
+    const deviceIdentityVal = document.getElementById("device-identity-val");
+    const copyMyKeyBtn = document.getElementById("copy-my-key-btn");
 
+    // Canvas
+    const canvas = document.getElementById("shared-canvas");
+    const canvasContext = canvas.getContext("2d", { alpha: false });
+    const pixelColor = document.getElementById("pixel-color");
+    const canvasStatus = document.getElementById("canvas-status");
+    const canvasCoords = document.getElementById("canvas-coords");
+    const colorSwatches = document.querySelectorAll(".color-swatch");
+
+    // IPFS Dropzone
+    const dropzone = document.getElementById("ipfs-dropzone");
+    const fileInput = document.getElementById("file-input");
+    const uploadStatus = document.getElementById("upload-status");
+    const uploadHistorySection = document.getElementById("upload-history-section");
+    const uploadHistory = document.getElementById("upload-history");
+
+    // Constants & Global State
     const EVENT_PAGE_SIZE = 10;
     const CHAT_MESSAGE_LIMIT = 1000;
     const CHAT_COLLECTION = "originless/chat";
     const CHAT_LABEL = "chat:lobby";
+    const CANVAS_COLLECTION = "originless/canvas";
+    const CANVAS_LABEL = "canvas:landing";
+    const GRID_SIZE = 256;
+    const CELL_SIZE = canvas.width / GRID_SIZE;
+
     const eventPageCursors = [""];
     let eventPage = 0;
     let eventNextCursor = "";
     let eventRequest = 0;
+    let rawPageEvents = [];
+
     let chatEvents = [];
     let chatHistoryReady = false;
     const queuedChatEvents = [];
 
+    const seenCanvasEvents = new Set();
+    const queuedCanvasEvents = [];
+    let canvasHistoryReady = false;
+    let painting = false;
+    let lastPaintedCell = "";
+    let identityPromise = null;
+    let publishQueue = Promise.resolve();
+
+    // Toast Utility
+    function showToast(message) {
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = message;
+      toastContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(8px)";
+        toast.style.transition = "all 0.2s ease";
+        setTimeout(() => toast.remove(), 200);
+      }, 2500);
+    }
+
+    // Copy Helper
+    function copySnippet(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied to clipboard: " + (text.length > 25 ? text.slice(0, 25) + "…" : text));
+      }).catch(() => {
+        showToast("Press Ctrl+C to copy");
+      });
+    }
+
+    copyDockerBtn.addEventListener("click", () => copySnippet("docker run -d --name originless -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
+    if (copyCmdBtn) copyCmdBtn.addEventListener("click", () => copySnippet("docker run -d --name originless -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
+    copyMyKeyBtn.addEventListener("click", () => copySnippet(deviceIdentityVal.title || deviceIdentityVal.textContent));
+
+    // Tab Switching
+    function switchTab(targetTab) {
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === targetTab);
+      });
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.classList.toggle("active", panel.id === `tab-${targetTab}`);
+      });
+      window.location.hash = targetTab;
+    }
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    });
+
+    if (viewStreamBtn) {
+      viewStreamBtn.addEventListener("click", () => switchTab("stream"));
+    }
+
+    window.addEventListener("hashchange", () => {
+      const hash = window.location.hash.replace("#", "");
+      if (["overview", "stream", "apps", "ipfs", "docker"].includes(hash)) {
+        switchTab(hash);
+      }
+    });
+
+    if (window.location.hash) {
+      const initialTab = window.location.hash.replace("#", "");
+      if (["overview", "stream", "apps", "ipfs", "docker"].includes(initialTab)) {
+        switchTab(initialTab);
+      }
+    }
+
+    // Formatting Helpers
     function formatBytes(bytes) {
       if (!bytes) return "0 B";
-      const units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
+      const units = ["B", "KiB", "MiB", "GiB", "TiB"];
       let value = Number(bytes);
       let unit = 0;
       while (value >= 1024 && unit < units.length - 1) {
@@ -333,10 +1857,6 @@
       return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
     }
 
-    function setText(id, value) {
-      document.getElementById(id).textContent = value;
-    }
-
     function formatEventTime(timestamp) {
       const seconds = Number(timestamp);
       if (!Number.isFinite(seconds) || seconds <= 0) return "Unknown time";
@@ -344,369 +1864,25 @@
       return Number.isNaN(date.getTime()) ? "Unknown time" : date.toLocaleString();
     }
 
-    function formatEventData(data) {
-      if (typeof data === "string") return data;
-      try {
-        return JSON.stringify(data) || "{}";
-      } catch (_) {
-        return "{}";
-      }
+    function formatRelativeTime(timestamp) {
+      const seconds = Number(timestamp);
+      if (!Number.isFinite(seconds) || seconds <= 0) return "";
+      const delta = Math.floor(Date.now() / 1000) - seconds;
+      if (delta < 5) return "just now";
+      if (delta < 60) return `${delta}s ago`;
+      if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+      if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+      return `${Math.floor(delta / 86400)}d ago`;
     }
 
     function shortOwner(owner) {
       const match = /^ed25519:([0-9a-f]{64})$/i.exec(owner || "");
-      return match ? `ed25519:${match[1].slice(0, 8)}…` : "unknown owner";
-    }
-
-    function renderTopCollections(collections) {
-      const list = document.getElementById("top-collections");
-      list.replaceChildren();
-      for (const collection of collections.slice(0, 10)) {
-        const item = document.createElement("li");
-        const name = document.createElement("strong");
-        name.textContent = collection.collection;
-        item.append(name, document.createTextNode(` · ${Number(collection.count || 0).toLocaleString()}`));
-        list.append(item);
-      }
-      eventCollections.hidden = collections.length === 0;
-    }
-
-    async function loadStats() {
-      refresh.disabled = true;
-      loading.hidden = false;
-      error.hidden = true;
-      stats.hidden = true;
-      eventStats.hidden = true;
-      eventsState.hidden = false;
-      eventsError.hidden = true;
-      eventCollections.hidden = true;
-
-      try {
-        const response = await fetch("/stats", {
-          cache: "no-store",
-          headers: { Accept: "application/json" }
-        });
-        if (!response.ok) throw new Error(`Stats request failed (${response.status})`);
-        const data = await response.json();
-        const size = data.SizeStat || {};
-        const events = data.events || {};
-
-        setText("repo-size", formatBytes(size.RepoSize));
-        setText("storage-limit", size.StorageMax ? formatBytes(size.StorageMax) : "Unlimited");
-        setText("objects", Number(data.NumObjects || 0).toLocaleString());
-        setText("event-count", Number(events.count || 0).toLocaleString());
-        setText("event-owners", Number(events.unique_owners || 0).toLocaleString());
-        setText("event-bytes", formatBytes(events.stored_bytes || 0));
-        setText("event-expired", Number(events.expired || 0).toLocaleString());
-        setText("event-subscribers", Number(events.subscribers || 0).toLocaleString());
-        renderTopCollections(events.top_collections || []);
-        eventStats.hidden = false;
-        eventsState.hidden = true;
-        stats.hidden = false;
-      } catch (err) {
-        const message = `${err.message}. Check that the IPFS node is running.`;
-        error.textContent = message;
-        error.hidden = false;
-        eventsError.textContent = message;
-        eventsError.hidden = false;
-        eventsState.hidden = true;
-      } finally {
-        loading.hidden = true;
-        refresh.disabled = false;
-      }
-    }
-
-    function setEventPageBusy(busy) {
-      streamRefresh.disabled = busy;
-      eventsPrev.disabled = busy || eventPage === 0;
-      eventsNext.disabled = busy || !eventNextCursor;
-    }
-
-    function renderEventPage(events) {
-      eventList.replaceChildren();
-      for (const event of events) {
-        const item = document.createElement("li");
-        item.className = "event-item";
-
-        const heading = document.createElement("div");
-        heading.className = "event-heading";
-        const collection = document.createElement("strong");
-        collection.className = "event-collection";
-        collection.textContent = event.collection || "unknown collection";
-        const time = document.createElement("time");
-        time.className = "event-time";
-        const createdAt = Number(event.created_at);
-        if (Number.isFinite(createdAt) && createdAt > 0) time.dateTime = new Date(createdAt * 1000).toISOString();
-        time.textContent = formatEventTime(event.created_at);
-        heading.append(collection, time);
-
-        const meta = document.createElement("p");
-        meta.className = "event-meta";
-        const labels = Array.isArray(event.labels) && event.labels.length ? ` · ${event.labels.join(", ")}` : "";
-        meta.textContent = `${formatBytes(event.size)} · ${shortOwner(event.owner)}${labels}`;
-
-        const data = document.createElement("code");
-        data.className = "event-data";
-        data.textContent = formatEventData(event.data);
-
-        item.append(heading, meta, data);
-        if (event.id) {
-          const link = document.createElement("a");
-          link.className = "event-link";
-          link.href = `/events/${encodeURIComponent(event.id)}`;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "Open event JSON";
-          item.append(link);
-        }
-        eventList.append(item);
-      }
-
-      eventList.hidden = events.length === 0;
-      streamEmpty.hidden = events.length !== 0;
-      streamEmpty.textContent = eventPage === 0 ? "No events have been published yet." : "No more events.";
-      eventPagination.hidden = eventPage === 0 && events.length === 0;
-      eventsPage.textContent = `Page ${eventPage + 1}`;
-      eventsPrev.disabled = eventPage === 0;
-      eventsNext.disabled = !eventNextCursor;
-    }
-
-    async function loadEventPage(page = eventPage) {
-      const targetPage = Math.max(0, page);
-      const requestID = ++eventRequest;
-      eventPage = targetPage;
-      if (!eventPageCursors[targetPage]) eventPageCursors[targetPage] = "";
-      const cursor = eventPageCursors[targetPage];
-      eventNextCursor = "";
-      streamState.textContent = "Loading events…";
-      streamError.hidden = true;
-      eventList.hidden = true;
-      streamEmpty.hidden = true;
-      eventPagination.hidden = targetPage === 0;
-      setEventPageBusy(true);
-
-      try {
-        const params = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
-        if (cursor) params.set("cursor", cursor);
-        const response = await fetch(`/events?${params}`, {
-          cache: "no-store",
-          headers: { Accept: "application/json" }
-        });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || `Event request failed (${response.status})`);
-        if (requestID !== eventRequest) return;
-        const events = Array.isArray(payload.events) ? payload.events : [];
-        eventNextCursor = typeof payload.next_cursor === "string" ? payload.next_cursor : "";
-        if (eventNextCursor) eventPageCursors[targetPage + 1] = eventNextCursor;
-        else eventPageCursors.length = targetPage + 1;
-        streamState.textContent = `${events.length} event${events.length === 1 ? "" : "s"} on this page`;
-        renderEventPage(events);
-      } catch (error) {
-        if (requestID !== eventRequest) return;
-        streamState.textContent = "Unable to load events";
-        streamError.textContent = error.message;
-        streamError.hidden = false;
-        eventList.hidden = true;
-        streamEmpty.hidden = true;
-        eventPagination.hidden = true;
-      } finally {
-        if (requestID === eventRequest) setEventPageBusy(false);
-      }
-    }
-
-    let eventRefreshTimer;
-    function scheduleEventStreamRefresh() {
-      clearTimeout(eventRefreshTimer);
-      eventRefreshTimer = setTimeout(() => {
-        if (eventPage === 0) loadEventPage(0);
-      }, 250);
-    }
-
-    function isChatEvent(event) {
-      return Boolean(
-        event &&
-        event.id &&
-        event.data &&
-        typeof event.data.message === "string" &&
-        event.data.message.trim()
-      );
-    }
-
-    function sortChatEvents(events) {
-      return [...events]
-        .sort((left, right) => {
-          const timeDifference = Number(left.created_at) - Number(right.created_at);
-          if (Number.isFinite(timeDifference) && timeDifference !== 0) return timeDifference;
-          return String(left.id).localeCompare(String(right.id));
-        })
-        .slice(-3);
-    }
-
-    function renderChatMessages() {
-      chatMessages.replaceChildren();
-      for (const event of chatEvents) {
-        const item = document.createElement("li");
-        item.className = "chat-item";
-        const meta = document.createElement("div");
-        meta.className = "chat-meta";
-        const author = document.createElement("span");
-        author.className = "chat-author";
-        author.textContent = shortOwner(event.owner);
-        const time = document.createElement("time");
-        time.className = "chat-time";
-        const createdAt = Number(event.created_at);
-        if (Number.isFinite(createdAt) && createdAt > 0) time.dateTime = new Date(createdAt * 1000).toISOString();
-        time.textContent = formatEventTime(event.created_at);
-        meta.append(author, time);
-        const text = document.createElement("p");
-        text.className = "chat-text";
-        text.textContent = event.data.message;
-        item.append(meta, text);
-        chatMessages.append(item);
-      }
-      chatMessages.hidden = chatEvents.length === 0;
-      chatEmpty.hidden = chatEvents.length !== 0;
-    }
-
-    function addChatEvent(event) {
-      if (!isChatEvent(event)) return;
-      chatEvents = sortChatEvents([event, ...chatEvents.filter((item) => item.id !== event.id)]);
-      renderChatMessages();
-    }
-
-    async function loadChatMessages() {
-      chatState.textContent = "Loading messages…";
-      chatError.hidden = true;
-      let loaded = false;
-      try {
-        const params = new URLSearchParams({ collection: CHAT_COLLECTION, limit: "3" });
-        const response = await fetch(`/events?${params}`, {
-          cache: "no-store",
-          headers: { Accept: "application/json" }
-        });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || `Chat request failed (${response.status})`);
-        chatEvents = sortChatEvents((Array.isArray(payload.events) ? payload.events : []).filter(isChatEvent));
-        loaded = true;
-      } catch (error) {
-        chatState.textContent = "Unable to load messages";
-        chatError.textContent = error.message;
-        chatError.hidden = false;
-        chatEvents = [];
-      }
-
-      const queued = queuedChatEvents.splice(0).sort((left, right) => Number(left.created_at) - Number(right.created_at));
-      queued.forEach(addChatEvent);
-      chatHistoryReady = true;
-      renderChatMessages();
-      if (loaded) chatState.textContent = chatEvents.length ? "Showing the latest 3 messages" : "No messages yet";
-    }
-
-    function connectChatStream() {
-      if (!window.EventSource) {
-        chatState.textContent = "Live updates unsupported: EventSource is unavailable";
-        return;
-      }
-      const params = new URLSearchParams({ collection: CHAT_COLLECTION });
-      const source = new EventSource(`/events/stream?${params}`);
-      source.addEventListener("event", (message) => {
-        try {
-          const event = JSON.parse(message.data);
-          if (!chatHistoryReady) queuedChatEvents.push(event);
-          else addChatEvent(event);
-          chatState.textContent = "Live · message received";
-          scheduleEventStreamRefresh();
-        } catch (error) {
-          chatState.textContent = `Chat stream error: ${error.message}`;
-        }
-      });
-      source.onopen = () => {
-        if (chatHistoryReady) chatState.textContent = "Live · connected";
-      };
-      source.onerror = () => {
-        if (chatHistoryReady) chatState.textContent = "Reconnecting…";
-      };
-    }
-
-    async function publishChatMessage(message) {
-      const event = await createChatEvent(message);
-      const response = await fetch("/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(event)
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || `Message request failed (${response.status})`);
-      addChatEvent({ ...event, id: payload.id, stored_at: payload.stored_at, size: JSON.stringify(event).length });
-      chatMessage.value = "";
-      chatState.textContent = "Message published";
-      scheduleEventStreamRefresh();
-    }
-
-    streamRefresh.addEventListener("click", () => loadEventPage(0));
-    eventsPrev.addEventListener("click", () => loadEventPage(eventPage - 1));
-    eventsNext.addEventListener("click", () => loadEventPage(eventPage + 1));
-    chatForm.addEventListener("submit", async (submitEvent) => {
-      submitEvent.preventDefault();
-      const message = chatMessage.value.trim();
-      if (!message) return;
-      if (message.length > CHAT_MESSAGE_LIMIT) {
-        chatError.textContent = `Messages must be ${CHAT_MESSAGE_LIMIT} characters or fewer.`;
-        chatError.hidden = false;
-        return;
-      }
-      chatSubmit.disabled = true;
-      chatError.hidden = true;
-      chatState.textContent = "Signing message…";
-      try {
-        await publishChatMessage(message);
-      } catch (error) {
-        chatState.textContent = "Unable to publish message";
-        chatError.textContent = error.message;
-        chatError.hidden = false;
-      } finally {
-        chatSubmit.disabled = false;
-      }
-    });
-
-    const canvas = document.getElementById("shared-canvas");
-    const canvasContext = canvas.getContext("2d", { alpha: false });
-    const pixelColor = document.getElementById("pixel-color");
-    const canvasStatus = document.getElementById("canvas-status");
-    const GRID_SIZE = 64;
-    const CELL_SIZE = canvas.width / GRID_SIZE;
-    const CANVAS_COLLECTION = "originless/canvas";
-    const CANVAS_LABEL = "canvas:landing";
-    const seenCanvasEvents = new Set();
-    const queuedCanvasEvents = [];
-    let canvasHistoryReady = false;
-    let painting = false;
-    let lastPaintedCell = "";
-    let identityPromise;
-    let publishQueue = Promise.resolve();
-
-    function setCanvasStatus(message) {
-      canvasStatus.textContent = message;
-    }
-
-    function bytesToHex(bytes) {
-      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-    }
-
-    function bytesToBase64(bytes) {
-      let binary = "";
-      for (const byte of bytes) binary += String.fromCharCode(byte);
-      return btoa(binary);
-    }
-
-    function base64ToBytes(value) {
-      const binary = atob(value);
-      return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      return match ? `ed25519:${match[1].slice(0, 8)}…` : (owner || "unknown");
     }
 
     function canonicalJSONString(value) {
       return JSON.stringify(value)
-        .replace(/[&<>]/g, (character) => ({ "&": "\\u0026", "<": "\\u003c", ">": "\\u003e" }[character]))
+        .replace(/[&<>]/g, (char) => ({ "&": "\\u0026", "<": "\\u003c", ">": "\\u003e" }[char]))
         .replace(/\u2028/g, "\\u2028")
         .replace(/\u2029/g, "\\u2029");
     }
@@ -721,144 +1897,350 @@
       return canonicalJSONString(value);
     }
 
-    function drawGrid() {
-      canvasContext.strokeStyle = "rgba(0, 0, 0, 0.10)";
-      canvasContext.lineWidth = 1;
-      for (let index = 0; index <= GRID_SIZE; index += 1) {
-        const position = index * CELL_SIZE + 0.5;
-        canvasContext.beginPath();
-        canvasContext.moveTo(position, 0);
-        canvasContext.lineTo(position, canvas.height);
-        canvasContext.stroke();
-        canvasContext.beginPath();
-        canvasContext.moveTo(0, position);
-        canvasContext.lineTo(canvas.width, position);
-        canvasContext.stroke();
+    function bytesToHex(bytes) {
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function base64ToBytes(value) {
+      const binary = atob(value);
+      return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    }
+
+    // Health Check Ping
+    async function checkHealth() {
+      const start = performance.now();
+      try {
+        const res = await fetch("/healthz", { cache: "no-store" });
+        const latency = Math.round(performance.now() - start);
+        if (res.ok) {
+          healthPulse.className = "pulse-dot";
+          healthText.textContent = "Docker Node Healthy";
+          pingText.textContent = `· ${latency}ms`;
+          nodeDiagStatus.textContent = "Operational";
+          nodeDiagStatus.style.color = "var(--emerald-600)";
+        } else {
+          throw new Error("unhealthy");
+        }
+      } catch (_) {
+        healthPulse.className = "pulse-dot offline";
+        healthText.textContent = "Node Disconnected";
+        pingText.textContent = "· offline";
+        nodeDiagStatus.textContent = "Unavailable";
+        nodeDiagStatus.style.color = "var(--rose-600)";
       }
     }
 
-    function resetCanvas() {
-      canvasContext.fillStyle = "#ffffff";
-      canvasContext.fillRect(0, 0, canvas.width, canvas.height);
-      drawGrid();
+    // Stats Loader
+    async function loadStats() {
+      refreshBtn.disabled = true;
+      try {
+        const response = await fetch("/stats", {
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        if (!response.ok) throw new Error(`Stats request failed (${response.status})`);
+        const data = await response.json();
+        const size = data.SizeStat || {};
+        const events = data.events || {};
+
+        repoSize.textContent = formatBytes(size.RepoSize);
+        storageLimit.textContent = size.StorageMax ? formatBytes(size.StorageMax) : "Unlimited";
+        objects.textContent = Number(data.NumObjects || 0).toLocaleString();
+        if (data.Version) nodeDiagVersion.textContent = `Kubo ${data.Version}`;
+
+        const count = Number(events.count || 0);
+        eventCount.textContent = count.toLocaleString();
+        streamTabCount.textContent = count > 99 ? "99+" : count;
+        eventOwners.textContent = Number(events.unique_owners || 0).toLocaleString();
+        eventBytes.textContent = formatBytes(events.stored_bytes || 0);
+        eventExpired.textContent = Number(events.expired || 0).toLocaleString();
+        eventSubscribers.textContent = Number(events.subscribers || 0).toLocaleString();
+
+        renderTopCollections(events.top_collections || []);
+      } catch (err) {
+        showToast("Stats error: " + err.message);
+      } finally {
+        refreshBtn.disabled = false;
+      }
     }
 
-    function paintCell(x, y, color) {
-      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return;
-      if (!/^#[0-9a-f]{6}$/i.test(color)) return;
-      canvasContext.fillStyle = color;
-      canvasContext.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-      drawGrid();
+    function renderTopCollections(collections) {
+      topCollectionsPills.replaceChildren();
+      if (!collections || collections.length === 0) {
+        collectionsEmpty.hidden = false;
+        collectionsEmpty.textContent = "No collections created yet.";
+        topCollectionsPills.hidden = true;
+        return;
+      }
+
+      collectionsEmpty.hidden = true;
+      topCollectionsPills.hidden = false;
+      for (const col of collections.slice(0, 10)) {
+        const pill = document.createElement("div");
+        pill.className = "collection-pill";
+        const bullet = document.createElement("span");
+        bullet.className = "collection-bullet";
+        const name = document.createElement("span");
+        name.className = "collection-pill-name";
+        name.textContent = col.collection;
+        const count = document.createElement("span");
+        count.className = "collection-pill-count";
+        count.textContent = Number(col.count || 0).toLocaleString();
+        pill.append(bullet, name, count);
+        topCollectionsPills.appendChild(pill);
+      }
     }
 
-    function applyCanvasEvent(event) {
-      if (!event || !event.id || seenCanvasEvents.has(event.id)) return;
-      const data = event.data || {};
-      if (!Number.isInteger(data.x) || !Number.isInteger(data.y) || typeof data.color !== "string") return;
-      if (!/^#[0-9a-f]{6}$/i.test(data.color)) return;
-      seenCanvasEvents.add(event.id);
-      paintCell(data.x, data.y, data.color);
+    // Event Stream Loader & Renderer
+    function getCollectionTagClass(col) {
+      if (!col) return "tag-generic";
+      if (col.includes("chat")) return "tag-chat";
+      if (col.includes("canvas")) return "tag-canvas";
+      return "tag-generic";
     }
 
+    function renderEventPage(events) {
+      eventTableBody.replaceChildren();
+      for (const ev of events) {
+        const tr = document.createElement("tr");
+        tr.className = "event-row";
+
+        // Collection
+        const tdCol = document.createElement("td");
+        const colBadge = document.createElement("span");
+        colBadge.className = `tag-badge ${getCollectionTagClass(ev.collection)}`;
+        colBadge.textContent = ev.collection || "unknown";
+        tdCol.appendChild(colBadge);
+
+        // Signer
+        const tdSigner = document.createElement("td");
+        tdSigner.style.whiteSpace = "nowrap";
+        const signerWrap = document.createElement("div");
+        signerWrap.style.display = "flex";
+        signerWrap.style.alignItems = "center";
+        signerWrap.style.gap = "0.45rem";
+        signerWrap.innerHTML = `
+          <span class="avatar-dot" style="width:9px; height:9px;"></span>
+          <code style="font-family:var(--font-mono); font-size:0.75rem; color:var(--brand-primary); cursor:pointer;" title="Click to copy full key: ${ev.owner}">${shortOwner(ev.owner)}</code>
+        `;
+        signerWrap.querySelector("code").addEventListener("click", () => copySnippet(ev.owner));
+        tdSigner.appendChild(signerWrap);
+
+        // Payload
+        const tdPayload = document.createElement("td");
+        let payloadStr = "{}";
+        let payloadFormatted = "{}";
+        try {
+          payloadStr = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
+          payloadFormatted = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data, null, 2);
+        } catch (_) {}
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "event-payload-chip";
+        chip.title = "Click to toggle expanded JSON view";
+        chip.textContent = payloadStr.length > 40 ? payloadStr.slice(0, 40) + "…" : payloadStr;
+        tdPayload.appendChild(chip);
+
+        // Labels
+        const tdLabels = document.createElement("td");
+        if (Array.isArray(ev.labels) && ev.labels.length) {
+          const labelsWrap = document.createElement("div");
+          labelsWrap.style.display = "flex";
+          labelsWrap.style.flexWrap = "wrap";
+          labelsWrap.style.gap = "0.25rem";
+          for (const label of ev.labels) {
+            const lbl = document.createElement("span");
+            lbl.className = "tag-badge tag-label";
+            lbl.style.fontSize = "0.7rem";
+            lbl.style.padding = "0.1rem 0.45rem";
+            lbl.textContent = label;
+            labelsWrap.appendChild(lbl);
+          }
+          tdLabels.appendChild(labelsWrap);
+        } else {
+          tdLabels.innerHTML = `<span style="color:var(--fg-subtle);">—</span>`;
+        }
+
+        // Size
+        const tdSize = document.createElement("td");
+        tdSize.style.whiteSpace = "nowrap";
+        tdSize.innerHTML = `<span class="tag-badge tag-size" style="font-size:0.7rem;">${formatBytes(ev.size)}</span>`;
+
+        // Time
+        const tdTime = document.createElement("td");
+        tdTime.style.whiteSpace = "nowrap";
+        tdTime.innerHTML = `
+          <div style="font-size:0.775rem; font-weight:500;">${formatRelativeTime(ev.created_at)}</div>
+          <div style="font-size:0.7rem; color:var(--fg-subtle);">${formatEventTime(ev.created_at)}</div>
+        `;
+
+        // Action
+        const tdAction = document.createElement("td");
+        tdAction.style.textAlign = "right";
+        tdAction.style.whiteSpace = "nowrap";
+        if (ev.id) {
+          const link = document.createElement("a");
+          link.href = `/events/${encodeURIComponent(ev.id)}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "button btn-outline-blue btn-sm";
+          link.style.height = "1.65rem";
+          link.style.padding = "0 0.55rem";
+          link.style.fontSize = "0.7rem";
+          link.textContent = "Raw ↗";
+          tdAction.appendChild(link);
+        }
+
+        tr.append(tdCol, tdSigner, tdPayload, tdLabels, tdSize, tdTime, tdAction);
+        eventTableBody.appendChild(tr);
+
+        // Expandable detail row (hidden by default)
+        const trDetail = document.createElement("tr");
+        trDetail.className = "event-detail-row";
+        trDetail.style.display = "none";
+        const tdDetail = document.createElement("td");
+        tdDetail.colSpan = 7;
+        const pre = document.createElement("pre");
+        pre.className = "event-expanded-box";
+        pre.textContent = payloadFormatted;
+        tdDetail.appendChild(pre);
+        trDetail.appendChild(tdDetail);
+        eventTableBody.appendChild(trDetail);
+
+        chip.addEventListener("click", () => {
+          const isHidden = trDetail.style.display === "none";
+          trDetail.style.display = isHidden ? "table-row" : "none";
+        });
+      }
+
+      streamTableContainer.hidden = events.length === 0;
+      streamEmpty.hidden = events.length !== 0;
+      eventPagination.hidden = eventPage === 0 && events.length === 0;
+      eventsPage.textContent = `Page ${eventPage + 1}`;
+      eventsPrev.disabled = eventPage === 0;
+      eventsNext.disabled = !eventNextCursor;
+    }
+
+    async function loadEventPage(page = eventPage) {
+      const targetPage = Math.max(0, page);
+      const reqId = ++eventRequest;
+      eventPage = targetPage;
+      if (!eventPageCursors[targetPage]) eventPageCursors[targetPage] = "";
+      const cursor = eventPageCursors[targetPage];
+      eventNextCursor = "";
+
+      streamRefresh.disabled = true;
+      streamState.textContent = "Fetching events…";
+      streamError.hidden = true;
+
+      try {
+        const params = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
+        if (cursor) params.set("cursor", cursor);
+        const res = await fetch(`/events?${params}`, {
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || `Failed (${res.status})`);
+        if (reqId !== eventRequest) return;
+
+        rawPageEvents = Array.isArray(payload.events) ? payload.events : [];
+        eventNextCursor = typeof payload.next_cursor === "string" ? payload.next_cursor : "";
+        if (eventNextCursor) eventPageCursors[targetPage + 1] = eventNextCursor;
+        else eventPageCursors.length = targetPage + 1;
+
+        applyStreamFilter();
+        streamState.textContent = `${rawPageEvents.length} events on this page`;
+      } catch (err) {
+        if (reqId !== eventRequest) return;
+        streamState.textContent = "Error loading events";
+        streamError.textContent = err.message;
+        streamError.hidden = false;
+      } finally {
+        if (reqId === eventRequest) streamRefresh.disabled = false;
+      }
+    }
+
+    function applyStreamFilter() {
+      const query = (streamSearch.value || "").trim().toLowerCase();
+      if (!query) {
+        renderEventPage(rawPageEvents);
+        return;
+      }
+      const filtered = rawPageEvents.filter((ev) => {
+        const col = (ev.collection || "").toLowerCase();
+        const labels = Array.isArray(ev.labels) ? ev.labels.join(" ").toLowerCase() : "";
+        const owner = (ev.owner || "").toLowerCase();
+        return col.includes(query) || labels.includes(query) || owner.includes(query);
+      });
+      renderEventPage(filtered);
+    }
+
+    streamSearch.addEventListener("input", applyStreamFilter);
+    streamRefresh.addEventListener("click", () => loadEventPage(0));
+    eventsPrev.addEventListener("click", () => loadEventPage(eventPage - 1));
+    eventsNext.addEventListener("click", () => loadEventPage(eventPage + 1));
+
+    // Web Crypto Ed25519 Identity
     async function getCanvasIdentity() {
       if (!identityPromise) {
         identityPromise = (async () => {
           if (!window.crypto || !window.crypto.subtle) {
-            throw new Error("Web Crypto Ed25519 is not available in this browser");
+            throw new Error("Web Crypto Ed25519 not available");
           }
           const storageKey = "originless.canvas.private-key-jwk";
-          const legacyStorageKey = "originless.canvas.private-key";
           const ownerKey = "originless.canvas.owner";
-          const base64UrlToBytes = (value) => {
-            const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
+          const base64UrlToBytes = (str) => {
+            const padded = str.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (str.length % 4)) % 4);
             return base64ToBytes(padded);
           };
+
           let storedJWK;
-          let legacyPrivateBytes;
           let owner;
           try {
             const stored = localStorage.getItem(storageKey);
             storedJWK = stored ? JSON.parse(stored) : null;
-            legacyPrivateBytes = localStorage.getItem(legacyStorageKey);
             owner = localStorage.getItem(ownerKey);
           } catch (_) {
             storedJWK = null;
-            legacyPrivateBytes = null;
             owner = null;
           }
 
           if (storedJWK && storedJWK.kty === "OKP" && storedJWK.crv === "Ed25519") {
             try {
-              const privateKey = await crypto.subtle.importKey(
-                "jwk",
-                storedJWK,
-                { name: "Ed25519" },
-                true,
-                ["sign"]
-              );
+              const privateKey = await crypto.subtle.importKey("jwk", storedJWK, { name: "Ed25519" }, true, ["sign"]);
               if (!owner && storedJWK.x) owner = `ed25519:${bytesToHex(base64UrlToBytes(storedJWK.x))}`;
               if (owner) {
-                try {
-                  localStorage.setItem(ownerKey, owner);
-                } catch (_) {
-                  // The in-memory key still works when storage is unavailable.
-                }
+                deviceIdentityVal.textContent = shortOwner(owner);
+                deviceIdentityVal.title = owner;
                 return { privateKey, owner };
               }
-            } catch (_) {
-              try {
-                localStorage.removeItem(storageKey);
-              } catch (_) {
-                // Ignore storage failures and create a fresh in-memory key.
-              }
-            }
+            } catch (_) {}
           }
 
-          if (legacyPrivateBytes && owner) {
-            try {
-              const privateKey = await crypto.subtle.importKey(
-                "raw",
-                base64ToBytes(legacyPrivateBytes),
-                { name: "Ed25519" },
-                true,
-                ["sign"]
-              );
-              return { privateKey, owner };
-            } catch (_) {
-              // Some browsers do not support importing raw Ed25519 private keys.
-            }
-          }
-
-          const keyPair = await crypto.subtle.generateKey(
-            { name: "Ed25519" },
-            true,
-            ["sign", "verify"]
-          );
-          let publicKey;
+          const keyPair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+          let publicKeyBytes;
           try {
             const publicJWK = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-            publicKey = base64UrlToBytes(publicJWK.x);
+            publicKeyBytes = base64UrlToBytes(publicJWK.x);
           } catch (_) {
-            publicKey = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
+            publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey("raw", keyPair.publicKey));
           }
-          owner = `ed25519:${bytesToHex(publicKey)}`;
-          let privateJWK = null;
+          owner = `ed25519:${bytesToHex(publicKeyBytes)}`;
+
           try {
-            privateJWK = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-          } catch (_) {
-            // Some implementations do not allow exporting private keys; the page still works for this session.
-          }
-          try {
+            const privateJWK = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
             if (privateJWK) localStorage.setItem(storageKey, JSON.stringify(privateJWK));
             localStorage.setItem(ownerKey, owner);
-            localStorage.removeItem(legacyStorageKey);
-          } catch (_) {
-            // The in-memory key still works when storage is unavailable.
-          }
+          } catch (_) {}
+
+          deviceIdentityVal.textContent = shortOwner(owner);
+          deviceIdentityVal.title = owner;
           return { privateKey: keyPair.privateKey, owner };
-        })().catch((error) => {
+        })().catch((err) => {
           identityPromise = null;
-          throw error;
+          deviceIdentityVal.textContent = "Unavailable";
+          throw err;
         });
       }
       return identityPromise;
@@ -882,31 +2264,165 @@
       };
     }
 
-    async function createCanvasEvent(x, y, color) {
-      const createdAt = Math.floor(Date.now() / 1000);
-      return createSignedEvent(CANVAS_COLLECTION, CANVAS_LABEL, { x, y, color, timestamp: createdAt }, createdAt);
+    // Chat Implementation
+    function isChatEvent(event) {
+      return Boolean(event && event.id && event.data && typeof event.data.message === "string" && event.data.message.trim());
     }
 
-    async function createChatEvent(message) {
-      const createdAt = Math.floor(Date.now() / 1000);
-      return createSignedEvent(CHAT_COLLECTION, CHAT_LABEL, { message, timestamp: createdAt }, createdAt);
+    function sortChatEvents(events) {
+      return [...events]
+        .sort((a, b) => {
+          const diff = Number(a.created_at) - Number(b.created_at);
+          if (Number.isFinite(diff) && diff !== 0) return diff;
+          return String(a.id).localeCompare(String(b.id));
+        })
+        .slice(-10);
+    }
+
+    function renderChatMessages() {
+      chatMessages.replaceChildren();
+      for (const ev of chatEvents) {
+        const item = document.createElement("li");
+        item.className = "chat-item";
+
+        const meta = document.createElement("div");
+        meta.className = "chat-meta";
+
+        const author = document.createElement("span");
+        author.className = "chat-author";
+        author.innerHTML = `<span class="avatar-dot" style="width:10px; height:10px;"></span><span>${shortOwner(ev.owner)}</span>`;
+        author.title = ev.owner;
+
+        const time = document.createElement("time");
+        time.className = "event-time";
+        time.textContent = formatRelativeTime(ev.created_at);
+        meta.append(author, time);
+
+        const text = document.createElement("p");
+        text.className = "chat-text";
+        text.textContent = ev.data.message;
+
+        item.append(meta, text);
+        chatMessages.appendChild(item);
+      }
+
+      chatMessages.hidden = chatEvents.length === 0;
+      chatEmpty.hidden = chatEvents.length !== 0;
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function addChatEvent(ev) {
+      if (!isChatEvent(ev)) return;
+      chatEvents = sortChatEvents([ev, ...chatEvents.filter((item) => item.id !== ev.id)]);
+      renderChatMessages();
+    }
+
+    async function loadChatMessages() {
+      chatState.textContent = "Loading messages…";
+      chatError.hidden = true;
+      try {
+        const params = new URLSearchParams({ collection: CHAT_COLLECTION, limit: "10" });
+        const res = await fetch(`/events?${params}`, { cache: "no-store", headers: { Accept: "application/json" } });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || `Chat failed (${res.status})`);
+        chatEvents = sortChatEvents((Array.isArray(payload.events) ? payload.events : []).filter(isChatEvent));
+      } catch (err) {
+        chatError.textContent = err.message;
+        chatError.hidden = false;
+        chatEvents = [];
+      }
+
+      queuedChatEvents.splice(0).sort((a, b) => Number(a.created_at) - Number(b.created_at)).forEach(addChatEvent);
+      chatHistoryReady = true;
+      renderChatMessages();
+      chatState.textContent = chatEvents.length ? "Showing latest messages" : "No messages yet";
+    }
+
+    function connectChatStream() {
+      if (!window.EventSource) return;
+      const params = new URLSearchParams({ collection: CHAT_COLLECTION });
+      const source = new EventSource(`/events/stream?${params}`);
+      source.addEventListener("event", (msg) => {
+        try {
+          const ev = JSON.parse(msg.data);
+          if (!chatHistoryReady) queuedChatEvents.push(ev);
+          else addChatEvent(ev);
+          chatState.textContent = "Live · message received";
+        } catch (_) {}
+      });
+    }
+
+    async function publishChatMessage(message) {
+      const ev = await createSignedEvent(CHAT_COLLECTION, CHAT_LABEL, { message, timestamp: Math.floor(Date.now() / 1000) });
+      const res = await fetch("/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(ev)
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || `Failed to post message (${res.status})`);
+      addChatEvent({ ...ev, id: payload.id, stored_at: payload.stored_at, size: JSON.stringify(ev).length });
+      chatMessage.value = "";
+      chatCharCount.textContent = "0/1000";
+      showToast("Signed chat message published!");
+    }
+
+    chatMessage.addEventListener("input", () => {
+      chatCharCount.textContent = `${chatMessage.value.length}/${CHAT_MESSAGE_LIMIT}`;
+    });
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = chatMessage.value.trim();
+      if (!msg) return;
+      chatSubmit.disabled = true;
+      chatError.hidden = true;
+      try {
+        await publishChatMessage(msg);
+      } catch (err) {
+        chatError.textContent = err.message;
+        chatError.hidden = false;
+      } finally {
+        chatSubmit.disabled = false;
+      }
+    });
+
+    // Shared Canvas Implementation
+    function resetCanvas() {
+      canvasContext.fillStyle = "#ffffff";
+      canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function paintCell(x, y, color) {
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return;
+      if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+      canvasContext.fillStyle = color;
+      canvasContext.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+
+    function applyCanvasEvent(ev) {
+      if (!ev || !ev.id || seenCanvasEvents.has(ev.id)) return;
+      const data = ev.data || {};
+      if (!Number.isInteger(data.x) || !Number.isInteger(data.y) || typeof data.color !== "string") return;
+      if (!/^#[0-9a-f]{6}$/i.test(data.color)) return;
+      seenCanvasEvents.add(ev.id);
+      paintCell(data.x, data.y, data.color);
     }
 
     async function publishCanvasEvent(x, y, color) {
       try {
-        const event = await createCanvasEvent(x, y, color);
-        const response = await fetch("/events", {
+        const ev = await createSignedEvent(CANVAS_COLLECTION, CANVAS_LABEL, { x, y, color, timestamp: Math.floor(Date.now() / 1000) });
+        const res = await fetch("/events", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify(event)
+          body: JSON.stringify(ev)
         });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || `Event request failed (${response.status})`);
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || `Canvas request failed (${res.status})`);
         if (payload.id) seenCanvasEvents.add(payload.id);
-        setCanvasStatus("Connected · signed event published");
-        scheduleEventStreamRefresh();
-      } catch (error) {
-        setCanvasStatus(`Event error: ${error.message}`);
+        canvasStatus.textContent = "Live · Connected";
+      } catch (err) {
+        canvasStatus.textContent = "Paint error";
       }
     }
 
@@ -914,17 +2430,18 @@
       publishQueue = publishQueue.then(() => publishCanvasEvent(x, y, color));
     }
 
-    function cellFromPointer(event) {
+    function cellFromPointer(e) {
       const bounds = canvas.getBoundingClientRect();
-      const x = Math.floor(((event.clientX - bounds.left) / bounds.width) * GRID_SIZE);
-      const y = Math.floor(((event.clientY - bounds.top) / bounds.height) * GRID_SIZE);
+      const x = Math.floor(((e.clientX - bounds.left) / bounds.width) * GRID_SIZE);
+      const y = Math.floor(((e.clientY - bounds.top) / bounds.height) * GRID_SIZE);
       if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return null;
       return { x, y };
     }
 
-    function paintFromPointer(event) {
-      const cell = cellFromPointer(event);
+    function paintFromPointer(e) {
+      const cell = cellFromPointer(e);
       if (!cell) return;
+      canvasCoords.textContent = `X: ${cell.x} Y: ${cell.y}`;
       const key = `${cell.x}:${cell.y}`;
       if (key === lastPaintedCell) return;
       lastPaintedCell = key;
@@ -933,11 +2450,44 @@
       queueCanvasEvent(cell.x, cell.y, color);
     }
 
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      painting = true;
+      lastPaintedCell = "";
+      canvas.setPointerCapture(e.pointerId);
+      paintFromPointer(e);
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      const cell = cellFromPointer(e);
+      if (cell) canvasCoords.textContent = `X: ${cell.x} Y: ${cell.y}`;
+      if (painting) paintFromPointer(e);
+    });
+
+    ["pointerup", "pointercancel", "pointerleave"].forEach((evt) => {
+      canvas.addEventListener(evt, () => {
+        painting = false;
+        lastPaintedCell = "";
+      });
+    });
+
+    colorSwatches.forEach((swatch) => {
+      swatch.addEventListener("click", () => {
+        colorSwatches.forEach((s) => s.classList.remove("active"));
+        swatch.classList.add("active");
+        pixelColor.value = swatch.dataset.color;
+      });
+    });
+
+    pixelColor.addEventListener("input", () => {
+      colorSwatches.forEach((s) => s.classList.remove("active"));
+    });
+
     async function loadCanvasHistory() {
       const since = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
       const history = [];
       let cursor = "";
-      for (let page = 0; page < 10; page += 1) {
+      for (let p = 0; p < 10; p += 1) {
         const params = new URLSearchParams({
           collection: CANVAS_COLLECTION,
           label: CANVAS_LABEL,
@@ -945,82 +2495,115 @@
           limit: "100"
         });
         if (cursor) params.set("cursor", cursor);
-        const response = await fetch(`/events?${params}`, { headers: { Accept: "application/json" } });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || `History request failed (${response.status})`);
+        const res = await fetch(`/events?${params}`, { headers: { Accept: "application/json" } });
+        const payload = await res.json();
+        if (!res.ok) break;
         history.push(...(payload.events || []));
         cursor = payload.next_cursor || "";
         if (!cursor) break;
       }
-      history.sort((left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id));
+      history.sort((a, b) => a.created_at - b.created_at || a.id.localeCompare(b.id));
       history.forEach(applyCanvasEvent);
-      queuedCanvasEvents.sort((left, right) => left.created_at - right.created_at || left.id.localeCompare(right.id));
+      queuedCanvasEvents.sort((a, b) => a.created_at - b.created_at || a.id.localeCompare(b.id));
       queuedCanvasEvents.splice(0).forEach(applyCanvasEvent);
       canvasHistoryReady = true;
     }
 
     function connectCanvasStream() {
-      if (!window.EventSource) {
-        setCanvasStatus("Live updates unsupported: EventSource is unavailable");
-        return;
-      }
+      if (!window.EventSource) return;
       const params = new URLSearchParams({ collection: CANVAS_COLLECTION, label: CANVAS_LABEL });
       const source = new EventSource(`/events/stream?${params}`);
-      source.addEventListener("event", (message) => {
+      source.addEventListener("event", (msg) => {
         try {
-          const event = JSON.parse(message.data);
-          if (!canvasHistoryReady) queuedCanvasEvents.push(event);
-          else applyCanvasEvent(event);
-          setCanvasStatus("Live · pixel received");
-        } catch (error) {
-          setCanvasStatus(`Stream error: ${error.message}`);
-        }
+          const ev = JSON.parse(msg.data);
+          if (!canvasHistoryReady) queuedCanvasEvents.push(ev);
+          else applyCanvasEvent(ev);
+          canvasStatus.textContent = "Live · Pixel received";
+        } catch (_) {}
       });
-      source.onopen = () => setCanvasStatus("Live · connected");
-      source.onerror = () => setCanvasStatus("Reconnecting…");
+      source.onopen = () => { canvasStatus.textContent = "Live · Connected"; };
+      source.onerror = () => { canvasStatus.textContent = "Reconnecting…"; };
     }
-
-    canvas.addEventListener("pointerdown", (event) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      painting = true;
-      lastPaintedCell = "";
-      canvas.setPointerCapture(event.pointerId);
-      paintFromPointer(event);
-    });
-    canvas.addEventListener("pointermove", (event) => {
-      if (painting) paintFromPointer(event);
-    });
-    ["pointerup", "pointercancel", "pointerleave"].forEach((eventName) => {
-      canvas.addEventListener(eventName, () => {
-        painting = false;
-        lastPaintedCell = "";
-      });
-    });
 
     async function initializeCanvas() {
       resetCanvas();
-      setCanvasStatus("Loading canvas history…");
+      canvasStatus.textContent = "Loading history…";
       try {
         await loadCanvasHistory();
-        setCanvasStatus("Ready · paint to collaborate");
-      } catch (error) {
+        canvasStatus.textContent = "Live · Ready to paint";
+      } catch (_) {
         canvasHistoryReady = true;
-        setCanvasStatus(`History unavailable: ${error.message}`);
+        canvasStatus.textContent = "Live · Ready";
       }
       connectCanvasStream();
     }
 
-    async function initializeChat() {
-      chatState.textContent = "Loading messages…";
-      connectChatStream();
-      await loadChatMessages();
+    // IPFS Dropzone File Upload
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+    ["dragleave", "dragend"].forEach((evt) => dropzone.addEventListener(evt, () => dropzone.classList.remove("dragover")));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length) uploadFiles(fileInput.files);
+    });
+
+    async function uploadFiles(files) {
+      uploadStatus.hidden = false;
+      uploadStatus.textContent = `Uploading ${files.length} file(s) to IPFS node…`;
+      const formData = new FormData();
+      for (const f of files) formData.append("file", f);
+
+      try {
+        const res = await fetch("/up", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
+
+        uploadStatus.hidden = true;
+        uploadHistorySection.hidden = false;
+
+        const li = document.createElement("li");
+        li.className = "upload-history-item";
+        li.innerHTML = `
+          <div>
+            <strong style="color:var(--fg-primary);">${data.name || "Uploaded File"}</strong>
+            <span style="color:var(--fg-muted); font-size:0.75rem; margin-left:0.5rem;">${formatBytes(data.bytes || data.size)}</span>
+            <div style="font-family:var(--font-mono); font-size:0.75rem; color:var(--brand-primary); margin-top:3px; font-weight:600;">
+              CID: ${data.cid}
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <a href="/ipfs/${encodeURIComponent(data.cid)}" target="_blank" class="button btn-outline-blue btn-sm">Download</a>
+            <button class="btn-secondary btn-sm" onclick="copySnippet('${data.cid}')" type="button">Copy CID</button>
+          </div>
+        `;
+        uploadHistory.prepend(li);
+        showToast("Uploaded to IPFS: " + (data.cid ? data.cid.slice(0, 12) + "…" : "OK"));
+        loadStats();
+      } catch (err) {
+        uploadStatus.textContent = "Upload failed: " + err.message;
+        uploadStatus.className = "error";
+      }
     }
 
-    refresh.addEventListener("click", loadStats);
+    // Initialization
+    refreshBtn.addEventListener("click", () => {
+      loadStats();
+      checkHealth();
+    });
+
+    getCanvasIdentity().catch(() => {});
     loadStats();
+    checkHealth();
     loadEventPage(0);
     initializeCanvas();
-    initializeChat();
+    loadChatMessages();
+    connectChatStream();
+
+    setInterval(checkHealth, 30000);
   </script>
 </body>
 </html>
