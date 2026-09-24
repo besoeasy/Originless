@@ -217,7 +217,7 @@ func (s *Store) unsubscribe(subscriber *eventSubscriber) {
 	s.mu.Unlock()
 }
 
-func (s *Store) stats(now time.Time) EventStats {
+func (s *Store) Stats(now time.Time) EventStats {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
