@@ -42,7 +42,8 @@ trap shutdown TERM INT
 ready=0
 i=0
 while [ "$i" -lt "$READY_TIMEOUT" ] && [ "$shutting_down" -eq 0 ]; do
-	if wget -q -O /dev/null "http://$api_hostport/api/v0/version" 2>/dev/null; then
+	# Kubo's RPC API rejects GET with 405; an empty POST is the cheapest probe.
+	if wget -q -O /dev/null --post-data='' "http://$api_hostport/api/v0/version" 2>/dev/null; then
 		ready=1
 		break
 	fi
