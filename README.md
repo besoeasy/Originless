@@ -5,7 +5,7 @@
 Collapse sprawling cloud microservices into two universal primitives — **Signed Events** and **IPFS-Native Content**. Build full-featured real-time apps in pure vanilla HTML and JavaScript with zero backend boilerplate.
 
 ```bash
-docker run --rm --name originless -p 3232:3232 -e STORAGE_MAX=10GB ghcr.io/besoeasy/originless:latest
+docker run -d --name originless -p 3232:3232 -e STORAGE_MAX=10GB ghcr.io/besoeasy/originless:latest
 ```
 
 Open [http://localhost:3232](http://localhost:3232) after the container starts. The container keeps its IPFS data in its ephemeral filesystem; no volume is mounted. `STORAGE_MAX` is a human-readable soft limit for Kubo's repository (default: `10GB`). Automatic GC is fixed at 90% of that value and runs every hour; only `STORAGE_MAX` can be overridden.
