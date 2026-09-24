@@ -1,0 +1,5 @@
+# Keep the build context to what the Go build actually needs.
+.git/
+.github/
+.playwright-mcp/
+*.log
