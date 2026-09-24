@@ -2,30 +2,7 @@
 set -u
 
 IPFS_REPO="${IPFS_PATH:-/data/ipfs}"
-READY_TIMEOUT="${IPFS_READY_TIMEOUT:-60}"
-case "$READY_TIMEOUT" in
-	'' | *[!0-9]*)
-		READY_TIMEOUT=60
-		;;
-esac
-
-app_pid=""
-shutting_down=0
-
-# Probe the HTTP API directly: `ipfs` CLI commands can open the local repo
-# (taking repo.lock) when the daemon isn't answering yet, which races the
-# starting daemon and can kill it. An HTTP probe never touches the lock.
-api_url="${IPFS_API_URL:-http://127.0.0.1:5001}"
-api_hostport="${api_url#*://}"
-api_hostport="${api_hostport%%/*}"
-
-shutdown() {
-	shutting_down=1
-	kill -TERM "$ipfs_pid" 2>/dev/null || true
-	if [ -n "$app_pid" ]; then
-		kill -TERM "$app_pid" 2>/dev/null || true
-	fi
-}
+IPFS_API_URL="${IPFS_API_URL:-http://127.0.0.1:5001}"
 
 if [ ! -f "$IPFS_REPO/config" ]; then
 	ipfs init --profile=lowpower
@@ -35,64 +12,29 @@ ipfs config --json Routing.Type '"dhtclient"'
 ipfs daemon &
 ipfs_pid=$!
 
-trap shutdown TERM INT
+cleanup() {
+	kill -TERM "$ipfs_pid" 2>/dev/null || true
+}
 
-# Readiness gate: don't serve traffic until the daemon answers, and fail
-# loud instead of serving 502s forever if it never comes up.
-ready=0
-i=0
-while [ "$i" -lt "$READY_TIMEOUT" ] && [ "$shutting_down" -eq 0 ]; do
-	# Kubo's RPC API rejects GET with 405; an empty POST is the cheapest probe.
-	if wget -q -O /dev/null --post-data='' "http://$api_hostport/api/v0/version" 2>/dev/null; then
-		ready=1
-		break
-	fi
+trap cleanup TERM INT
+
+# Wait for Kubo's HTTP RPC before starting the application. Kubo rejects GET
+# requests on its API, so use an empty POST to the version endpoint.
+until curl -fsS -X POST "$IPFS_API_URL/api/v0/version" >/dev/null 2>&1; do
 	if ! kill -0 "$ipfs_pid" 2>/dev/null; then
-		break
+		echo "originless: ipfs daemon stopped before becoming ready" >&2
+		exit 1
 	fi
-	sleep 1
-	i=$((i + 1))
+	sleep 5
 done
-if [ "$shutting_down" -eq 1 ]; then
-	wait "$ipfs_pid" 2>/dev/null || true
-	exit 0
-fi
-if [ "$ready" -ne 1 ]; then
-	echo "originless: ipfs daemon did not become ready; exiting" >&2
-	shutdown
-	wait "$ipfs_pid" 2>/dev/null || true
-	exit 1
-fi
+
 echo "originless: ipfs daemon ready"
 
 /usr/local/bin/originless &
 app_pid=$!
+wait "$app_pid"
+app_status=$?
 
-# Supervise both processes: if either dies, shut down the other and exit
-# so the container fails loud instead of serving a broken backend.
-app_status=0
-while true; do
-	if ! kill -0 "$app_pid" 2>/dev/null; then
-		wait "$app_pid"
-		app_status=$?
-		break
-	fi
-	if ! kill -0 "$ipfs_pid" 2>/dev/null; then
-		if [ "$shutting_down" -eq 1 ]; then
-			wait "$app_pid" 2>/dev/null
-			app_status=$?
-		else
-			echo "originless: ipfs daemon died unexpectedly; exiting" >&2
-			wait "$ipfs_pid" 2>/dev/null || true
-			kill -TERM "$app_pid" 2>/dev/null || true
-			wait "$app_pid" 2>/dev/null
-			app_status=1
-		fi
-		break
-	fi
-	sleep 2
-done
-
-shutdown
+cleanup
 wait "$ipfs_pid" 2>/dev/null || true
 exit "$app_status"

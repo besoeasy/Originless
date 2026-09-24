@@ -23,7 +23,7 @@ LABEL org.opencontainers.image.title="Originless" \
 
 # Kubo is Alpine's package name for the IPFS implementation and provides
 # the `ipfs` command-line executable.
-RUN apk add --no-cache kubo ca-certificates \
+RUN apk add --no-cache kubo ca-certificates curl \
     && ipfs --version \
     && addgroup -S originless \
     && adduser -S -G originless -h /app originless \
