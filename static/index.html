@@ -259,6 +259,23 @@
     .collection-pill-count { color: var(--color-text-muted); }
     .collection-bullet { color: var(--color-accent); font-weight: 700; }
 
+    /* ---------- marketing cards ---------- */
+    .cards-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-top: 2.5rem; }
+    .mini-card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); border-top: 3px solid var(--color-border); }
+    .mini-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+    .mini-card .mini-sub { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.75rem; }
+    .mini-card p { font-size: 0.875rem; color: var(--color-text-secondary); }
+    .mini-card .mini-emoji { font-size: 1.5rem; display: block; margin-bottom: 0.75rem; }
+    .mini-card .replaces { margin-top: 1rem; font-size: 0.75rem; color: var(--color-text-muted); }
+    .mini-card .replaces strong { color: var(--color-text); }
+    .tick-list { list-style: none; padding: 0; margin: 1.25rem 0 0; display: flex; flex-direction: column; gap: 1.1rem; }
+    .tick-list li { font-size: 0.875rem; color: var(--color-text-secondary); display: grid; grid-template-columns: 1.5rem 1fr; gap: 0.25rem; }
+    .tick-list strong { color: var(--color-text); }
+    .verdict-bad { color: var(--color-danger-text); font-weight: 700; }
+    .verdict-good { color: var(--color-success-text); font-weight: 700; }
+    .title-bad { color: var(--color-danger-text); }
+    .title-good { color: var(--color-success-text); }
+
     .grid-2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.5rem; align-items: start; margin-top: 2.5rem; }
 
     .panel { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); }
@@ -465,7 +482,7 @@
     <section id="overview">
       <p class="eyebrow"><span class="marker">[*]</span> The open source universal app backend</p>
       <h1 class="hero-spell" aria-label="Originless"><span style="--i:0">O</span><span style="--i:1">r</span><span style="--i:2">i</span><span style="--i:3">g</span><span style="--i:4">i</span><span style="--i:5">n</span><span style="--i:6">l</span><span style="--i:7">e</span><span style="--i:8">s</span><span style="--i:9">s</span></h1>
-      <p class="lede">Signed events and IPFS-native content in a single Docker container. Build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
+      <p class="lede">The universal backend for building apps. Collapse sprawling cloud microservices into two primitives — Signed Events and IPFS content. Build full-featured real-time apps in pure vanilla HTML and JavaScript with zero backend boilerplate.</p>
 
       <div class="hero-cta">
         <a class="button btn-github" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">★ Star on GitHub — besoeasy/originless</a>
@@ -559,6 +576,77 @@
       </div>
     </section>
 
+    <section id="compare">
+      <p class="eyebrow"><span class="marker">[*]</span> Why Originless?</p>
+      <h2 class="section-title reveal">The Traditional SaaS Stack vs. The Originless Way.</h2>
+      <p class="lede reveal">Collapse sprawling cloud microservices into two universal primitives — Signed Events and IPFS content.</p>
+      <div class="grid-2">
+        <div class="panel reveal" style="border-top:3px solid var(--color-danger);">
+          <p class="panel-title title-bad">Fragile &amp; Expensive</p>
+          <p class="body-text" style="font-size:0.875rem;">The traditional SaaS stack</p>
+          <ul class="tick-list">
+            <li><span class="verdict-bad">✕</span><span><strong>5+ Fragmented Services:</strong> Juggling Auth0, PostgreSQL, AWS S3, Redis, and Pusher just to build a simple collaborative tool.</span></li>
+            <li><span class="verdict-bad">✕</span><span><strong>Credential &amp; Secret Leaks:</strong> Rotating API keys, JWT expiration races, and central user database breach liabilities.</span></li>
+            <li><span class="verdict-bad">✕</span><span><strong>Database Migrations:</strong> Schema alterations, ORM overhead, connection pool limits, and downtime risk.</span></li>
+            <li><span class="verdict-bad">✕</span><span><strong>Escalating Cloud Bills:</strong> Per-MAU authentication fees, egress penalties, and monthly SaaS subscriptions that punish growth.</span></li>
+          </ul>
+        </div>
+        <div class="panel reveal" style="border-top:3px solid var(--color-success-text);">
+          <p class="panel-title title-good">The Best Option</p>
+          <p class="body-text" style="font-size:0.875rem;">The Originless way</p>
+          <ul class="tick-list">
+            <li><span class="verdict-good">✓</span><span><strong>One Single Binary:</strong> Zero-dependency Go container running on a $4/mo VPS, Raspberry Pi, Umbrel, Docker, or laptop.</span></li>
+            <li><span class="verdict-good">✓</span><span><strong>Client-Side Cryptography:</strong> Ed25519 keypairs generated on-device in 2 lines of code. The key is the identity; zero server auth state.</span></li>
+            <li><span class="verdict-good">✓</span><span><strong>Native Real-Time (SSE):</strong> Instant Server-Sent Events (<code>/events/stream</code>) supported natively in every browser without socket libraries.</span></li>
+            <li><span class="verdict-good">✓</span><span><strong>Autonomous Self-Cleaning &amp; P2P:</strong> Automatic TTL record pruning, unpinned IPFS content reclaimed by garbage collection, and Kademlia DHT swarm sync.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="protocols">
+      <p class="eyebrow"><span class="marker">[*]</span> Open protocols</p>
+      <h2 class="section-title reveal">Protocols &amp; Cloud Services Replaced.</h2>
+      <p class="lede reveal">Standard open protocols replace proprietary cloud APIs with zero vendor lock-in.</p>
+      <div class="cards-auto">
+        <div class="mini-card reveal" style="border-top-color:var(--color-accent);">
+          <span class="mini-emoji">🔐</span>
+          <h3>Zero Auth</h3>
+          <p class="mini-sub">Ed25519 Cryptographic Signatures</p>
+          <p>Identity lives strictly on client devices. Every event is mathematically signed. Zero passwords to store, zero user databases to breach, and zero token expiration bugs.</p>
+          <p class="replaces"><strong>Replaces:</strong> Auth0, Clerk, Firebase Auth, AWS Cognito</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-success-text);">
+          <span class="mini-emoji">⚡</span>
+          <h3>Native HTTP</h3>
+          <p class="mini-sub">Native Server-Sent Events (SSE)</p>
+          <p>Stream live events to browsers with native EventSource and terminals with <code>curl -N</code>. Filterable by collection and label with automatic client reconnection.</p>
+          <p class="replaces"><strong>Replaces:</strong> Redis Pub/Sub, Pusher, Ably, Socket.io</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-teal);">
+          <span class="mini-emoji">📦</span>
+          <h3>Content-Addressed</h3>
+          <p class="mini-sub">IPFS CIDs, Served Locally</p>
+          <p>Upload files up to 1 GiB through <code>/up</code> and <code>/upf</code>. Every file is addressed by its IPFS CID, served from the local node at <code>/ipfs/{cid}</code>, and viewable anywhere via public gateways.</p>
+          <p class="replaces"><strong>Replaces:</strong> AWS S3, Cloudflare R2, MinIO, 0x0.st</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-purple);">
+          <span class="mini-emoji">🗄️</span>
+          <h3>ACID WAL</h3>
+          <p class="mini-sub">Indexed SQLite Event Store</p>
+          <p>Microsecond queries, full-text search, label indexing, keyset cursor pagination, and built-in TTL eviction. Zero database migrations or ORM schemas required.</p>
+          <p class="replaces"><strong>Replaces:</strong> Firebase Firestore, Supabase, PocketBase</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-orange);">
+          <span class="mini-emoji">🌐</span>
+          <h3>libp2p Mesh</h3>
+          <p class="mini-sub">Autonomous P2P Swarm</p>
+          <p>Single-port HTTP/WS multiplexing, AutoNAT hole punching, Kademlia DHT discovery, and O(1) commutative XOR state root fast-path sync across nodes worldwide.</p>
+          <p class="replaces"><strong>Replaces:</strong> Nostr Relays, Matrix Homeservers, BitTorrent</p>
+        </div>
+      </div>
+    </section>
+
     <section id="apps">
       <p class="eyebrow"><span class="marker">[*]</span> Live · real-time</p>
       <h2 class="section-title reveal">Chat &amp; Canvas, powered by signed events.</h2>
@@ -606,6 +694,44 @@
             </div>
             <p style="font-size:0.75rem; color:var(--color-text-disabled); margin-top:0.5rem;"><span id="chat-char-count">0/1000</span></p>
           </form>
+      </div>
+    </section>
+
+    <section id="usecases">
+      <p class="eyebrow"><span class="marker">[*]</span> Possibilities</p>
+      <h2 class="section-title reveal">Possibility Is What You Can Imagine.</h2>
+      <p class="lede reveal">What can you build with Originless? Everything you can imagine, in a fraction of the time.</p>
+      <div class="cards-auto">
+        <div class="mini-card reveal" style="border-top-color:var(--color-accent);">
+          <span class="mini-emoji">🎨</span>
+          <h3>Real-Time Collaborative Apps</h3>
+          <p>Shared whiteboards, code pads, live voting, and infinite collaborative canvases. Every pixel or stroke is a signed event pushed instantly to all peers over SSE. (<a href="#apps">Try the live pixel canvas below!</a>)</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-purple);">
+          <span class="mini-emoji">💬</span>
+          <h3>Encrypted Chat &amp; Social Feeds</h3>
+          <p>Public room messaging, decentralized comments for static blogs, and end-to-end encrypted private chats without a central database operator. (<a href="#apps">Try the live chatbox below!</a>)</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-success-text);">
+          <span class="mini-emoji">🤖</span>
+          <h3>Autonomous AI Agent Swarms</h3>
+          <p>Multi-agent blackboard architectures where LLMs coordinate workflows, claim task events, tail live SSE streams, and exchange binary model weights or artifacts without API tokens.</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-teal);">
+          <span class="mini-emoji">📱</span>
+          <h3>Local-First &amp; Multi-Device Sync</h3>
+          <p>Personal notes, todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers when online.</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-orange);">
+          <span class="mini-emoji">🎮</span>
+          <h3>Turn-Based Multiplayer Games</h3>
+          <p>Chess, checkers, card games, and turn-based strategy where each move is a cryptographically signed event, guaranteeing cheat-proof move history and player provenance.</p>
+        </div>
+        <div class="mini-card reveal" style="border-top-color:var(--color-danger);">
+          <span class="mini-emoji">📡</span>
+          <h3>IoT &amp; Edge Sensor Fleets</h3>
+          <p>Environmental monitors, home automation hubs, and edge cameras logging time-series events and IPFS snapshots with automatic 7-day or 30-day lifecycle retention.</p>
+        </div>
       </div>
     </section>
 
@@ -697,6 +823,18 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="closing" style="margin-bottom:0;">
+      <div class="panel reveal" style="text-align:center; padding:3rem 2rem;">
+        <p class="eyebrow" style="display:flex; justify-content:center;"><span class="marker">[*]</span>&nbsp;Zero-auth backend</p>
+        <h2 class="section-title">The Universal Zero-Auth Backend for Modern Apps.</h2>
+        <p class="lede" style="margin-left:auto; margin-right:auto; text-align:center;">No accounts. No API keys. No database migrations. Signed events, IPFS content-addressing, native real-time streams, and autonomous P2P replication in a single binary.</p>
+        <div class="hero-cta" style="margin-bottom:0;">
+          <a class="button btn-github" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">★ Star on GitHub</a>
+          <a class="button btn-secondary" href="#apps">Try the live demos</a>
+        </div>
       </div>
     </section>
 
