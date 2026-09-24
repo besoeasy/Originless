@@ -572,10 +572,9 @@
       <h2 class="section-title reveal">Chat &amp; Canvas, powered by signed events.</h2>
       <p class="lede reveal">Two collaborative demos running entirely on events, streamed live to every connected browser.</p>
 
-      <div class="grid-2">
-        <div class="panel reveal">
-          <div class="panel-head">
-            <p class="panel-title">Shared Canvas</p>
+      <div class="panel reveal">
+        <div class="panel-head">
+          <p class="panel-title">Shared Canvas</p>
             <span class="live-tag" id="canvas-status">Connecting…</span>
           </div>
           <p class="body-text" style="font-size:0.875rem;">A 256 × 256 collaborative pixel board on <code>originless/canvas</code>. Pick a color, click or drag to paint — history replays the last 30 days.</p>
@@ -595,11 +594,11 @@
             <span id="canvas-coords" style="font-size:0.75rem; color:var(--color-text-muted);">X: — Y: —</span>
           </div>
           <canvas id="shared-canvas" width="1024" height="1024" aria-label="Collaborative 256 by 256 pixel grid"></canvas>
-        </div>
+      </div>
 
-        <div class="panel reveal">
-          <div class="panel-head">
-            <p class="panel-title">Signed Chat</p>
+      <div class="panel reveal" style="margin-top:1.5rem;">
+        <div class="panel-head">
+          <p class="panel-title">Signed Chat</p>
             <span class="live-tag">Live SSE</span>
           </div>
           <p class="body-text" style="font-size:0.875rem;">Zero-server-auth messages on <code>originless/chat</code>, signed on-device with Web Crypto Ed25519.</p>
@@ -615,7 +614,6 @@
             </div>
             <p style="font-size:0.75rem; color:var(--color-text-disabled); margin-top:0.5rem;"><span id="chat-char-count">0/1000</span></p>
           </form>
-        </div>
       </div>
     </section>
 
