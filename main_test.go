@@ -185,3 +185,27 @@ func TestHealthzJSON(t *testing.T) {
 		t.Errorf("payload = %+v, want status ok", payload)
 	}
 }
+
+func TestCORSMiddleware(t *testing.T) {
+	preflight := httptest.NewRecorder()
+	newRouter(nil).ServeHTTP(preflight, httptest.NewRequest(http.MethodOptions, "/events", nil))
+
+	if preflight.Code != http.StatusNoContent {
+		t.Fatalf("preflight status = %d, want %d", preflight.Code, http.StatusNoContent)
+	}
+
+	get := httptest.NewRecorder()
+	newRouter(nil).ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	for _, recorder := range []*httptest.ResponseRecorder{preflight, get} {
+		if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+			t.Errorf("Access-Control-Allow-Origin = %q, want %q", got, "*")
+		}
+		if got := recorder.Header().Get("Access-Control-Allow-Methods"); got != "GET, POST, OPTIONS, HEAD" {
+			t.Errorf("Access-Control-Allow-Methods = %q, want GET, POST, OPTIONS, HEAD", got)
+		}
+		if got := recorder.Header().Get("Access-Control-Allow-Headers"); got != "*" {
+			t.Errorf("Access-Control-Allow-Headers = %q, want %q", got, "*")
+		}
+	}
+}

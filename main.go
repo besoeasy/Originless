@@ -183,6 +183,19 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func newRouter(client *ipfsClient) http.Handler {
 	mux := http.NewServeMux()
 	events := newEventStore()
@@ -201,7 +214,7 @@ func newRouter(client *ipfsClient) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	return mux
+	return corsMiddleware(mux)
 }
 
 func configuredPort() (string, error) {
