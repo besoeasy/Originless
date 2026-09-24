@@ -1,149 +1,104 @@
 # Originless
 
-## The Universal Backend for Building Apps
+Originless is a single-container backend for real-time web applications. It combines a small Go HTTP service with an embedded [Kubo](https://github.com/ipfs/kubo) IPFS node, so signed events and content-addressed files share one deployment.
 
-Collapse sprawling cloud microservices into two universal primitives — **Signed Events** and **IPFS-Native Content**. Build full-featured real-time apps in pure vanilla HTML and JavaScript with zero backend boilerplate.
+- **Signed events** — immutable, Ed25519-verified JSON documents with TTL expiry.
+- **Live updates** — Server-Sent Events at `/events/stream`; no WebSocket server required.
+- **IPFS uploads** — files and folders are added with `pin=false` and addressed by CID.
+- **Built-in demos** — a shared 256×256 canvas, chat, event stream, and upload dashboard.
+- **CORS enabled** — browser applications can call the HTTP API from another origin.
+
+## Run with Docker
+
+Docker is the supported runtime. Start the published image with one command:
 
 ```bash
 docker run -d --name originless -p 3232:3232 -e STORAGE_MAX=20GB ghcr.io/besoeasy/originless:latest
 ```
 
-Open [http://localhost:3232](http://localhost:3232) after the container starts. The container keeps its IPFS data in its ephemeral filesystem; no volume is mounted. `STORAGE_MAX` is a human-readable soft limit for Kubo's repository (default: `20GB`). Automatic GC is fixed at 90% of that value and runs every hour; only `STORAGE_MAX` can be overridden.
+Open the dashboard at [http://localhost:3232](http://localhost:3232).
 
-For local Podman development:
-
-```bash
-./podman.sh
-```
-
-## The Traditional SaaS Stack
-
-### Fragile & Expensive
-
-- **5+ Fragmented Services:** Juggling Auth0, PostgreSQL, AWS S3, Redis, and Pusher just to build a simple collaborative tool.
-- **Credential & Secret Leaks:** Rotating API keys, JWT expiration races, and central user database breach liabilities.
-- **Database Migrations:** Schema alterations, ORM overhead, connection pool limits, and downtime risk.
-- **Escalating Cloud Bills:** Per-MAU authentication fees, egress penalties, and monthly SaaS subscriptions that punish growth.
-
-## The Originless Way
-
-### The Best Option
-
-- **One Single Binary:** A zero-dependency Go container running on a $4/mo VPS, Raspberry Pi, Umbrel, Docker, or laptop.
-- **Client-Side Cryptography:** Ed25519 keypairs generated on-device in two lines of code. The key is the identity; zero server auth state.
-- **Native Real-Time (SSE):** Instant Server-Sent Events (`/events/stream`) supported natively in every browser without socket libraries.
-- **IPFS-Native Lifecycle & P2P:** Automatic TTL record pruning, local IPFS content retrieval, and O(1) Kademlia DHT swarm sync.
-
-## Protocols & Cloud Services Replaced
-
-Standard open protocols replace proprietary cloud APIs with zero vendor lock-in.
-
-### 🔐 Zero Auth
-
-**Ed25519 Cryptographic Signatures**
-
-Identity lives strictly on client devices. Every event is mathematically signed. Zero passwords to store, zero user databases to breach, and zero token expiration bugs.
-
-**Replaces:** Auth0, Clerk, Firebase Auth, AWS Cognito
-
-### ⚡ Native HTTP
-
-**Native Server-Sent Events (SSE)**
-
-Stream live events to browsers with native `EventSource` and terminals with `curl -N`. Filterable by collection and label with automatic client reconnection.
-
-**Replaces:** Redis Pub/Sub, Pusher, Ably, Socket.io
-
-### 📦 IPFS-Native Storage
-
-**Content-Addressed by CID**
-
-Upload files through `/up` and `/upf`; Originless adds them to IPFS and returns the resulting CID and size. Content is addressed by its IPFS CID, served from the local node, and requires no separate object-storage service.
-
-**Replaces:** AWS S3, Cloudflare R2, MinIO, 0x0.st
-
-For browser and JavaScript applications, use [Helia Verified Fetch](https://github.com/ipfs/helia-verified-fetch) to retrieve uploaded content through verified IPFS gateways and routers:
+The container has no volume mount. Its IPFS repository lives in the container filesystem, so stopping the container preserves its writable layer, while removing the container deletes that data.
 
 ```bash
-npm install @helia/verified-fetch
+docker logs -f originless
+docker stop originless
+docker rm originless
 ```
 
-```js
-import { verifiedFetch } from "@helia/verified-fetch";
+## Configuration
 
-const response = await verifiedFetch(`ipfs://${cid}`);
-const blob = await response.blob();
-```
+| Variable | Default | Description |
+| --- | --- | --- |
+| `STORAGE_MAX` | `20GB` | Human-readable soft limit for the Kubo repository. |
 
-For a dedicated IPFS HTTP gateway, use [Rainbow](https://github.com/ipfs/rainbow). Rainbow implements the IPFS HTTP Gateway API and retrieves content from the network without pinning it. A local deployment can be started with:
+Automatic garbage collection is enabled at a fixed **90%** watermark and runs hourly. `STORAGE_MAX` is the only storage setting exposed as a Docker environment variable. Because uploads are unpinned, a CID may become unavailable after garbage collection.
+
+## Upload and download files
+
+Upload a single file:
 
 ```bash
-docker run --rm --name rainbow \
-  -p 8090:8090 \
-  -p 8091:8091 \
-  ghcr.io/ipfs/rainbow:latest
+curl -F "file=@hello.txt" http://localhost:3232/up
 ```
 
-Fetch an uploaded file through Rainbow's standard gateway path:
+Upload a folder using `/upf`:
 
 ```bash
-curl -OJ http://127.0.0.1:8090/ipfs/<cid>
+curl \
+  -F "file=@folder/one.txt;filename=folder/one.txt" \
+  -F "file=@folder/nested/two.txt;filename=folder/nested/two.txt" \
+  http://localhost:3232/upf
 ```
 
-Use `/ipfs/{cid}` on Originless when you need content directly from the local node. Because Originless uploads are unpinned, remote retrieval through Helia or Rainbow depends on the content remaining available through IPFS providers.
+The response contains the resulting CID. Download content available in the local node through the standard gateway-shaped path:
 
-### 🗄️ ACID WAL
+```bash
+curl -OJ http://localhost:3232/ipfs/<cid>
+```
 
-**Indexed SQLite Event Store**
-
-Microsecond queries, full-text search, label indexing, keyset cursor pagination, and built-in TTL eviction. Zero database migrations or ORM schemas required.
-
-**Replaces:** Firebase Firestore, Supabase, PocketBase
-
-### 🌐 libp2p Mesh
-
-**Autonomous P2P Swarm**
-
-Single-port HTTP/WS multiplexing, AutoNAT hole punching, Kademlia DHT discovery, and O(1) commutative XOR state root fast-path sync across nodes worldwide.
-
-**Replaces:** Nostr Relays, Matrix Homeservers, BitTorrent
-
-## Possibility Is What You Can Imagine
-
-What can you build with Originless? Everything you can imagine, in a fraction of the time.
-
-### 🎨 Real-Time Collaborative Apps
-
-Shared whiteboards, code pads, live voting, and infinite collaborative canvases. Every pixel or stroke is a signed event pushed instantly to all peers over SSE.
-
-### 💬 Encrypted Chat & Social Feeds
-
-Public room messaging, decentralized comments for static blogs, and end-to-end encrypted private chats without a central database operator.
-
-### 🤖 Autonomous AI Agent Swarms
-
-Multi-agent blackboard architectures where LLMs coordinate workflows, claim task events, tail live SSE streams, and exchange binary model weights or artifacts without API tokens.
-
-### 📱 Local-First & Multi-Device Sync
-
-Personal notes, todo managers, and password vaults that store data locally and sync silently across phones, laptops, and home servers when online.
-
-### 🎮 Turn-Based Multiplayer Games
-
-Chess, checkers, card games, and turn-based strategy where every move is a cryptographically signed event, guaranteeing cheat-proof move history and player provenance.
-
-### 📡 IoT & Edge Sensor Fleets
-
-Environmental monitors, home automation hubs, and edge cameras logging time-series events and IPFS snapshots with automatic lifecycle retention.
+For content available through the public IPFS network, use [inbrowser.link](https://inbrowser.link/ipfs/), [Helia Verified Fetch](https://github.com/ipfs/helia-verified-fetch), or a dedicated gateway such as [Rainbow](https://github.com/ipfs/rainbow).
 
 ## API
 
-See [`api.md`](api.md) for the current HTTP API:
+The complete request and response reference is in [`api.md`](api.md).
 
-- `POST /up` and `POST /upf` for IPFS uploads
-- `GET /ipfs/{cid}` for locally available content
-- `POST /events` for signed event publishing
-- `GET /events` for event queries
-- `GET /events/{id}` for event retrieval
-- `GET /events/stream` for real-time SSE updates
-- `GET /stats` for IPFS and event metrics
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | Dashboard and live demos |
+| `GET` | `/healthz` | Container health |
+| `GET` | `/stats` | IPFS and event metrics |
+| `POST` | `/up` | Upload a file or folder |
+| `POST` | `/upf` | Explicit folder upload |
+| `GET` | `/ipfs/{cid}` | Retrieve locally available content |
+| `POST` | `/events` | Publish a signed event |
+| `GET` | `/events` | Query events with filters and pagination |
+| `GET` | `/events/{id}` | Retrieve one event |
+| `GET` | `/events/stream` | Stream events over SSE |
+
+Events are currently held in memory and are lost when the container is restarted. Content uploaded to IPFS is also ephemeral from Originless's perspective: the container does not mount a persistent volume and does not pin uploads.
+
+## Signed events
+
+An event is a small JSON document signed by its creator. The signature is verified by the server using the Ed25519 public key in `owner`; the server does not manage user accounts or passwords.
+
+```json
+{
+  "owner": "ed25519:<64-hex-public-key>",
+  "collection": "originless/chat",
+  "created_at": 1758420000,
+  "expires_at": 1789956000,
+  "data": {"message": "Hello from the browser"},
+  "labels": ["chat:lobby"],
+  "sig": "<128-hex-signature>"
+}
+```
+
+Use `/events/stream` to receive matching events live. Event documents are limited to 8 KiB and one year of TTL.
+
+## Links
+
+- [GitHub repository](https://github.com/besoeasy/originless)
+- [API reference](api.md)
+- [Kubo](https://github.com/ipfs/kubo)
+- [IPFS HTTP Gateway specification](https://specs.ipfs.tech/http-gateways/)
