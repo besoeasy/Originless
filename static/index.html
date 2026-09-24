@@ -3,18 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Originless — a universal backend for building apps. Signed events and IPFS-native content in a single Docker container.">
   <title>Originless | Universal App Backend &amp; Docker IPFS Node</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #ffffff;
-      --wash: #f6f6f6;
-      --ink: #111111;
-      --muted: #6b6b6b;
-      --faint: #9a9a9a;
-      --accent: #1a56db;
-      --font-sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --bg: #f7f8fd;
+      --surface: #ffffff;
+      --surface-soft: #f1f3fb;
+      --ink: #0b1220;
+      --ink-soft: #3c4763;
+      --muted: #68738f;
+      --faint: #9aa3bd;
+      --line: #e4e8f4;
+      --line-soft: #eef1f8;
+      --accent: #4f46e5;
+      --accent-deep: #3730a3;
+      --cyan: #06b6d4;
+      --green: #16a34a;
+      --green-bg: #e9f9ef;
+      --red: #dc2626;
+      --red-bg: #fdecec;
+      --amber: #d97706;
+      --amber-bg: #fdf3e3;
+      --gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #06b6d4 100%);
+      --font-sans: "Inter", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --radius: 20px;
+      --radius-sm: 12px;
+      --shadow: 0 1px 2px rgba(11, 18, 32, 0.05), 0 12px 32px -12px rgba(11, 18, 32, 0.12);
+      --shadow-lift: 0 2px 4px rgba(11, 18, 32, 0.06), 0 24px 48px -16px rgba(79, 70, 229, 0.22);
     }
 
     * { box-sizing: border-box; }
@@ -22,381 +40,541 @@
     body {
       margin: 0;
       font-family: var(--font-sans);
-      background: var(--bg);
       color: var(--ink);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
-      line-height: 1.7;
+      line-height: 1.65;
+      background:
+        radial-gradient(900px 480px at 8% -4%, rgba(124, 58, 237, 0.10), transparent 60%),
+        radial-gradient(1000px 520px at 95% 2%, rgba(6, 182, 212, 0.12), transparent 60%),
+        radial-gradient(760px 420px at 50% 22%, rgba(79, 70, 229, 0.07), transparent 65%),
+        var(--bg);
+      background-attachment: fixed;
     }
 
-    /* ---- header ---- */
-    .site-header {
-      max-width: 920px;
+    /* ---------- nav ---------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(18px) saturate(1.4);
+      -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      background: rgba(255, 255, 255, 0.75);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .nav-inner {
+      max-width: 1160px;
       margin: 0 auto;
-      padding: 40px 28px 0;
+      padding: 14px 28px;
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
       gap: 16px;
     }
-
-    .wordmark {
-      font-size: 1.35rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      background: var(--gradient);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      box-shadow: 0 6px 16px -4px rgba(79, 70, 229, 0.5);
+    }
+    .brand-name { font-weight: 750; letter-spacing: -0.02em; font-size: 1.05rem; }
+    .nav-links { display: flex; align-items: center; gap: 6px; }
+    .nav-links a {
+      color: var(--ink-soft);
       text-decoration: none;
-      color: var(--ink);
+      font-size: 0.88rem;
+      font-weight: 550;
+      padding: 8px 14px;
+      border-radius: 999px;
     }
+    .nav-links a:hover { background: var(--surface-soft); color: var(--ink); }
 
-    .site-nav {
-      display: flex;
-      align-items: center;
-      gap: 22px;
-      font-size: 0.875rem;
-    }
-
-    .site-nav a {
-      color: var(--muted);
-      text-decoration: none;
-    }
-    .site-nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
-
-    .health-line {
-      max-width: 920px;
-      margin: 10px auto 0;
-      padding: 0 28px;
-      font-size: 0.8rem;
-      color: var(--muted);
-      display: flex;
+    .status-pill {
+      display: inline-flex;
       align-items: center;
       gap: 8px;
+      font-size: 0.76rem;
+      font-weight: 650;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: var(--green-bg);
+      color: #15803d;
+      border: 1px solid #bbe7c9;
+      white-space: nowrap;
     }
-    .pulse-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #16a34a;
-      animation: pulse-ring 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    .pulse-dot.offline { background: #dc2626; animation: none; }
-    @keyframes pulse-ring {
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2.2s infinite; }
+    .pulse-dot.offline { background: var(--red); animation: none; }
+    @keyframes pulse {
       0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
-      70% { box-shadow: 0 0 0 7px rgba(22, 163, 74, 0); }
+      70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
       100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
     }
 
-    /* ---- page ---- */
-    main {
-      max-width: 920px;
-      margin: 0 auto;
-      padding: 72px 28px 120px;
-    }
-
-    section { margin: 0 0 120px; }
-    section:last-child { margin-bottom: 0; }
+    /* ---------- layout ---------- */
+    main { max-width: 1160px; margin: 0 auto; padding: 88px 28px 40px; }
+    section { margin: 0 0 110px; scroll-margin-top: 90px; }
 
     .eyebrow {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--faint);
-      margin: 0 0 18px;
+      color: var(--accent);
+      background: #eeedfd;
+      border: 1px solid #dcd8fb;
+      padding: 7px 16px;
+      border-radius: 999px;
+      margin: 0 0 26px;
     }
 
-    h1 {
-      font-size: clamp(2.4rem, 5vw, 3.4rem);
-      font-weight: 650;
-      letter-spacing: -0.03em;
-      line-height: 1.12;
-      margin: 0 0 20px;
-    }
-
-    /* Spelled hero wordmark */
-    .spell {
-      font-size: clamp(3.2rem, 11vw, 6.5rem);
-      margin: 0 0 28px;
+    h1.hero-spell {
+      font-size: clamp(3.4rem, 10vw, 6.8rem);
+      font-weight: 800;
+      letter-spacing: -0.045em;
+      line-height: 1.02;
+      margin: 0 0 24px;
       user-select: none;
     }
-    .spell span {
+    .hero-spell span {
       display: inline-block;
-      animation: spell-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-      animation-delay: calc(var(--i) * 65ms);
+      animation: spell-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation-delay: calc(var(--i) * 60ms);
       transition: transform 0.22s ease, color 0.22s ease;
       cursor: default;
     }
-    .spell span:hover {
-      transform: translateY(-14px) rotate(-5deg) scale(1.06);
-      color: var(--accent);
+    .hero-spell span:hover {
+      transform: translateY(-14px) rotate(-6deg) scale(1.07);
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     @keyframes spell-in {
-      from { opacity: 0; transform: translateY(34px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .spell span { animation: none; }
-      .spell span:hover { transform: none; }
-      .pulse-dot { animation: none; }
+      from { opacity: 0; transform: translateY(40px) scale(0.92); }
+      to { opacity: 1; transform: none; }
     }
 
-    h2 {
-      font-size: 1.6rem;
-      font-weight: 620;
-      letter-spacing: -0.02em;
-      margin: 0 0 14px;
+    h2.section-title {
+      font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+      font-weight: 750;
+      letter-spacing: -0.03em;
+      margin: 0 0 12px;
+      line-height: 1.15;
     }
 
-    p.lede {
-      font-size: 1.1rem;
-      color: var(--muted);
-      max-width: 44rem;
-      margin: 0 0 40px;
-    }
+    .lede { font-size: 1.15rem; color: var(--ink-soft); max-width: 46rem; margin: 0 0 36px; }
+    .body-text { color: var(--ink-soft); max-width: 46rem; margin: 0 0 28px; }
 
-    p.body { color: var(--muted); max-width: 44rem; margin: 0 0 28px; }
+    .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 56px; }
 
-    /* ---- buttons & links ---- */
     button, a.button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.45rem;
+      gap: 8px;
       font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 550;
-      min-height: 2.4rem;
-      padding: 0 1.1rem;
-      border: none;
-      border-radius: 9999px;
+      font-size: 0.88rem;
+      font-weight: 650;
+      min-height: 2.7rem;
+      padding: 0 1.4rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
       cursor: pointer;
       text-decoration: none;
-      background: var(--ink);
-      color: #fff;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
-    button:hover, a.button:hover { opacity: 0.82; }
-    button:disabled { opacity: 0.45; cursor: wait; }
-
+    .btn-primary {
+      background: var(--gradient);
+      color: #fff;
+      box-shadow: 0 10px 24px -8px rgba(79, 70, 229, 0.55);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -8px rgba(79, 70, 229, 0.6); }
     .btn-secondary, .btn-dark, .btn-gradient, .btn-outline-blue, .btn-sm {
-      background: var(--ink);
-      color: #fff;
-      border: none;
-      border-radius: 9999px;
-      min-height: 2.2rem;
-      padding: 0 1rem;
-      font-size: 0.82rem;
-      box-shadow: none;
+      background: var(--surface);
+      color: var(--ink);
+      border-color: var(--line);
+      box-shadow: 0 1px 2px rgba(11, 18, 32, 0.06);
+      min-height: 2.4rem;
+      padding: 0 1.1rem;
+      font-size: 0.83rem;
     }
+    .btn-secondary:hover, .btn-dark:hover, .btn-gradient:hover, .btn-outline-blue:hover, .btn-sm:hover {
+      border-color: #c3cbf5;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+    }
+    button:disabled { opacity: 0.5; cursor: wait; transform: none; }
 
     a { color: var(--accent); }
     code {
       font-family: var(--font-mono);
       font-size: 0.85em;
-      background: var(--wash);
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
       padding: 0.15rem 0.45rem;
-      border: none;
-      border-radius: 6px;
+      border-radius: 7px;
     }
 
-    .codeblock {
-      background: var(--wash);
-      border: none;
-      border-radius: 14px;
-      padding: 28px 30px;
-      margin: 0 0 32px;
-      overflow-x: auto;
+    /* ---------- terminal ---------- */
+    .terminal {
+      background: #0d1526;
+      border: 1px solid #1c2942;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 30px 60px -24px rgba(11, 18, 32, 0.45);
+      margin: 0 0 28px;
     }
-    .codeblock code {
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 13px 18px;
+      background: #131d33;
+      border-bottom: 1px solid #1c2942;
+    }
+    .terminal-bar i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+    .terminal-bar i:nth-child(1) { background: #f87171; }
+    .terminal-bar i:nth-child(2) { background: #fbbf24; }
+    .terminal-bar i:nth-child(3) { background: #34d399; }
+    .terminal-bar span { margin-left: 8px; font-family: var(--font-mono); font-size: 0.72rem; color: #7d8aa5; }
+    .terminal-body { padding: 22px 24px; overflow-x: auto; }
+    .terminal-body code {
       background: none;
+      border: none;
       padding: 0;
-      font-size: 0.88rem;
-      line-height: 1.7;
+      color: #dbe4f5;
+      font-size: 0.9rem;
+      line-height: 1.8;
       white-space: pre;
     }
+    .terminal-body .prompt { color: #34d399; font-weight: 700; }
 
-    /* ---- stats ---- */
+    /* ---------- cards & bento ---------- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      padding: 36px;
+      box-shadow: var(--shadow);
+    }
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 40px 32px;
-      margin: 48px 0 0;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 44px;
     }
-    .stat-label { font-size: 0.8rem; color: var(--muted); margin: 0 0 6px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.25s ease;
+    }
+    .stat-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 4px;
+      background: var(--accent-bar, var(--gradient));
+    }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 1.15rem;
+      background: var(--icon-bg, #eeedfd);
+      margin-bottom: 18px;
+    }
+    .stat-label { font-size: 0.82rem; font-weight: 600; color: var(--muted); margin: 0 0 4px; }
     .stat-value {
-      font-size: 2.4rem;
-      font-weight: 650;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
+      font-size: 2.5rem;
+      font-weight: 780;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
       font-variant-numeric: tabular-nums;
     }
-    .stat-sub { margin-top: 6px; font-size: 0.82rem; color: var(--muted); }
+    .stat-sub { margin: 8px 0 0; font-size: 0.83rem; color: var(--muted); }
 
-    .collections-flex { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+    .collections-flex { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
     .collection-pill {
       display: inline-flex;
       align-items: center;
       gap: 10px;
       padding: 10px 18px;
-      background: var(--wash);
-      border: none;
-      border-radius: 9999px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
       font-size: 0.85rem;
+      box-shadow: 0 1px 2px rgba(11, 18, 32, 0.05);
+      transition: transform 0.15s ease, border-color 0.15s ease;
     }
-    .collection-pill-name { font-family: var(--font-mono); font-size: 0.8rem; }
-    .collection-pill-count { color: var(--muted); font-weight: 600; }
-    .collection-bullet { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+    .collection-pill:hover { transform: translateY(-2px); border-color: #c3cbf5; }
+    .collection-pill-name { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; }
+    .collection-pill-count {
+      background: #eeedfd;
+      color: var(--accent-deep);
+      font-weight: 700;
+      font-size: 0.74rem;
+      padding: 2px 10px;
+      border-radius: 999px;
+    }
+    .collection-bullet { width: 8px; height: 8px; border-radius: 50%; background: var(--gradient); }
 
-    /* ---- canvas ---- */
+    .grid-2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px; align-items: start; }
+
+    /* ---------- canvas ---------- */
+    .canvas-status-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0 20px; }
+    .live-tag {
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #15803d;
+      background: var(--green-bg);
+      border: 1px solid #bbe7c9;
+      padding: 5px 12px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
     .canvas-controls {
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 16px;
-      margin: 32px 0 24px;
+      gap: 14px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
     }
-    .palette-group { display: flex; align-items: center; gap: 10px; }
+    .palette-group { display: flex; align-items: center; gap: 9px; }
     .color-swatch {
       width: 26px;
       height: 26px;
       min-height: 0;
       padding: 0;
-      border: none;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      outline: 1px solid rgba(11, 18, 32, 0.12);
       border-radius: 50%;
       cursor: pointer;
+      box-shadow: 0 2px 6px rgba(11, 18, 32, 0.15);
+      transition: transform 0.15s ease;
     }
-    .color-swatch.active { outline: 2.5px solid var(--ink); outline-offset: 2px; }
+    .color-swatch:hover { transform: scale(1.2); }
+    .color-swatch.active { outline: 2.5px solid var(--accent); outline-offset: 2px; }
     input[type="color"] {
       width: 30px;
       height: 30px;
       padding: 0;
-      border: none;
+      border: 1px solid var(--line);
       border-radius: 50%;
-      background: none;
+      background: #fff;
       cursor: pointer;
     }
     #shared-canvas {
       display: block;
       width: 100%;
-      max-width: 720px;
       height: auto;
       aspect-ratio: 1;
-      margin: 0;
-      border: none;
-      border-radius: 12px;
-      background: var(--wash);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
       image-rendering: pixelated;
       touch-action: none;
       cursor: crosshair;
-      box-shadow: none;
     }
-    .canvas-note { font-size: 0.82rem; color: var(--muted); margin: 20px 0 0; }
 
-    /* ---- chat ---- */
+    /* ---------- chat ---------- */
+    .chat-identity {
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      background: var(--surface-soft);
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      padding: 9px 14px;
+      margin: 0 0 18px;
+      overflow-wrap: anywhere;
+    }
     .chat-list {
       list-style: none;
-      margin: 32px 0;
+      margin: 0 0 20px;
       padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 32px;
-      max-width: 44rem;
+      gap: 14px;
+      max-height: 380px;
+      overflow-y: auto;
     }
+    .chat-item {
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      padding: 14px 18px;
+      animation: msg-in 0.25s ease-out;
+    }
+    @keyframes msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     .chat-meta {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 0.78rem;
+      gap: 10px;
+      font-size: 0.75rem;
       color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
-    .chat-author { font-weight: 600; font-family: var(--font-mono); color: var(--ink); }
-    .chat-text { margin: 0; font-size: 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .chat-identity { font-size: 0.8rem; color: var(--muted); font-family: var(--font-mono); margin: 0 0 8px; overflow-wrap: anywhere; }
-    .chat-compose-box { display: flex; gap: 12px; max-width: 44rem; }
+    .chat-author { font-weight: 700; font-family: var(--font-mono); color: var(--accent-deep); }
+    .chat-text { margin: 0; font-size: 0.95rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .chat-compose-box { display: flex; gap: 10px; }
     .chat-input {
       flex: 1;
       min-width: 0;
-      min-height: 2.6rem;
+      min-height: 2.7rem;
       padding: 0 18px;
-      border: none;
-      border-radius: 9999px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
       font-family: inherit;
       font-size: 0.9rem;
-      background: var(--wash);
+      background: var(--surface);
       color: var(--ink);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .chat-input:focus { outline: 2px solid var(--ink); outline-offset: 2px; }
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.14);
+    }
 
-    /* ---- upload ---- */
+    /* ---------- upload ---------- */
     .dropzone {
-      background: var(--wash);
-      border: none;
-      border-radius: 16px;
-      padding: 72px 32px;
+      border: 2px dashed #b9bef5;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, #f4f4fe 0%, #fafbff 100%);
+      padding: 70px 32px;
       text-align: center;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
       margin-top: 32px;
+      transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
     }
-    .upload-history-list { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-direction: column; gap: 20px; }
+    .dropzone:hover { border-color: var(--accent); transform: scale(1.005); background: #eef0fe; }
+    .drop-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: var(--gradient);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 1.5rem;
+      box-shadow: 0 12px 24px -8px rgba(79, 70, 229, 0.55);
+    }
+    .upload-history-list { list-style: none; margin: 26px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
     .upload-history-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
       flex-wrap: wrap;
-      padding: 4px 0;
+      background: var(--surface);
+      border: 1px solid var(--line-soft);
+      border-radius: 14px;
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
     }
 
-    /* ---- api ---- */
-    .api-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 32px; }
+    /* ---------- api table ---------- */
+    .api-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; margin-top: 30px; }
     .api-table th {
       text-align: left;
-      padding: 0 24px 12px 0;
-      font-weight: 600;
-      font-size: 0.75rem;
-      letter-spacing: 0.1em;
+      padding: 0 20px 12px 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--faint);
-      border: none;
+      border-bottom: 1px solid var(--line);
     }
-    .api-table td { padding: 18px 24px 18px 0; border: none; vertical-align: top; }
-    .api-table tr + tr td { padding-top: 18px; }
+    .api-table td { padding: 18px 20px 18px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+    .api-table tr:last-child td { border-bottom: none; }
+    .api-table tr { transition: background 0.15s ease; }
+    .api-table tbody tr:hover { background: rgba(79, 70, 229, 0.03); }
     .method-pill {
       display: inline-block;
       font-family: var(--font-mono);
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 4px 12px;
+      border-radius: 999px;
     }
+    .method-get { background: #e3f2fd; color: #1565c0; }
+    .method-post { background: #e9f9ef; color: #15803d; }
+
+    /* ---------- diagnostics ---------- */
+    .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px 28px; margin-top: 24px; }
+    .diag-grid dt { font-size: 0.78rem; color: var(--muted); }
+    .diag-grid dd { margin: 2px 0 0; font-weight: 650; font-size: 0.92rem; }
 
     .state { color: var(--muted); font-size: 0.9rem; margin: 0; }
-    .error { color: #b91c1c; font-size: 0.85rem; margin: 12px 0 0; }
+    .error {
+      color: #b91c1c;
+      background: var(--red-bg);
+      border: 1px solid #f5c6c6;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      margin: 12px 0 0;
+    }
     [hidden] { display: none !important; }
 
+    /* ---------- reveal ---------- */
+    .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal.in { opacity: 1; transform: none; }
+
     footer {
-      max-width: 920px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(255, 255, 255, 0.7);
+    }
+    .footer-inner {
+      max-width: 1160px;
       margin: 0 auto;
-      padding: 0 28px 72px;
+      padding: 34px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
       font-size: 0.85rem;
       color: var(--muted);
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
     }
+    .footer-inner nav { display: flex; gap: 22px; flex-wrap: wrap; }
     footer a { color: var(--muted); text-decoration: none; }
     footer a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
 
     .toast-container {
       position: fixed;
-      bottom: 28px;
-      right: 28px;
+      bottom: 26px;
+      right: 26px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -407,254 +585,303 @@
       background: var(--ink);
       color: #fff;
       padding: 14px 20px;
-      border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       font-size: 0.85rem;
-      animation: toast-in 0.2s ease-out;
+      font-weight: 550;
+      box-shadow: 0 16px 32px -10px rgba(11, 18, 32, 0.5);
+      animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
       pointer-events: auto;
     }
-    @keyframes toast-in {
-      from { transform: translateY(12px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+    @keyframes toast-in { from { transform: translateY(12px) scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
 
-    @media (max-width: 640px) {
-      main { padding-top: 56px; }
-      section { margin-bottom: 88px; }
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .nav-links a.nav-hide-mobile { display: none; }
+    }
+    @media (max-width: 560px) {
+      main { padding-top: 60px; }
+      section { margin-bottom: 80px; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .card { padding: 26px 22px; }
       .chat-compose-box { flex-direction: column; }
-      .chat-compose-box button { align-self: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-spell span, .pulse-dot { animation: none; }
+      .hero-spell span:hover { transform: none; }
+      .reveal { opacity: 1; transform: none; transition: none; }
     }
   </style>
 </head>
 <body>
 
-  <header class="site-header">
-    <a href="#top" class="wordmark">Originless</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="#apps">Apps</a>
-      <a href="#storage">Storage</a>
-      <a href="#api">API</a>
-      <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub</a>
-      <button id="refresh" type="button" title="Refresh stats">Refresh stats</button>
-    </nav>
+  <header class="nav">
+    <div class="nav-inner">
+      <a href="#top" class="brand">
+        <span class="brand-mark">O</span>
+        <span class="brand-name">Originless</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a class="nav-hide-mobile" href="#apps">Apps</a>
+        <a class="nav-hide-mobile" href="#storage">Storage</a>
+        <a class="nav-hide-mobile" href="#api">API</a>
+        <span class="status-pill" id="container-status-badge">
+          <span class="pulse-dot" id="health-pulse"></span>
+          <span id="health-text">Checking…</span>
+          <span id="ping-text"></span>
+        </span>
+        <button id="refresh" class="btn-secondary btn-sm" type="button" title="Refresh stats">Refresh stats</button>
+        <a class="button btn-secondary btn-sm" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
   </header>
-  <p class="health-line" id="container-status-badge">
-    <span class="pulse-dot" id="health-pulse"></span>
-    <span id="health-text">Checking node…</span>
-    <span id="ping-text"></span>
-  </p>
 
   <main id="top">
 
     <section id="overview">
-      <p class="eyebrow">Docker IPFS node</p>
-      <h1 class="spell" aria-label="Originless"><span style="--i:0">O</span><span style="--i:1">r</span><span style="--i:2">i</span><span style="--i:3">g</span><span style="--i:4">i</span><span style="--i:5">n</span><span style="--i:6">l</span><span style="--i:7">e</span><span style="--i:8">s</span><span style="--i:9">s</span></h1>
+      <p class="eyebrow">✦ Docker IPFS node · v1</p>
+      <h1 class="hero-spell" aria-label="Originless"><span style="--i:0">O</span><span style="--i:1">r</span><span style="--i:2">i</span><span style="--i:3">g</span><span style="--i:4">i</span><span style="--i:5">n</span><span style="--i:6">l</span><span style="--i:7">e</span><span style="--i:8">s</span><span style="--i:9">s</span></h1>
       <p class="lede">A universal backend for building apps. Signed events and IPFS-native content in a single container — build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
-      <div class="codeblock"><code>docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code></div>
-      <p><button id="copy-docker-btn" type="button">Copy docker run command</button></p>
+      <div class="hero-actions">
+        <button class="btn-primary" id="copy-docker-btn" type="button">Copy docker run →</button>
+        <a class="button btn-secondary" href="#apps">Try the live apps</a>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>terminal — deploy in one command</span></div>
+        <div class="terminal-body"><code><span class="prompt">$</span> docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code></div>
+      </div>
 
       <div class="stats-grid" aria-live="polite">
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#3b82f6,#06b6d4); --icon-bg:#e3f2fd;">
+          <div class="stat-icon">🗄️</div>
           <p class="stat-label">Repository size</p>
           <div class="stat-value" id="repo-size">—</div>
           <p class="stat-sub">Limit: <span id="storage-limit">—</span></p>
         </div>
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#8b5cf6,#4f46e5); --icon-bg:#eeedfd;">
+          <div class="stat-icon">📦</div>
           <p class="stat-label">IPFS objects</p>
           <div class="stat-value" id="objects">—</div>
           <p class="stat-sub">Local UnixFS blocks</p>
         </div>
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#10b981,#06b6d4); --icon-bg:#e9f9ef;">
+          <div class="stat-icon">⚡</div>
           <p class="stat-label">Live events</p>
           <div class="stat-value" id="event-count">—</div>
-          <p class="stat-sub"><span id="event-bytes">—</span> in memory</p>
+          <p class="stat-sub"><span id="event-bytes">—</span> held in memory</p>
         </div>
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#f59e0b,#ef4444); --icon-bg:#fdf3e3;">
+          <div class="stat-icon">🔑</div>
           <p class="stat-label">Unique signers</p>
           <div class="stat-value" id="event-owners">—</div>
-          <p class="stat-sub">Ed25519 identities</p>
+          <p class="stat-sub">Ed25519 client identities</p>
         </div>
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#06b6d4,#3b82f6); --icon-bg:#e0f7fc;">
+          <div class="stat-icon">📡</div>
           <p class="stat-label">Stream subscribers</p>
           <div class="stat-value" id="event-subscribers">—</div>
           <p class="stat-sub">Active SSE sockets</p>
         </div>
-        <div>
+        <div class="stat-card reveal" style="--accent-bar:linear-gradient(90deg,#64748b,#94a3b8); --icon-bg:#eef1f8;">
+          <div class="stat-icon">🧹</div>
           <p class="stat-label">Expired events</p>
           <div class="stat-value" id="event-expired">—</div>
           <p class="stat-sub">Pruned TTLs</p>
         </div>
       </div>
 
-      <div style="margin-top:72px;">
-        <p class="eyebrow">Collections</p>
-        <h2>Event namespaces on this node</h2>
+      <div class="card reveal" style="margin-top:22px;">
+        <p class="eyebrow" style="margin-bottom:14px;">Collections</p>
+        <h2 class="section-title" style="font-size:1.35rem;">Event namespaces on this node</h2>
         <div id="collections-empty" class="state">Loading collections…</div>
         <div id="top-collections-pills" class="collections-flex" hidden></div>
       </div>
 
-      <div style="margin-top:72px;">
-        <p class="eyebrow">Health</p>
-        <h2>Node diagnostics</h2>
-        <p class="body">
-          Status: <strong id="node-diag-status">Checking…</strong><br>
-          Storage: ephemeral, in-container<br>
-          Engine: <span id="node-diag-version">Kubo IPFS</span><br>
-          Health endpoint: <a href="/healthz" target="_blank">/healthz</a>
-        </p>
+      <div class="card reveal" style="margin-top:22px;">
+        <p class="eyebrow" style="margin-bottom:14px;">Diagnostics</p>
+        <h2 class="section-title" style="font-size:1.35rem;">Node health</h2>
+        <dl class="diag-grid">
+          <div><dt>Status</dt><dd id="node-diag-status">Checking…</dd></div>
+          <div><dt>Storage</dt><dd>Ephemeral · in-container</dd></div>
+          <div><dt>Engine</dt><dd id="node-diag-version">Kubo IPFS</dd></div>
+          <div><dt>Health endpoint</dt><dd><a href="/healthz" target="_blank">/healthz</a></dd></div>
+        </dl>
       </div>
     </section>
 
     <section id="apps">
-      <p class="eyebrow">Live apps</p>
-      <h1>Chat &amp; canvas.</h1>
-      <p class="lede">Two collaborative demos running entirely on signed events, streamed live to every browser.</p>
+      <p class="eyebrow reveal">⚡ Live · real-time</p>
+      <h2 class="section-title reveal">Chat &amp; Canvas, powered by signed events.</h2>
+      <p class="lede reveal">Two collaborative demos running entirely on Ed25519-signed events, streamed live to every connected browser over SSE.</p>
 
-      <div style="margin-bottom:96px;">
-        <h2>Shared Canvas</h2>
-        <p class="body">A 256 × 256 collaborative pixel board. Pick a color, then click or drag to paint. Every pixel is an Ed25519-signed event on <code>originless/canvas</code>, replayed from the last 30 days.</p>
-        <p class="state" id="canvas-status">Connecting…</p>
-        <div class="canvas-controls">
-          <div class="palette-group">
-            <button class="color-swatch active" style="background:#ef4444;" data-color="#ef4444" title="Red" type="button" aria-label="Red"></button>
-            <button class="color-swatch" style="background:#f97316;" data-color="#f97316" title="Orange" type="button" aria-label="Orange"></button>
-            <button class="color-swatch" style="background:#f59e0b;" data-color="#f59e0b" title="Amber" type="button" aria-label="Amber"></button>
-            <button class="color-swatch" style="background:#10b981;" data-color="#10b981" title="Green" type="button" aria-label="Green"></button>
-            <button class="color-swatch" style="background:#0ea5e9;" data-color="#0ea5e9" title="Sky" type="button" aria-label="Sky"></button>
-            <button class="color-swatch" style="background:#6366f1;" data-color="#6366f1" title="Indigo" type="button" aria-label="Indigo"></button>
-            <button class="color-swatch" style="background:#8b5cf6;" data-color="#8b5cf6" title="Purple" type="button" aria-label="Purple"></button>
-            <button class="color-swatch" style="background:#0f172a;" data-color="#0f172a" title="Dark" type="button" aria-label="Dark"></button>
-            <button class="color-swatch" style="background:#ffffff; outline:1px solid #e5e5e5;" data-color="#ffffff" title="White" type="button" aria-label="White"></button>
-            <input id="pixel-color" type="color" value="#ef4444" aria-label="Custom color picker">
+      <div class="grid-2">
+        <div class="card reveal">
+          <div class="canvas-status-line">
+            <h2 class="section-title" style="font-size:1.3rem; margin:0;">Shared Canvas</h2>
+            <span class="live-tag" id="canvas-status">Connecting…</span>
           </div>
-          <span id="canvas-coords" style="font-size:0.8rem; font-family:var(--font-mono); color:var(--muted);">X: — Y: —</span>
+          <p class="body-text" style="font-size:0.9rem;">A 256 × 256 collaborative pixel board on <code>originless/canvas</code>. Pick a color, click or drag to paint — history replays the last 30 days.</p>
+          <div class="canvas-controls">
+            <div class="palette-group">
+              <button class="color-swatch active" style="background:#ef4444;" data-color="#ef4444" title="Red" type="button" aria-label="Red"></button>
+              <button class="color-swatch" style="background:#f97316;" data-color="#f97316" title="Orange" type="button" aria-label="Orange"></button>
+              <button class="color-swatch" style="background:#f59e0b;" data-color="#f59e0b" title="Amber" type="button" aria-label="Amber"></button>
+              <button class="color-swatch" style="background:#10b981;" data-color="#10b981" title="Green" type="button" aria-label="Green"></button>
+              <button class="color-swatch" style="background:#0ea5e9;" data-color="#0ea5e9" title="Sky" type="button" aria-label="Sky"></button>
+              <button class="color-swatch" style="background:#6366f1;" data-color="#6366f1" title="Indigo" type="button" aria-label="Indigo"></button>
+              <button class="color-swatch" style="background:#8b5cf6;" data-color="#8b5cf6" title="Purple" type="button" aria-label="Purple"></button>
+              <button class="color-swatch" style="background:#0f172a;" data-color="#0f172a" title="Dark" type="button" aria-label="Dark"></button>
+              <button class="color-swatch" style="background:#ffffff;" data-color="#ffffff" title="White" type="button" aria-label="White"></button>
+              <input id="pixel-color" type="color" value="#ef4444" aria-label="Custom color picker">
+            </div>
+            <span id="canvas-coords" style="font-size:0.78rem; font-family:var(--font-mono); color:var(--muted);">X: — Y: —</span>
+          </div>
+          <canvas id="shared-canvas" width="1024" height="1024" aria-label="Collaborative 256 by 256 pixel grid"></canvas>
         </div>
-        <canvas id="shared-canvas" width="1024" height="1024" aria-label="Collaborative 256 by 256 pixel grid"></canvas>
-      </div>
 
-      <div>
-        <h2>Signed Chat</h2>
-        <p class="body">Zero-server-auth messages on <code>originless/chat</code>, signed on-device with Web Crypto Ed25519.</p>
-        <p class="chat-identity">Signer key: <span id="device-identity-val">Generating…</span> <button id="copy-my-key-btn" type="button" style="min-height:1.8rem; padding:0 0.8rem; font-size:0.72rem;">Copy</button></p>
-        <p id="chat-state" class="state">Loading messages…</p>
-        <p id="chat-error" class="error" hidden></p>
-        <ol id="chat-messages" class="chat-list" hidden></ol>
-        <p id="chat-empty" class="state" hidden>No messages yet. Send the first message.</p>
-        <form id="chat-form" style="margin-top:32px;">
-          <div class="chat-compose-box">
-            <input id="chat-message" class="chat-input" type="text" maxlength="1000" autocomplete="off" placeholder="Write a signed message…" required>
-            <button id="chat-submit" type="submit">Send</button>
+        <div class="card reveal">
+          <div class="canvas-status-line">
+            <h2 class="section-title" style="font-size:1.3rem; margin:0;">Signed Chat</h2>
+            <span class="live-tag">Live SSE</span>
           </div>
-          <p style="font-size:0.75rem; color:var(--faint); margin:12px 0 0;"><span id="chat-char-count">0/1000</span></p>
-        </form>
+          <p class="body-text" style="font-size:0.9rem;">Zero-server-auth messages on <code>originless/chat</code>, signed on-device with Web Crypto Ed25519.</p>
+          <p class="chat-identity">🔑 Signer key: <span id="device-identity-val">Generating…</span> <button id="copy-my-key-btn" class="btn-sm" type="button" style="min-height:1.7rem; padding:0 0.7rem; font-size:0.7rem;">Copy</button></p>
+          <p id="chat-state" class="state">Loading messages…</p>
+          <p id="chat-error" class="error" hidden></p>
+          <ol id="chat-messages" class="chat-list" hidden></ol>
+          <p id="chat-empty" class="state" hidden>No messages yet. Send the first message.</p>
+          <form id="chat-form" style="margin-top:18px;">
+            <div class="chat-compose-box">
+              <input id="chat-message" class="chat-input" type="text" maxlength="1000" autocomplete="off" placeholder="Write a signed message…" required>
+              <button id="chat-submit" class="btn-primary" type="submit">Send</button>
+            </div>
+            <p style="font-size:0.74rem; color:var(--faint); margin:10px 2px 0;"><span id="chat-char-count">0/1000</span></p>
+          </form>
+        </div>
       </div>
     </section>
 
     <section id="storage">
-      <p class="eyebrow">IPFS storage</p>
-      <h1>Drop files. Get CIDs.</h1>
-      <p class="lede">Files and folders go straight into the local Kubo node via <code>/up</code> — up to 1 GiB per upload. Open any CID anywhere through the public gateway at <code>inbrowser.link/ipfs/&lt;cid&gt;</code>.</p>
+      <p class="eyebrow reveal">📦 IPFS-native storage</p>
+      <h2 class="section-title reveal">Drop files. Get CIDs.</h2>
+      <p class="lede reveal">Files and folders go straight into the local Kubo node via <code>/up</code> — up to 1 GiB per upload. Open any CID anywhere through the public gateway at <code>inbrowser.link/ipfs/&lt;cid&gt;</code>.</p>
 
-      <div class="dropzone" id="ipfs-dropzone">
-        <input type="file" id="file-input" style="display:none;" multiple>
-        <strong style="font-size:1.05rem;">Drop files here, or browse your computer</strong>
-        <span style="font-size:0.85rem; color:var(--muted);">Direct multipart upload to the local IPFS repository</span>
+      <div class="card reveal">
+        <div class="dropzone" id="ipfs-dropzone" style="margin-top:0;">
+          <input type="file" id="file-input" style="display:none;" multiple>
+          <div class="drop-icon">⬆</div>
+          <strong style="font-size:1.1rem; letter-spacing:-0.01em;">Drop files here, or browse your computer</strong>
+          <span style="font-size:0.86rem; color:var(--muted);">Direct multipart upload to the local IPFS repository</span>
+        </div>
+
+        <div id="upload-status" class="state" style="margin-top:22px;" hidden>Uploading to IPFS…</div>
+
+        <div id="upload-history-section" style="margin-top:40px;" hidden>
+          <h2 class="section-title" style="font-size:1.25rem;">Uploaded this session</h2>
+          <ul id="upload-history" class="upload-history-list"></ul>
+        </div>
       </div>
 
-      <div id="upload-status" class="state" style="margin-top:24px;" hidden>Uploading to IPFS…</div>
-
-      <div id="upload-history-section" style="margin-top:56px;" hidden>
-        <h2>Uploaded this session</h2>
-        <ul id="upload-history" class="upload-history-list"></ul>
+      <div class="terminal reveal" style="margin-top:22px;">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>terminal — upload via curl</span></div>
+        <div class="terminal-body"><code><span class="prompt">$</span> curl -F "file=@sample.png" http://localhost:3232/up</code></div>
       </div>
-
-      <div style="margin-top:72px;">
-        <h2>Upload from the terminal</h2>
-        <div class="codeblock"><code>curl -F "file=@sample.png" http://localhost:3232/up</code></div>
-        <p><button onclick="copySnippet('curl -F &quot;file=@sample.png&quot; http://localhost:3232/up')" type="button">Copy</button></p>
-      </div>
+      <p class="reveal"><button onclick="copySnippet('curl -F &quot;file=@sample.png&quot; http://localhost:3232/up')" type="button">Copy curl command</button></p>
     </section>
 
     <section id="api">
-      <p class="eyebrow">Deploy &amp; API</p>
-      <h1>One container, seven routes.</h1>
-      <p class="lede">Everything is exposed on port 3232.</p>
+      <p class="eyebrow reveal">🚀 Deploy &amp; API</p>
+      <h2 class="section-title reveal">One container, seven routes.</h2>
+      <p class="lede reveal">Everything is exposed on port 3232. No volumes, no databases, no sidecars.</p>
 
-      <div class="codeblock"><code>docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code></div>
+      <div class="terminal reveal">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>terminal — run it</span></div>
+        <div class="terminal-body"><code><span class="prompt">$</span> docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code></div>
+      </div>
 
-      <div class="codeblock"><code>services:
+      <div class="terminal reveal">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>compose — pin it</span></div>
+        <div class="terminal-body"><code>services:
   originless:
     image: ghcr.io/besoeasy/originless:latest
     container_name: originless
     restart: unless-stopped
     ports:
       - "3232:3232"</code></div>
+      </div>
 
-      <table class="api-table">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Route</th>
-            <th>Description</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="method-pill">GET</span></td>
-            <td><code>/stats</code></td>
-            <td>IPFS repo and signed event metrics</td>
-            <td><a href="/stats" target="_blank">Open</a></td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">GET</span></td>
-            <td><code>/healthz</code></td>
-            <td>Container health status</td>
-            <td><a href="/healthz" target="_blank">Open</a></td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">POST</span></td>
-            <td><code>/up</code></td>
-            <td>Upload a file or folder to local IPFS</td>
-            <td>Multipart</td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">GET</span></td>
-            <td><code>/ipfs/{cid}</code></td>
-            <td>Download content from the local repository</td>
-            <td>Binary</td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">POST</span></td>
-            <td><code>/events</code></td>
-            <td>Publish an Ed25519-signed event</td>
-            <td>JSON</td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">GET</span></td>
-            <td><code>/events</code></td>
-            <td>Query events with pagination and filters</td>
-            <td><a href="/events" target="_blank">Open</a></td>
-          </tr>
-          <tr>
-            <td><span class="method-pill">GET</span></td>
-            <td><code>/events/stream</code></td>
-            <td>Live Server-Sent Events stream</td>
-            <td><a href="/events/stream" target="_blank">Stream</a></td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="card reveal">
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Route</th>
+              <th>Description</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/stats</code></td>
+              <td>IPFS repo and signed event metrics</td>
+              <td><a href="/stats" target="_blank">Open →</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/healthz</code></td>
+              <td>Container health status</td>
+              <td><a href="/healthz" target="_blank">Open →</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-post">POST</span></td>
+              <td><code>/up</code></td>
+              <td>Upload a file or folder to local IPFS</td>
+              <td style="color:var(--muted);">Multipart</td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/ipfs/{cid}</code></td>
+              <td>Download content from the local repository</td>
+              <td style="color:var(--muted);">Binary</td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-post">POST</span></td>
+              <td><code>/events</code></td>
+              <td>Publish an Ed25519-signed event</td>
+              <td style="color:var(--muted);">JSON</td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/events</code></td>
+              <td>Query events with pagination and filters</td>
+              <td><a href="/events" target="_blank">Open →</a></td>
+            </tr>
+            <tr>
+              <td><span class="method-pill method-get">GET</span></td>
+              <td><code>/events/stream</code></td>
+              <td>Live Server-Sent Events stream</td>
+              <td><a href="/events/stream" target="_blank">Stream →</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
   </main>
 
   <footer>
-    <span>Originless IPFS node</span>
-    <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub</a>
-    <a href="/stats" target="_blank">Stats JSON</a>
-    <a href="/events" target="_blank">Events JSON</a>
-    <a href="/events/stream" target="_blank">Event stream</a>
-    <a href="/healthz" target="_blank">Health</a>
+    <div class="footer-inner">
+      <span><strong style="color:var(--ink);">Originless</strong> · universal app backend · Docker IPFS node</span>
+      <nav>
+        <a href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="/stats" target="_blank">Stats JSON</a>
+        <a href="/events" target="_blank">Events JSON</a>
+        <a href="/events/stream" target="_blank">Event stream</a>
+        <a href="/healthz" target="_blank">Health</a>
+      </nav>
+    </div>
   </footer>
 
   <div id="toast-container" class="toast-container"></div>
@@ -730,6 +957,22 @@
     let identityPromise = null;
     let publishQueue = Promise.resolve();
 
+    // Scroll reveal
+    const revealEls = document.querySelectorAll(".reveal");
+    if ("IntersectionObserver" in window) {
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in");
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      revealEls.forEach((el) => revealObserver.observe(el));
+    } else {
+      revealEls.forEach((el) => el.classList.add("in"));
+    }
+
     // Toast Utility
     function showToast(message) {
       const toast = document.createElement("div");
@@ -753,8 +996,8 @@
       });
     }
 
-    copyDockerBtn.addEventListener("click", () => copySnippet("docker run -d --name originless -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
-    if (copyCmdBtn) copyCmdBtn.addEventListener("click", () => copySnippet("docker run -d --name originless -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
+    copyDockerBtn.addEventListener("click", () => copySnippet("docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
+    if (copyCmdBtn) copyCmdBtn.addEventListener("click", () => copySnippet("docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
     copyMyKeyBtn.addEventListener("click", () => copySnippet(deviceIdentityVal.title || deviceIdentityVal.textContent));
 
     // Formatting Helpers
@@ -1289,11 +1532,11 @@
         const name = document.createElement("strong");
         name.textContent = data.name || "Uploaded file";
         const meta = document.createElement("div");
-        meta.style.cssText = "font-family:var(--font-mono); font-size:0.78rem; color:var(--muted); margin-top:4px;";
+        meta.style.cssText = "font-family:var(--font-mono); font-size:0.78rem; color:var(--muted); margin-top:4px; overflow-wrap:anywhere;";
         meta.textContent = `CID: ${data.cid} · ${formatBytes(data.bytes || data.size)}`;
         info.append(name, meta);
         const actions = document.createElement("div");
-        actions.style.cssText = "display:flex; gap:12px; align-items:center;";
+        actions.style.cssText = "display:flex; gap:14px; align-items:center;";
         const dl = document.createElement("a");
         dl.href = `/ipfs/${encodeURIComponent(data.cid)}`;
         dl.target = "_blank";
