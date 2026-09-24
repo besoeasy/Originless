@@ -61,7 +61,7 @@ For content available through the public IPFS network, use [inbrowser.link](http
 
 ## API
 
-The complete request and response reference is in [`api.md`](api.md).
+The complete request and response reference is in [`docs/api.md`](docs/api.md).
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -100,6 +100,6 @@ Use `/events/stream` to receive matching events live. Event documents are limite
 ## Links
 
 - [GitHub repository](https://github.com/besoeasy/originless)
-- [API reference](api.md)
+- [API reference](docs/api.md)
 - [Kubo](https://github.com/ipfs/kubo)
 - [IPFS HTTP Gateway specification](https://specs.ipfs.tech/http-gateways/)
