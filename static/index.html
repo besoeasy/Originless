@@ -668,152 +668,6 @@
       font-weight: 600;
     }
 
-    /* Event Stream Table / List */
-    .stream-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .search-box {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .search-box svg {
-      position: absolute;
-      left: 0.75rem;
-      width: 14px;
-      height: 14px;
-      color: var(--fg-subtle);
-    }
-
-    .search-input {
-      font-family: inherit;
-      font-size: 0.8125rem;
-      padding: 0.45rem 0.75rem 0.45rem 2.25rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: #ffffff;
-      color: var(--fg-primary);
-      min-width: 250px;
-      transition: var(--transition);
-    }
-    .search-input:focus {
-      outline: none;
-      border-color: var(--brand-primary);
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-    }
-
-    .stream-table-container {
-      width: 100%;
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      background: #ffffff;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .events-table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.8125rem;
-      min-width: 860px;
-    }
-
-    .events-table th {
-      padding: 0.8rem 1rem;
-      background: var(--surface-subtle);
-      border-bottom: 1px solid var(--border);
-      color: var(--fg-secondary);
-      font-weight: 600;
-      font-size: 0.725rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      white-space: nowrap;
-    }
-
-    .events-table td {
-      padding: 0.85rem 1rem;
-      border-bottom: 1px solid var(--border-subtle);
-      vertical-align: middle;
-      color: var(--fg-primary);
-    }
-
-    .events-table tr.event-row:hover td {
-      background: #f8fafc;
-    }
-
-    .events-table tr:last-child td {
-      border-bottom: none;
-    }
-
-    .event-payload-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      background: #f1f5f9;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.25rem 0.6rem;
-      max-width: 320px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      color: var(--fg-primary);
-      cursor: pointer;
-      transition: var(--transition);
-      text-align: left;
-    }
-
-    .event-payload-chip:hover {
-      background: #e2e8f0;
-      border-color: var(--border-strong);
-    }
-
-    .event-detail-row td {
-      padding: 0.75rem 1.25rem 1rem;
-      background: #f8fafc;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .event-expanded-box {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 0.75rem 1rem;
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--fg-primary);
-      max-height: 14rem;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-all;
-      margin: 0;
-    }
-
-    .event-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 0.65rem;
-    }
-
-    .event-meta-group {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
 
     .tag-badge {
       display: inline-flex;
@@ -1256,11 +1110,6 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
         <span>Overview</span>
       </button>
-      <button class="tab-btn" data-tab="stream">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        <span>Live Stream</span>
-        <span class="tab-count" id="stream-tab-count">0</span>
-      </button>
       <button class="tab-btn" data-tab="apps">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
         <span>Chat &amp; Canvas</span>
@@ -1358,7 +1207,6 @@
             <h2 class="card-title">Top Collections</h2>
             <p class="card-subtitle">Partitioned event namespaces currently stored on this node</p>
           </div>
-          <button class="btn-outline-blue btn-sm" id="view-stream-btn" type="button">Explore Feed →</button>
         </div>
         <div id="collections-empty" class="state" style="padding: 1rem 0;">Loading collections…</div>
         <div id="top-collections-pills" class="collections-flex" hidden></div>
@@ -1408,51 +1256,7 @@
       </div>
     </div>
 
-    <!-- TAB 2: LIVE STREAM -->
-    <div id="tab-stream" class="tab-panel">
-      <section class="card">
-        <div class="stream-toolbar">
-          <div>
-            <h2 class="card-title">Event Stream Feed</h2>
-            <p class="card-subtitle" id="stream-state">Loading latest signed events…</p>
-          </div>
-          <div style="display:flex; align-items:center; gap:0.65rem;">
-            <div class="search-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input type="text" id="stream-search" class="search-input" placeholder="Filter collection, label, signer…" aria-label="Filter events">
-            </div>
-            <button id="stream-refresh" class="btn-secondary btn-sm" type="button">Refresh</button>
-          </div>
-        </div>
-
-        <p id="stream-error" class="error" hidden></p>
-        <div id="stream-table-container" class="stream-table-container" hidden>
-          <table class="events-table">
-            <thead>
-              <tr>
-                <th style="width: 15%;">Collection</th>
-                <th style="width: 16%;">Signer</th>
-                <th>Payload (Click to Expand)</th>
-                <th style="width: 14%;">Labels</th>
-                <th style="width: 9%;">Size</th>
-                <th style="width: 14%;">Time</th>
-                <th style="width: 9%; text-align: right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="event-table-body"></tbody>
-          </table>
-        </div>
-        <p id="stream-empty" class="state" style="padding: 2.5rem 0; text-align: center;" hidden>No events found.</p>
-
-        <nav id="event-pagination" style="display:flex; align-items:center; justify-content:space-between; margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border);" aria-label="Event pagination" hidden>
-          <button id="events-prev" class="btn-secondary btn-sm" type="button">← Previous</button>
-          <span id="events-page" style="font-size:0.8125rem; color:var(--fg-muted); font-weight:500;">Page 1</span>
-          <button id="events-next" class="btn-secondary btn-sm" type="button">Next →</button>
-        </nav>
-      </section>
-    </div>
-
-    <!-- TAB 3: REAL-TIME APPS (CHAT & CANVAS) -->
+    <!-- TAB 2: REAL-TIME APPS (CHAT & CANVAS) -->
     <div id="tab-apps" class="tab-panel">
       <!-- Shared Canvas Card -->
       <section class="card">
@@ -1528,7 +1332,7 @@
       </section>
     </div>
 
-    <!-- TAB 4: IPFS STORAGE -->
+    <!-- TAB 3: IPFS STORAGE -->
     <div id="tab-ipfs" class="tab-panel">
       <section class="card">
         <div class="card-header">
@@ -1568,7 +1372,7 @@
       </section>
     </div>
 
-    <!-- TAB 5: DOCKER & API REFERENCE -->
+    <!-- TAB 4: DOCKER & API REFERENCE -->
     <div id="tab-docker" class="tab-panel">
       <section class="card">
         <h2 class="card-title">Docker Deployment &amp; Commands</h2>
@@ -1713,22 +1517,6 @@
     const eventSubscribers = document.getElementById("event-subscribers");
     const topCollectionsPills = document.getElementById("top-collections-pills");
     const collectionsEmpty = document.getElementById("collections-empty");
-    const viewStreamBtn = document.getElementById("view-stream-btn");
-
-    // Event Stream
-    const streamState = document.getElementById("stream-state");
-    const streamError = document.getElementById("stream-error");
-    const streamRefresh = document.getElementById("stream-refresh");
-    const streamSearch = document.getElementById("stream-search");
-    const streamTableContainer = document.getElementById("stream-table-container");
-    const eventTableBody = document.getElementById("event-table-body");
-    const streamEmpty = document.getElementById("stream-empty");
-    const eventPagination = document.getElementById("event-pagination");
-    const eventsPrev = document.getElementById("events-prev");
-    const eventsNext = document.getElementById("events-next");
-    const eventsPage = document.getElementById("events-page");
-    const streamTabCount = document.getElementById("stream-tab-count");
-
     // Chat
     const chatState = document.getElementById("chat-state");
     const chatError = document.getElementById("chat-error");
@@ -1757,7 +1545,6 @@
     const uploadHistory = document.getElementById("upload-history");
 
     // Constants & Global State
-    const EVENT_PAGE_SIZE = 10;
     const CHAT_MESSAGE_LIMIT = 1000;
     const CHAT_COLLECTION = "originless/chat";
     const CHAT_LABEL = "chat:lobby";
@@ -1765,12 +1552,6 @@
     const CANVAS_LABEL = "canvas:landing";
     const GRID_SIZE = 256;
     const CELL_SIZE = canvas.width / GRID_SIZE;
-
-    const eventPageCursors = [""];
-    let eventPage = 0;
-    let eventNextCursor = "";
-    let eventRequest = 0;
-    let rawPageEvents = [];
 
     let chatEvents = [];
     let chatHistoryReady = false;
@@ -1826,20 +1607,16 @@
       btn.addEventListener("click", () => switchTab(btn.dataset.tab));
     });
 
-    if (viewStreamBtn) {
-      viewStreamBtn.addEventListener("click", () => switchTab("stream"));
-    }
-
     window.addEventListener("hashchange", () => {
       const hash = window.location.hash.replace("#", "");
-      if (["overview", "stream", "apps", "ipfs", "docker"].includes(hash)) {
+      if (["overview", "apps", "ipfs", "docker"].includes(hash)) {
         switchTab(hash);
       }
     });
 
     if (window.location.hash) {
       const initialTab = window.location.hash.replace("#", "");
-      if (["overview", "stream", "apps", "ipfs", "docker"].includes(initialTab)) {
+      if (["overview", "apps", "ipfs", "docker"].includes(initialTab)) {
         switchTab(initialTab);
       }
     }
@@ -1950,7 +1727,6 @@
 
         const count = Number(events.count || 0);
         eventCount.textContent = count.toLocaleString();
-        streamTabCount.textContent = count > 99 ? "99+" : count;
         eventOwners.textContent = Number(events.unique_owners || 0).toLocaleString();
         eventBytes.textContent = formatBytes(events.stored_bytes || 0);
         eventExpired.textContent = Number(events.expired || 0).toLocaleString();
@@ -1991,195 +1767,6 @@
       }
     }
 
-    // Event Stream Loader & Renderer
-    function getCollectionTagClass(col) {
-      if (!col) return "tag-generic";
-      if (col.includes("chat")) return "tag-chat";
-      if (col.includes("canvas")) return "tag-canvas";
-      return "tag-generic";
-    }
-
-    function renderEventPage(events) {
-      eventTableBody.replaceChildren();
-      for (const ev of events) {
-        const tr = document.createElement("tr");
-        tr.className = "event-row";
-
-        // Collection
-        const tdCol = document.createElement("td");
-        const colBadge = document.createElement("span");
-        colBadge.className = `tag-badge ${getCollectionTagClass(ev.collection)}`;
-        colBadge.textContent = ev.collection || "unknown";
-        tdCol.appendChild(colBadge);
-
-        // Signer
-        const tdSigner = document.createElement("td");
-        tdSigner.style.whiteSpace = "nowrap";
-        const signerWrap = document.createElement("div");
-        signerWrap.style.display = "flex";
-        signerWrap.style.alignItems = "center";
-        signerWrap.style.gap = "0.45rem";
-        signerWrap.innerHTML = `
-          <span class="avatar-dot" style="width:9px; height:9px;"></span>
-          <code style="font-family:var(--font-mono); font-size:0.75rem; color:var(--brand-primary); cursor:pointer;" title="Click to copy full key: ${ev.owner}">${shortOwner(ev.owner)}</code>
-        `;
-        signerWrap.querySelector("code").addEventListener("click", () => copySnippet(ev.owner));
-        tdSigner.appendChild(signerWrap);
-
-        // Payload
-        const tdPayload = document.createElement("td");
-        let payloadStr = "{}";
-        let payloadFormatted = "{}";
-        try {
-          payloadStr = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data);
-          payloadFormatted = typeof ev.data === "string" ? ev.data : JSON.stringify(ev.data, null, 2);
-        } catch (_) {}
-        const chip = document.createElement("button");
-        chip.type = "button";
-        chip.className = "event-payload-chip";
-        chip.title = "Click to toggle expanded JSON view";
-        chip.textContent = payloadStr.length > 40 ? payloadStr.slice(0, 40) + "…" : payloadStr;
-        tdPayload.appendChild(chip);
-
-        // Labels
-        const tdLabels = document.createElement("td");
-        if (Array.isArray(ev.labels) && ev.labels.length) {
-          const labelsWrap = document.createElement("div");
-          labelsWrap.style.display = "flex";
-          labelsWrap.style.flexWrap = "wrap";
-          labelsWrap.style.gap = "0.25rem";
-          for (const label of ev.labels) {
-            const lbl = document.createElement("span");
-            lbl.className = "tag-badge tag-label";
-            lbl.style.fontSize = "0.7rem";
-            lbl.style.padding = "0.1rem 0.45rem";
-            lbl.textContent = label;
-            labelsWrap.appendChild(lbl);
-          }
-          tdLabels.appendChild(labelsWrap);
-        } else {
-          tdLabels.innerHTML = `<span style="color:var(--fg-subtle);">—</span>`;
-        }
-
-        // Size
-        const tdSize = document.createElement("td");
-        tdSize.style.whiteSpace = "nowrap";
-        tdSize.innerHTML = `<span class="tag-badge tag-size" style="font-size:0.7rem;">${formatBytes(ev.size)}</span>`;
-
-        // Time
-        const tdTime = document.createElement("td");
-        tdTime.style.whiteSpace = "nowrap";
-        tdTime.innerHTML = `
-          <div style="font-size:0.775rem; font-weight:500;">${formatRelativeTime(ev.created_at)}</div>
-          <div style="font-size:0.7rem; color:var(--fg-subtle);">${formatEventTime(ev.created_at)}</div>
-        `;
-
-        // Action
-        const tdAction = document.createElement("td");
-        tdAction.style.textAlign = "right";
-        tdAction.style.whiteSpace = "nowrap";
-        if (ev.id) {
-          const link = document.createElement("a");
-          link.href = `/events/${encodeURIComponent(ev.id)}`;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.className = "button btn-outline-blue btn-sm";
-          link.style.height = "1.65rem";
-          link.style.padding = "0 0.55rem";
-          link.style.fontSize = "0.7rem";
-          link.textContent = "Raw ↗";
-          tdAction.appendChild(link);
-        }
-
-        tr.append(tdCol, tdSigner, tdPayload, tdLabels, tdSize, tdTime, tdAction);
-        eventTableBody.appendChild(tr);
-
-        // Expandable detail row (hidden by default)
-        const trDetail = document.createElement("tr");
-        trDetail.className = "event-detail-row";
-        trDetail.style.display = "none";
-        const tdDetail = document.createElement("td");
-        tdDetail.colSpan = 7;
-        const pre = document.createElement("pre");
-        pre.className = "event-expanded-box";
-        pre.textContent = payloadFormatted;
-        tdDetail.appendChild(pre);
-        trDetail.appendChild(tdDetail);
-        eventTableBody.appendChild(trDetail);
-
-        chip.addEventListener("click", () => {
-          const isHidden = trDetail.style.display === "none";
-          trDetail.style.display = isHidden ? "table-row" : "none";
-        });
-      }
-
-      streamTableContainer.hidden = events.length === 0;
-      streamEmpty.hidden = events.length !== 0;
-      eventPagination.hidden = eventPage === 0 && events.length === 0;
-      eventsPage.textContent = `Page ${eventPage + 1}`;
-      eventsPrev.disabled = eventPage === 0;
-      eventsNext.disabled = !eventNextCursor;
-    }
-
-    async function loadEventPage(page = eventPage) {
-      const targetPage = Math.max(0, page);
-      const reqId = ++eventRequest;
-      eventPage = targetPage;
-      if (!eventPageCursors[targetPage]) eventPageCursors[targetPage] = "";
-      const cursor = eventPageCursors[targetPage];
-      eventNextCursor = "";
-
-      streamRefresh.disabled = true;
-      streamState.textContent = "Fetching events…";
-      streamError.hidden = true;
-
-      try {
-        const params = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
-        if (cursor) params.set("cursor", cursor);
-        const res = await fetch(`/events?${params}`, {
-          cache: "no-store",
-          headers: { Accept: "application/json" }
-        });
-        const payload = await res.json();
-        if (!res.ok) throw new Error(payload.error || `Failed (${res.status})`);
-        if (reqId !== eventRequest) return;
-
-        rawPageEvents = Array.isArray(payload.events) ? payload.events : [];
-        eventNextCursor = typeof payload.next_cursor === "string" ? payload.next_cursor : "";
-        if (eventNextCursor) eventPageCursors[targetPage + 1] = eventNextCursor;
-        else eventPageCursors.length = targetPage + 1;
-
-        applyStreamFilter();
-        streamState.textContent = `${rawPageEvents.length} events on this page`;
-      } catch (err) {
-        if (reqId !== eventRequest) return;
-        streamState.textContent = "Error loading events";
-        streamError.textContent = err.message;
-        streamError.hidden = false;
-      } finally {
-        if (reqId === eventRequest) streamRefresh.disabled = false;
-      }
-    }
-
-    function applyStreamFilter() {
-      const query = (streamSearch.value || "").trim().toLowerCase();
-      if (!query) {
-        renderEventPage(rawPageEvents);
-        return;
-      }
-      const filtered = rawPageEvents.filter((ev) => {
-        const col = (ev.collection || "").toLowerCase();
-        const labels = Array.isArray(ev.labels) ? ev.labels.join(" ").toLowerCase() : "";
-        const owner = (ev.owner || "").toLowerCase();
-        return col.includes(query) || labels.includes(query) || owner.includes(query);
-      });
-      renderEventPage(filtered);
-    }
-
-    streamSearch.addEventListener("input", applyStreamFilter);
-    streamRefresh.addEventListener("click", () => loadEventPage(0));
-    eventsPrev.addEventListener("click", () => loadEventPage(eventPage - 1));
-    eventsNext.addEventListener("click", () => loadEventPage(eventPage + 1));
 
     // Web Crypto Ed25519 Identity
     async function getCanvasIdentity() {
@@ -2598,7 +2185,6 @@
     getCanvasIdentity().catch(() => {});
     loadStats();
     checkHealth();
-    loadEventPage(0);
     initializeCanvas();
     loadChatMessages();
     connectChatStream();
