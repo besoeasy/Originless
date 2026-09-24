@@ -12,6 +12,13 @@ esac
 app_pid=""
 shutting_down=0
 
+# Probe the HTTP API directly: `ipfs` CLI commands can open the local repo
+# (taking repo.lock) when the daemon isn't answering yet, which races the
+# starting daemon and can kill it. An HTTP probe never touches the lock.
+api_url="${IPFS_API_URL:-http://127.0.0.1:5001}"
+api_hostport="${api_url#*://}"
+api_hostport="${api_hostport%%/*}"
+
 shutdown() {
 	shutting_down=1
 	kill -TERM "$ipfs_pid" 2>/dev/null || true
@@ -35,7 +42,7 @@ trap shutdown TERM INT
 ready=0
 i=0
 while [ "$i" -lt "$READY_TIMEOUT" ] && [ "$shutting_down" -eq 0 ]; do
-	if ipfs id >/dev/null 2>&1; then
+	if wget -q -O /dev/null "http://$api_hostport/api/v0/version" 2>/dev/null; then
 		ready=1
 		break
 	fi
