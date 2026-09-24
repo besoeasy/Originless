@@ -51,6 +51,7 @@ if [ "$ready" -ne 1 ]; then
 	wait "$ipfs_pid" 2>/dev/null || true
 	exit 1
 fi
+echo "originless: ipfs daemon ready"
 
 /usr/local/bin/originless &
 app_pid=$!
