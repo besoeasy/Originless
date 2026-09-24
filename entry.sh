@@ -4,8 +4,9 @@ set -u
 IPFS_REPO="${IPFS_PATH:-/data/ipfs}"
 IPFS_API_URL="${IPFS_API_URL:-http://127.0.0.1:5001}"
 STORAGE_MAX="${STORAGE_MAX:-10GB}"
-STORAGE_GC_WATERMARK="${STORAGE_GC_WATERMARK:-90}"
-STORAGE_GC_PERIOD="${STORAGE_GC_PERIOD:-1h}"
+# These GC policy values are intentionally fixed and cannot be overridden.
+STORAGE_GC_WATERMARK=90
+STORAGE_GC_PERIOD=1h
 
 if [ ! -f "$IPFS_REPO/config" ]; then
 	ipfs init --profile=lowpower
