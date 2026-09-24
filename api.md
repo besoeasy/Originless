@@ -15,6 +15,7 @@ embedded IPFS node with pinning disabled.
 | `POST` | `/up` | Upload one file, or automatically upload multiple files/a folder |
 | `POST` | `/upf` | Upload a folder and return the folder root CID |
 | `GET` | `/ipfs/{cid}` | Download content available in the local IPFS repository |
+| `GET` | `/cid/{cid}` | JSON metadata and availability for a CID |
 | `POST` | `/events` | Publish a signed event |
 | `GET` | `/events` | Query signed events |
 | `GET` | `/events/{id}` | Retrieve one signed event |
@@ -149,6 +150,51 @@ curl -OJ http://localhost:3232/ipfs/<cid>
 
 Because uploads are unpinned, content may disappear after IPFS garbage
 collection. This route does not perform copyright or content-type detection.
+
+## `GET /cid/{cid}`
+
+Returns everything the local IPFS node reports about a CID as JSON, together
+with an `available` boolean that is `true` only when the block for the CID is
+present in our node's repository. Availability is determined with the block
+stat, so a CID that is missing locally is reported as `available: false`
+rather than being fetched from the public network.
+
+```bash
+curl http://localhost:3232/cid/<cid>
+```
+
+```json
+{
+  "cid": "bafy...",
+  "available": true,
+  "block": {"Key": "bafy...", "Size": 74},
+  "object": {
+    "Hash": "bafy...",
+    "NumLinks": 0,
+    "BlockSize": 74,
+    "LinksSize": 2,
+    "DataSize": 72,
+    "CumulativeSize": 74
+  },
+  "links": [
+    {"Name": "one.txt", "Hash": "Qm...", "Size": 10, "Type": 2}
+  ],
+  "data": "aGVsbG8gd29ybGQ=",
+  "json": {"message": "hello"}
+}
+```
+
+- `block` is the raw block stat from the node (`Key` and `Size`).
+- `object` is the UnixFS object stat, present when the root is a DAG object.
+- `links` lists the directory entries when the CID refers to a directory.
+- `data` is the base64-encoded content when the root is a single block no
+  larger than 1 MiB.
+- `json` is the content decoded as JSON when the content is valid JSON.
+
+If the block exists on the node, `available` is `true` and all other fields
+for the available data are included. If the block is missing locally,
+`available` is `false`, an `error` message is returned, and `block`/`object`
+are omitted. Requests for a CID in an unreachable IPFS node return `502`.
 
 ## Upload response
 

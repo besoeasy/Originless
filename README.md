@@ -71,6 +71,7 @@ The complete request and response reference is in [`api.md`](api.md).
 | `POST` | `/up` | Upload a file or folder |
 | `POST` | `/upf` | Explicit folder upload |
 | `GET` | `/ipfs/{cid}` | Retrieve locally available content |
+| `GET` | `/cid/{cid}` | JSON metadata and availability for a CID |
 | `POST` | `/events` | Publish a signed event |
 | `GET` | `/events` | Query events with filters and pagination |
 | `GET` | `/events/{id}` | Retrieve one event |
