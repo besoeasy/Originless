@@ -1,0 +1,72 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/besoeasy/originless/internal/ipfs"
+	"github.com/besoeasy/originless/internal/server"
+)
+
+const defaultPort = "3232"
+
+var version = "dev"
+
+func configuredPort() (string, error) {
+	port := strings.TrimSpace(os.Getenv("PORT"))
+	if port == "" {
+		return defaultPort, nil
+	}
+
+	value, err := strconv.Atoi(port)
+	if err != nil || value < 1 || value > 65535 {
+		return "", fmt.Errorf("invalid PORT %q: must be between 1 and 65535", port)
+	}
+	return strconv.Itoa(value), nil
+}
+
+func main() {
+	port, err := configuredPort()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client, err := ipfs.NewClient(os.Getenv("IPFS_API_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	httpServer := &http.Server{
+		Addr:              ":" + port,
+		Handler:           server.NewRouter(client),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       0,
+		WriteTimeout:      0,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Printf("HTTP shutdown failed: %v", err)
+		}
+	}()
+
+	log.Printf("Originless %s listening on :%s", version, port)
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+}
