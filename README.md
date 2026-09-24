@@ -77,7 +77,22 @@ const response = await verifiedFetch(`ipfs://${cid}`);
 const blob = await response.blob();
 ```
 
-Because Originless uploads are unpinned, remote retrieval depends on the content remaining available through IPFS providers. Use `/ipfs/{cid}` when you need content directly from the local Originless node.
+For a dedicated IPFS HTTP gateway, use [Rainbow](https://github.com/ipfs/rainbow). Rainbow implements the IPFS HTTP Gateway API and retrieves content from the network without pinning it. A local deployment can be started with:
+
+```bash
+docker run --rm --name rainbow \
+  -p 8090:8090 \
+  -p 8091:8091 \
+  ghcr.io/ipfs/rainbow:latest
+```
+
+Fetch an uploaded file through Rainbow's standard gateway path:
+
+```bash
+curl -OJ http://127.0.0.1:8090/ipfs/<cid>
+```
+
+Use `/ipfs/{cid}` on Originless when you need content directly from the local node. Because Originless uploads are unpinned, remote retrieval through Helia or Rainbow depends on the content remaining available through IPFS providers.
 
 ### 🗄️ ACID WAL
 
