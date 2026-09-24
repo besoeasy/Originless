@@ -172,17 +172,6 @@
 
     /* ---------- install tabs (opencode.ai hero pattern) ---------- */
     .install { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 1rem; max-width: 44rem; }
-    .install-tabs { display: flex; gap: 0.25rem; padding: 0.5rem 0.5rem 0; background: var(--color-bg-surface); border-bottom: 1px solid var(--color-border-muted); overflow-x: auto; }
-    .install-tab {
-      background: none;
-      border: none;
-      border-radius: var(--radius-md) var(--radius-md) 0 0;
-      padding: 0.5rem 0.875rem;
-      font-size: 0.8125rem;
-      color: var(--color-text-muted);
-    }
-    .install-tab:hover:not(:disabled) { background: none; border: none; color: var(--color-text); }
-    .install-tab.active { background: var(--color-bg); color: var(--color-text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--color-border-muted); }
     .install-body {
       display: flex;
       align-items: center;
@@ -429,11 +418,6 @@
       </div>
 
       <div class="install">
-        <div class="install-tabs" role="tablist" aria-label="Install methods">
-          <button class="install-tab active" data-install="docker" type="button">docker</button>
-          <button class="install-tab" data-install="compose" type="button">compose</button>
-          <button class="install-tab" data-install="curl" type="button">curl</button>
-        </div>
         <div class="install-body">
           <code id="install-command"><span class="prompt">$ </span>docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code>
           <button id="copy-docker-btn" class="btn-sm" type="button">Copy</button>
@@ -772,25 +756,6 @@
     } else {
       revealEls.forEach((el) => el.classList.add("in"));
     }
-
-    // Install tabs
-    const installCommands = {
-      docker: "docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest",
-      compose: "image: ghcr.io/besoeasy/originless:latest  ·  ports: 3232:3232",
-      curl: 'curl -F "file=@sample.png" http://localhost:3232/up'
-    };
-    const installCommand = document.getElementById("install-command");
-    document.querySelectorAll(".install-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".install-tab").forEach((t) => t.classList.remove("active"));
-        tab.classList.add("active");
-        installCommand.replaceChildren();
-        const prompt = document.createElement("span");
-        prompt.className = "prompt";
-        prompt.textContent = "$ ";
-        installCommand.append(prompt, installCommands[tab.dataset.install] || installCommands.docker);
-      });
-    });
 
     // Toast Utility
     function showToast(message) {
