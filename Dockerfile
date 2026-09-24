@@ -32,7 +32,7 @@ RUN apk add --no-cache kubo ca-certificates curl \
 
 WORKDIR /app
 COPY --from=builder /out/originless /usr/local/bin/originless
-COPY deploy/entry.sh /app/entrypoint.sh
+COPY entry.sh /app/entrypoint.sh
 
 ENV IPFS_PATH=/data/ipfs \
     PORT=3232 \
