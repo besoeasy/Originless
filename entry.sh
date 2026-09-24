@@ -3,11 +3,21 @@ set -u
 
 IPFS_REPO="${IPFS_PATH:-/data/ipfs}"
 IPFS_API_URL="${IPFS_API_URL:-http://127.0.0.1:5001}"
+STORAGE_MAX="${STORAGE_MAX:-10GB}"
+STORAGE_GC_WATERMARK="${STORAGE_GC_WATERMARK:-90}"
+STORAGE_GC_PERIOD="${STORAGE_GC_PERIOD:-1h}"
 
 if [ ! -f "$IPFS_REPO/config" ]; then
 	ipfs init --profile=lowpower
 fi
 ipfs config --json Routing.Type '"dhtclient"'
+if ! ipfs config --json Datastore.StorageMax "\"$STORAGE_MAX\"" \
+	|| ! ipfs config --json Datastore.StorageGCWatermark "$STORAGE_GC_WATERMARK" \
+	|| ! ipfs config --json Datastore.GCPeriod "\"$STORAGE_GC_PERIOD\""; then
+	echo "originless: invalid storage GC configuration" >&2
+	exit 1
+fi
+echo "originless: storage max=$STORAGE_MAX, GC watermark=$STORAGE_GC_WATERMARK%, period=$STORAGE_GC_PERIOD"
 
 ipfs daemon --enable-gc &
 ipfs_pid=$!

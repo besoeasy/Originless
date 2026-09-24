@@ -7,10 +7,11 @@ Collapse sprawling cloud microservices into two universal primitives — **Signe
 ```bash
 docker run --rm --name originless \
   -p 3232:3232 \
+  -e STORAGE_MAX=10GB \
   ghcr.io/besoeasy/originless:latest
 ```
 
-Open [http://localhost:3232](http://localhost:3232) after the container starts. The container keeps its IPFS data in its ephemeral filesystem; no volume is mounted.
+Open [http://localhost:3232](http://localhost:3232) after the container starts. The container keeps its IPFS data in its ephemeral filesystem; no volume is mounted. `STORAGE_MAX` is a human-readable soft limit for Kubo's repository (default: `10GB`); automatic GC is enabled at 90% of that value, with a 1-hour GC period. Override the defaults with `STORAGE_GC_WATERMARK` and `STORAGE_GC_PERIOD`.
 
 For local Podman development:
 
