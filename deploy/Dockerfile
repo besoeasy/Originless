@@ -13,7 +13,7 @@ COPY . .
 RUN CGO_ENABLED=0 \
     GOOS="${TARGETOS:-$(go env GOOS)}" \
     GOARCH="${TARGETARCH:-$(go env GOARCH)}" \
-    go build -trimpath -ldflags="-s -w -X github.com/besoeasy/originless/cmd/originless.version=${VERSION}" -o /out/originless ./cmd/originless
+    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/originless ./cmd/originless
 
 FROM alpine:latest
 
