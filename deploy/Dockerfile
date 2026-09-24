@@ -13,7 +13,7 @@ COPY . .
 RUN CGO_ENABLED=0 \
     GOOS="${TARGETOS:-$(go env GOOS)}" \
     GOARCH="${TARGETARCH:-$(go env GOARCH)}" \
-    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/originless .
+    go build -trimpath -ldflags="-s -w -X github.com/besoeasy/originless/cmd/originless.version=${VERSION}" -o /out/originless ./cmd/originless
 
 FROM alpine:latest
 
@@ -32,7 +32,7 @@ RUN apk add --no-cache kubo ca-certificates curl \
 
 WORKDIR /app
 COPY --from=builder /out/originless /usr/local/bin/originless
-COPY entry.sh /app/entrypoint.sh
+COPY deploy/entry.sh /app/entrypoint.sh
 
 ENV IPFS_PATH=/data/ipfs \
     PORT=3232 \
