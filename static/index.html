@@ -66,6 +66,12 @@
     /* ---------- status row ---------- */
     .dash-status { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
 
+    /* ---------- centered hero ---------- */
+    #overview > .eyebrow { display: flex; justify-content: center; }
+    #overview > .lede { margin-left: auto; margin-right: auto; text-align: center; }
+    #overview > .dash-status { justify-content: center; }
+    .hero-cta { display: flex; justify-content: center; margin-bottom: 2.5rem; }
+
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -140,12 +146,13 @@
     }
 
     h1.hero-spell {
-      font-size: clamp(3rem, 9vw, 6rem);
+      font-size: clamp(4.5rem, 16vw, 12rem);
       font-weight: 700;
       letter-spacing: -0.04em;
-      line-height: 1.05;
+      line-height: 1.02;
       margin-bottom: 1.5rem;
       user-select: none;
+      text-align: center;
     }
     .hero-spell span {
       display: inline-block;
@@ -408,6 +415,10 @@
       <h1 class="hero-spell" aria-label="Originless"><span style="--i:0">O</span><span style="--i:1">r</span><span style="--i:2">i</span><span style="--i:3">g</span><span style="--i:4">i</span><span style="--i:5">n</span><span style="--i:6">l</span><span style="--i:7">e</span><span style="--i:8">s</span><span style="--i:9">s</span></h1>
       <p class="lede">Signed events and IPFS-native content in a single Docker container. Build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
 
+      <div class="hero-cta">
+        <a class="button btn-primary" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">★ Star on GitHub — besoeasy/originless</a>
+      </div>
+
       <div class="dash-status">
         <span class="status-pill" id="container-status-badge">
           <span class="pulse-dot" id="health-pulse"></span>
@@ -415,13 +426,6 @@
           <span id="ping-text"></span>
         </span>
         <button id="refresh" class="btn-sm" type="button" title="Refresh stats">Refresh stats</button>
-      </div>
-
-      <div class="install">
-        <div class="install-body">
-          <code id="install-command"><span class="prompt">$ </span>docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code>
-          <button id="copy-docker-btn" class="btn-sm" type="button">Copy</button>
-        </div>
       </div>
 
       <div class="stats-grid" aria-live="polite">
@@ -673,7 +677,6 @@
   <script>
     // Elements
     const refreshBtn = document.getElementById("refresh");
-    const copyDockerBtn = document.getElementById("copy-docker-btn");
     const copyCmdBtn = document.getElementById("copy-cmd-btn");
     const healthPulse = document.getElementById("health-pulse");
     const healthText = document.getElementById("health-text");
@@ -780,7 +783,6 @@
       });
     }
 
-    copyDockerBtn.addEventListener("click", () => copySnippet("docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
     if (copyCmdBtn) copyCmdBtn.addEventListener("click", () => copySnippet("docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest"));
     copyMyKeyBtn.addEventListener("click", () => copySnippet(deviceIdentityVal.title || deviceIdentityVal.textContent));
 
