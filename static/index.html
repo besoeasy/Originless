@@ -141,6 +141,23 @@
       color: #fff;
     }
     .btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); border-color: var(--color-accent-hover); color: #fff; }
+    a.button.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); border-color: var(--color-accent-hover); color: #fff; }
+
+    /* GitHub-style button: light gray, dark text, 6px radius */
+    a.button.btn-github, button.btn-github {
+      background: var(--color-bg-surface);
+      color: var(--color-text);
+      border-color: var(--color-border);
+      border-radius: 6px;
+      box-shadow: 0 1px 0 rgba(29, 29, 31, 0.06);
+      font-weight: 500;
+    }
+    a.button.btn-github:hover:not(:disabled), button.btn-github:hover:not(:disabled) {
+      background: #e9e9ee;
+      color: var(--color-text);
+      border-color: var(--color-border);
+      text-decoration: none;
+    }
     .btn-secondary, .btn-dark, .btn-gradient, .btn-outline-blue, .btn-sm {
       padding: 0.5rem 0.75rem;
       font-size: 0.8125rem;
@@ -451,7 +468,7 @@
       <p class="lede">Signed events and IPFS-native content in a single Docker container. Build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
 
       <div class="hero-cta">
-        <a class="button btn-primary" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">★ Star on GitHub — besoeasy/originless</a>
+        <a class="button btn-github" href="https://github.com/besoeasy/originless" target="_blank" rel="noopener noreferrer">★ Star on GitHub — besoeasy/originless</a>
       </div>
 
       <div class="dash-status">
