@@ -21,7 +21,20 @@
       --color-accent-active: #004085;
       --color-success: #30d158;
       --color-success-text: #1a7f37;
+      --color-success-bg: #e7f6ec;
+      --color-success-border: #bfe6cc;
+      --color-purple: #6d28d9;
+      --color-purple-bg: #f0e9fd;
+      --color-teal: #0e7490;
+      --color-teal-bg: #e2f4f8;
+      --color-orange: #c2410c;
+      --color-orange-bg: #fdeee2;
+      --color-orange-border: #f3d3b8;
+      --color-blue-bg: #e8f1fe;
       --color-warning: #ff9f0a;
+      --color-warning-text: #92580a;
+      --color-warning-bg: #fdf3e3;
+      --color-warning-border: #f0d9b5;
       --color-danger: #ff3b30;
       --color-danger-text: #d70015;
       --color-border: #d2d2d7;
@@ -138,6 +151,10 @@
     section { margin: 0 0 6rem; scroll-margin-top: 5rem; }
 
     .marker { color: var(--color-accent); font-weight: 600; }
+    #primitives .marker { color: var(--color-purple); }
+    #apps .marker { color: var(--color-success-text); }
+    #storage .marker { color: var(--color-teal); }
+    #api .marker { color: var(--color-orange); }
 
     .eyebrow {
       font-size: 0.8125rem;
@@ -192,7 +209,13 @@
 
     /* ---------- stats (opencode.ai fig row) ---------- */
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-border-muted); border: 1px solid var(--color-border-muted); border-radius: var(--radius-lg); overflow: hidden; margin-top: 2.5rem; }
-    .stat-cell { background: var(--color-bg); padding: 1.75rem; transition: background 0.2s ease; }
+    .stat-cell { background: var(--color-bg); padding: 1.75rem; border-top: 3px solid transparent; transition: background 0.2s ease; }
+    .stat-cell:nth-child(1) { border-top-color: var(--color-accent); }
+    .stat-cell:nth-child(2) { border-top-color: var(--color-purple); }
+    .stat-cell:nth-child(3) { border-top-color: var(--color-success-text); }
+    .stat-cell:nth-child(4) { border-top-color: var(--color-orange); }
+    .stat-cell:nth-child(5) { border-top-color: var(--color-teal); }
+    .stat-cell:nth-child(6) { border-top-color: var(--color-danger); }
     .stat-cell:hover { background: var(--color-bg-surface); }
     .stat-label { font-size: 0.8125rem; color: var(--color-text-muted); margin-bottom: 0.5rem; }
     .stat-value { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -227,12 +250,22 @@
     .live-tag {
       font-size: 0.6875rem;
       font-weight: 500;
-      color: var(--color-text-secondary);
-      border: 1px solid var(--color-border-muted);
-      background: var(--color-bg-surface);
+      color: var(--color-success-text);
+      border: 1px solid var(--color-success-border);
+      background: var(--color-success-bg);
       border-radius: 999px;
       padding: 0.25rem 0.625rem;
       white-space: nowrap;
+    }
+    .live-tag.is-warn {
+      color: var(--color-warning-text);
+      border-color: var(--color-warning-border);
+      background: var(--color-warning-bg);
+    }
+    .live-tag.is-error {
+      color: var(--color-danger-text);
+      border-color: #f3c2c0;
+      background: #fdeeee;
     }
 
     /* ---------- canvas ---------- */
@@ -333,7 +366,9 @@
     .api-table td { padding: 0.875rem 1.25rem 0.875rem 0; border-bottom: 1px solid var(--color-border-muted); vertical-align: top; }
     .api-table tr:last-child td { border-bottom: none; }
     .api-table tbody tr:hover td { background: var(--color-bg-surface); }
-    .method-pill { font-size: 0.75rem; font-weight: 600; color: var(--color-text-secondary); }
+    .method-pill { font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: var(--radius-md); }
+    .method-get { color: var(--color-accent); background: var(--color-blue-bg); }
+    .method-post { color: var(--color-success-text); background: var(--color-success-bg); }
 
     .diag-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1rem 2rem; margin-top: 1.5rem; }
     .diag-grid dt { font-size: 0.75rem; color: var(--color-text-muted); }
@@ -602,43 +637,43 @@
           </thead>
           <tbody>
             <tr>
-              <td><span class="method-pill">GET</span></td>
+              <td><span class="method-pill method-get">GET</span></td>
               <td><code>/stats</code></td>
               <td>IPFS repo and signed event metrics</td>
               <td><a href="/stats" target="_blank">Open</a></td>
             </tr>
             <tr>
-              <td><span class="method-pill">GET</span></td>
+              <td><span class="method-pill method-get">GET</span></td>
               <td><code>/healthz</code></td>
               <td>Container health status</td>
               <td><a href="/healthz" target="_blank">Open</a></td>
             </tr>
             <tr>
-              <td><span class="method-pill">POST</span></td>
+              <td><span class="method-pill method-post">POST</span></td>
               <td><code>/up</code></td>
               <td>Upload a file or folder to local IPFS</td>
               <td style="color:var(--color-text-muted);">Multipart</td>
             </tr>
             <tr>
-              <td><span class="method-pill">GET</span></td>
+              <td><span class="method-pill method-get">GET</span></td>
               <td><code>/ipfs/{cid}</code></td>
               <td>Download content from the local repository</td>
               <td style="color:var(--color-text-muted);">Binary</td>
             </tr>
             <tr>
-              <td><span class="method-pill">POST</span></td>
+              <td><span class="method-pill method-post">POST</span></td>
               <td><code>/events</code></td>
               <td>Publish an Ed25519-signed event</td>
               <td style="color:var(--color-text-muted);">JSON</td>
             </tr>
             <tr>
-              <td><span class="method-pill">GET</span></td>
+              <td><span class="method-pill method-get">GET</span></td>
               <td><code>/events</code></td>
               <td>Query events with pagination and filters</td>
               <td><a href="/events" target="_blank">Open</a></td>
             </tr>
             <tr>
-              <td><span class="method-pill">GET</span></td>
+              <td><span class="method-pill method-get">GET</span></td>
               <td><code>/events/stream</code></td>
               <td>Live Server-Sent Events stream</td>
               <td><a href="/events/stream" target="_blank">Stream</a></td>
@@ -1171,8 +1206,11 @@
         if (!res.ok) throw new Error(payload.error || `Canvas request failed (${res.status})`);
         if (payload.id) seenCanvasEvents.add(payload.id);
         canvasStatus.textContent = "Live · Connected";
+        canvasStatus.classList.remove("is-error", "is-warn");
       } catch (err) {
         canvasStatus.textContent = "Paint error";
+        canvasStatus.classList.remove("is-warn");
+        canvasStatus.classList.add("is-error");
       }
     }
 
@@ -1271,8 +1309,8 @@
           canvasStatus.textContent = "Live · Pixel received";
         } catch (_) {}
       });
-      source.onopen = () => { canvasStatus.textContent = "Live · Connected"; };
-      source.onerror = () => { canvasStatus.textContent = "Reconnecting…"; };
+      source.onopen = () => { canvasStatus.textContent = "Live · Connected"; canvasStatus.classList.remove("is-error", "is-warn"); };
+      source.onerror = () => { canvasStatus.textContent = "Reconnecting…"; canvasStatus.classList.remove("is-error"); canvasStatus.classList.add("is-warn"); };
     }
 
     async function initializeCanvas() {
