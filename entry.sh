@@ -9,7 +9,7 @@ if [ ! -f "$IPFS_REPO/config" ]; then
 fi
 ipfs config --json Routing.Type '"dhtclient"'
 
-ipfs daemon &
+ipfs daemon --enable-gc &
 ipfs_pid=$!
 
 cleanup() {
