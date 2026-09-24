@@ -80,10 +80,11 @@
     .dash-status { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
 
     /* ---------- centered hero ---------- */
+    #overview { padding-top: 2.5rem; }
     #overview > .eyebrow { display: flex; justify-content: center; }
-    #overview > .lede { margin-left: auto; margin-right: auto; text-align: center; }
-    #overview > .dash-status { justify-content: center; }
-    .hero-cta { display: flex; justify-content: center; margin-bottom: 2.5rem; }
+    #overview > .lede { margin-left: auto; margin-right: auto; text-align: center; margin-bottom: 2rem; }
+    #overview > .dash-status { justify-content: center; margin-bottom: 2rem; }
+    .hero-cta { display: flex; justify-content: center; margin-bottom: 2rem; }
 
     .status-pill {
       display: inline-flex;
@@ -164,7 +165,7 @@
     }
 
     /* ---------- layout ---------- */
-    main { max-width: 72rem; margin: 0 auto; padding: 5rem 1.5rem 2rem; }
+    main { max-width: 72rem; margin: 0 auto; padding: 5rem 1.5rem 3rem; }
     section { margin: 0 0 6rem; scroll-margin-top: 5rem; }
 
     .marker { color: var(--color-accent); font-weight: 600; }
@@ -225,7 +226,7 @@
     .install-body .prompt { color: var(--color-text-muted); user-select: none; }
 
     /* ---------- stats (opencode.ai fig row) ---------- */
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-border-muted); border: 1px solid var(--color-border-muted); border-radius: var(--radius-lg); overflow: hidden; margin-top: 2.5rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--color-border-muted); border: 1px solid var(--color-border-muted); border-radius: var(--radius-lg); overflow: hidden; }
     .stat-cell { background: var(--color-bg); padding: 1.75rem; border-top: 3px solid transparent; transition: background 0.2s ease; }
     .stat-cell:nth-child(1) { border-top-color: var(--color-accent); }
     .stat-cell:nth-child(2) { border-top-color: var(--color-purple); }
@@ -464,6 +465,7 @@
     }
     @media (max-width: 36rem) {
       main { padding-top: 3.5rem; }
+      #overview { padding-top: 1rem; }
       section { margin-bottom: 4.5rem; }
       .stats-grid { grid-template-columns: 1fr; }
       .chat-compose-box { flex-direction: column; }
