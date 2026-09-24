@@ -99,7 +99,6 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: .
-          file: ./deploy/Dockerfile
           push: true
           build-args: |
             VERSION=${{ steps.tag.outputs.tag }}
