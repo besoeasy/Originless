@@ -51,13 +51,17 @@
 
     body {
       font-family: var(--font-sans);
-      background: var(--color-bg);
+      background:
+        radial-gradient(64rem 30rem at 50% -12rem, #edf3ff 0%, rgba(255, 255, 255, 0) 62%),
+        var(--color-bg);
       color: var(--color-text);
       font-size: 0.9375rem;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh;
     }
+
+    ::selection { background: var(--color-accent); color: #fff; }
 
     p { text-wrap: pretty; }
     h1, h2, h3 { text-wrap: balance; overflow-wrap: break-word; }
@@ -133,6 +137,7 @@
       border-color: var(--color-text-muted);
       text-decoration: none;
     }
+    button:active:not(:disabled), a.button:active:not(:disabled) { transform: scale(0.98); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button:focus-visible, a.button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--color-accent); }
 
@@ -241,7 +246,8 @@
 
     /* ---------- feature list with [*] markers ---------- */
     .feature-list { margin: 2.5rem 0 0; border-top: 1px solid var(--color-border-muted); }
-    .feature { display: grid; grid-template-columns: 4rem 1fr; gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--color-border-muted); }
+    .feature { display: grid; grid-template-columns: 4rem 1fr; gap: 1rem; padding: 1.25rem 0.75rem; border-bottom: 1px solid var(--color-border-muted); border-radius: var(--radius-md); transition: background 0.2s ease; }
+    .feature:hover { background: var(--color-bg-surface); }
     .feature-name { font-weight: 700; }
     .feature-desc { color: var(--color-text-secondary); max-width: 48rem; }
 
@@ -262,7 +268,8 @@
 
     /* ---------- marketing cards ---------- */
     .cards-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-top: 2.5rem; }
-    .mini-card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); border-top: 3px solid var(--color-border); }
+    .mini-card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); border-top: 3px solid var(--color-border); box-shadow: 0 1px 2px rgba(29, 29, 31, 0.05); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .mini-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(29, 29, 31, 0.08); }
     .mini-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
     .mini-card .mini-sub { font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 0.75rem; }
     .mini-card p { font-size: 0.875rem; color: var(--color-text-secondary); }
@@ -279,7 +286,7 @@
 
     .grid-2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 1.5rem; align-items: start; margin-top: 2.5rem; }
 
-    .panel { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); }
+    .panel { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.5rem; background: var(--color-bg); box-shadow: 0 1px 2px rgba(29, 29, 31, 0.05); }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
     .panel-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
     .live-tag {
@@ -473,6 +480,8 @@
     @media (prefers-reduced-motion: reduce) {
       .hero-spell span, .pulse-dot { animation: none; }
       .hero-spell span:hover { transform: none; }
+      .mini-card:hover { transform: none; }
+      button:active:not(:disabled), a.button:active:not(:disabled) { transform: none; }
       .reveal { opacity: 1; transform: none; transition: none; }
     }
   </style>
