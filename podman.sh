@@ -46,6 +46,7 @@ echo "==> building $IMAGE_NAME (version $VERSION) with $PODMAN_BIN..."
 "$PODMAN_BIN" build \
 	--build-arg "VERSION=$VERSION" \
 	--tag "$IMAGE_NAME" \
+	--file "$SCRIPT_DIR/deploy/Dockerfile" \
 	"$SCRIPT_DIR"
 
 echo "==> starting $CONTAINER_NAME on http://127.0.0.1:$PORT"
