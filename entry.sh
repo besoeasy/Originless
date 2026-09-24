@@ -34,7 +34,7 @@ trap shutdown TERM INT
 # loud instead of serving 502s forever if it never comes up.
 ready=0
 i=0
-while [ "$i" -lt "$READY_TIMEOUT" ]; do
+while [ "$i" -lt "$READY_TIMEOUT" ] && [ "$shutting_down" -eq 0 ]; do
 	if ipfs id >/dev/null 2>&1; then
 		ready=1
 		break
@@ -45,6 +45,10 @@ while [ "$i" -lt "$READY_TIMEOUT" ]; do
 	sleep 1
 	i=$((i + 1))
 done
+if [ "$shutting_down" -eq 1 ]; then
+	wait "$ipfs_pid" 2>/dev/null || true
+	exit 0
+fi
 if [ "$ready" -ne 1 ]; then
 	echo "originless: ipfs daemon did not become ready; exiting" >&2
 	shutdown
