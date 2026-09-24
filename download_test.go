@@ -50,7 +50,7 @@ func TestDownloadAllowsAnyLocalCID(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-any-local-cid", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ipfs/bafy-any-local-cid", nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body = %s", recorder.Code, http.StatusOK, recorder.Body.String())
@@ -69,8 +69,8 @@ func TestDownloadAllowsAnyLocalCID(t *testing.T) {
 	}
 }
 
-func TestIPFSPathUsesLocalContent(t *testing.T) {
-	upstream := newLocalContentServer(t, "ipfs content", http.StatusOK)
+func TestLegacyDownloadPathIsNotExposed(t *testing.T) {
+	upstream := newLocalContentServer(t, "unused", http.StatusOK)
 	defer upstream.close()
 
 	client, err := newIPFSClient(upstream.server.URL)
@@ -78,16 +78,13 @@ func TestIPFSPathUsesLocalContent(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ipfs/bafy-standard-path", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-legacy-path", nil))
 
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body = %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
 	}
-	if recorder.Body.String() != "ipfs content" {
-		t.Errorf("body = %q, want ipfs content", recorder.Body.String())
-	}
-	if upstream.catCalls != 1 || upstream.lastCID != "bafy-standard-path" || upstream.lastOffline != "true" {
-		t.Errorf("cat calls = %d, CID = %q, offline = %q; want one local cat request", upstream.catCalls, upstream.lastCID, upstream.lastOffline)
+	if upstream.catCalls != 0 {
+		t.Errorf("cat calls = %d, want 0 for the removed legacy path", upstream.catCalls)
 	}
 }
 
@@ -100,7 +97,7 @@ func TestDownloadMissingLocalCID(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-missing", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ipfs/bafy-missing", nil))
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
@@ -119,7 +116,7 @@ func TestDownloadHeadChecksLocalContent(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodHead, "/down/bafy-head", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodHead, "/ipfs/bafy-head", nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -141,7 +138,7 @@ func TestDownloadRejectsInvalidPath(t *testing.T) {
 		t.Fatalf("newIPFSClient() error = %v", err)
 	}
 	recorder := httptest.NewRecorder()
-	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/down/bafy-one/bafy-two", nil))
+	newRouter(client).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/ipfs/bafy-one/bafy-two", nil))
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)

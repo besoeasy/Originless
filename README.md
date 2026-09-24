@@ -77,7 +77,7 @@ const response = await verifiedFetch(`ipfs://${cid}`);
 const blob = await response.blob();
 ```
 
-Because Originless uploads are unpinned, remote retrieval depends on the content remaining available through IPFS providers. Use `/ipfs/{cid}` when you need content directly from the local Originless node; `/down/{cid}` remains a compatibility alias.
+Because Originless uploads are unpinned, remote retrieval depends on the content remaining available through IPFS providers. Use `/ipfs/{cid}` when you need content directly from the local Originless node.
 
 ### 🗄️ ACID WAL
 
@@ -128,7 +128,7 @@ Environmental monitors, home automation hubs, and edge cameras logging time-seri
 See [`api.md`](api.md) for the current HTTP API:
 
 - `POST /up` and `POST /upf` for IPFS uploads
-- `GET /ipfs/{cid}` for locally available content (`/down/{cid}` is also supported)
+- `GET /ipfs/{cid}` for locally available content
 - `POST /events` for signed event publishing
 - `GET /events` for event queries
 - `GET /events/{id}` for event retrieval

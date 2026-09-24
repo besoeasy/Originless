@@ -15,7 +15,6 @@ embedded IPFS node with pinning disabled.
 | `POST` | `/up` | Upload one file, or automatically upload multiple files/a folder |
 | `POST` | `/upf` | Upload a folder and return the folder root CID |
 | `GET` | `/ipfs/{cid}` | Download content available in the local IPFS repository |
-| `GET` | `/down/{cid}` | Compatibility alias for `/ipfs/{cid}` |
 | `POST` | `/events` | Publish a signed event |
 | `GET` | `/events` | Query signed events |
 | `GET` | `/events/{id}` | Retrieve one signed event |
@@ -147,8 +146,6 @@ and extension are not stored in the CID.
 ```bash
 curl -OJ http://localhost:3232/ipfs/<cid>
 ```
-
-The legacy `/down/{cid}` path remains available as a compatibility alias.
 
 Because uploads are unpinned, content may disappear after IPFS garbage
 collection. This route does not perform copyright or content-type detection.
