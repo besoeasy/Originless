@@ -19,14 +19,14 @@ type cidHandler struct {
 const maxCIDContentBytes = 1 << 20
 
 type cidResponse struct {
-	CID       string            `json:"cid"`
-	Available bool              `json:"available"`
-	Block     *ipfs.BlockStat   `json:"block,omitempty"`
-	Object    *ipfs.ObjectStat  `json:"object,omitempty"`
-	Links     []ipfs.LsLink     `json:"links,omitempty"`
-	Data      string            `json:"data,omitempty"`
-	JSON      json.RawMessage   `json:"json,omitempty"`
-	Error     string            `json:"error,omitempty"`
+	CID       string           `json:"cid"`
+	Available bool             `json:"available"`
+	Block     *ipfs.BlockStat  `json:"block,omitempty"`
+	Object    *ipfs.ObjectStat `json:"object,omitempty"`
+	Links     []ipfs.LsLink    `json:"links,omitempty"`
+	Data      string           `json:"data,omitempty"`
+	JSON      json.RawMessage  `json:"json,omitempty"`
+	Error     string           `json:"error,omitempty"`
 }
 
 func (h *cidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
