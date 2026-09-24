@@ -113,6 +113,33 @@
       margin: 0 0 20px;
     }
 
+    /* Spelled hero wordmark */
+    .spell {
+      font-size: clamp(3.2rem, 11vw, 6.5rem);
+      margin: 0 0 28px;
+      user-select: none;
+    }
+    .spell span {
+      display: inline-block;
+      animation: spell-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation-delay: calc(var(--i) * 65ms);
+      transition: transform 0.22s ease, color 0.22s ease;
+      cursor: default;
+    }
+    .spell span:hover {
+      transform: translateY(-14px) rotate(-5deg) scale(1.06);
+      color: var(--accent);
+    }
+    @keyframes spell-in {
+      from { opacity: 0; transform: translateY(34px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spell span { animation: none; }
+      .spell span:hover { transform: none; }
+      .pulse-dot { animation: none; }
+    }
+
     h2 {
       font-size: 1.6rem;
       font-weight: 620;
@@ -421,8 +448,8 @@
 
     <section id="overview">
       <p class="eyebrow">Docker IPFS node</p>
-      <h1>A universal backend for building apps.</h1>
-      <p class="lede">Signed events and IPFS-native content in a single container. Build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
+      <h1 class="spell" aria-label="Originless"><span style="--i:0">O</span><span style="--i:1">r</span><span style="--i:2">i</span><span style="--i:3">g</span><span style="--i:4">i</span><span style="--i:5">n</span><span style="--i:6">l</span><span style="--i:7">e</span><span style="--i:8">s</span><span style="--i:9">s</span></h1>
+      <p class="lede">A universal backend for building apps. Signed events and IPFS-native content in a single container — build real-time apps in vanilla HTML and JavaScript with zero backend boilerplate.</p>
       <div class="codeblock"><code>docker run --rm -p 3232:3232 ghcr.io/besoeasy/originless:latest</code></div>
       <p><button id="copy-docker-btn" type="button">Copy docker run command</button></p>
 
